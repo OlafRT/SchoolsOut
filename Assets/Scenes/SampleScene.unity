@@ -510,7 +510,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 63ef1548344e7ea43b5914b00c43d4b4, type: 3}
+  m_Sprite: {fileID: 21300000, guid: eed22ece58b11c84fb2339d1793a21e6, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -666,7 +666,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 63ef1548344e7ea43b5914b00c43d4b4, type: 3}
+  m_Sprite: {fileID: 21300000, guid: eed22ece58b11c84fb2339d1793a21e6, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -968,7 +968,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 63ef1548344e7ea43b5914b00c43d4b4, type: 3}
+  m_Sprite: {fileID: 21300000, guid: eed22ece58b11c84fb2339d1793a21e6, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1148,7 +1148,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Q
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1400,7 +1400,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 7ef1a7c609f064943bc96a4e78b1b72b, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2046,7 +2046,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 63ef1548344e7ea43b5914b00c43d4b4, type: 3}
+  m_Sprite: {fileID: 21300000, guid: eed22ece58b11c84fb2339d1793a21e6, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2196,7 +2196,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 63ef1548344e7ea43b5914b00c43d4b4, type: 3}
+  m_Sprite: {fileID: 21300000, guid: eed22ece58b11c84fb2339d1793a21e6, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2271,7 +2271,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Q
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2608,7 +2608,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 7ef1a7c609f064943bc96a4e78b1b72b, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3505,7 +3505,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Q
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -4131,7 +4131,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 7ef1a7c609f064943bc96a4e78b1b72b, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -4496,7 +4496,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 7ef1a7c609f064943bc96a4e78b1b72b, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -4889,13 +4889,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef72fbaa3057cb54b9963f91d2302d9a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerClass: 1
+  playerClass: 0
   playerLevel: 1
   learnedAbilities:
   - Charge
   - Kick
   - Strike
-  - Bomb
   tileSize: 1
   targetLayer:
     serializedVersion: 2
@@ -5001,7 +5000,7 @@ MonoBehaviour:
   chargeStunSeconds: 2
   chargeHitRadius: 0.4
   chargeHeightOffset: 0.5
-  icon: {fileID: 21300000, guid: 4ddfb8f8e56b1484d80304530887c9d4, type: 3}
+  icon: {fileID: 21300000, guid: 883950fe0e5840f4096602b54b5ff3e4, type: 3}
   cooldownSeconds: 5
 --- !u!114 &1479067266
 MonoBehaviour:
@@ -5068,7 +5067,7 @@ MonoBehaviour:
   strikeRadiusTiles: 1
   cooldownSeconds: 5
   strikeDamage: 20
-  icon: {fileID: 21300000, guid: 8918974ca2488d448acc3d5f1e0ac8b5, type: 3}
+  icon: {fileID: 21300000, guid: 30a0310a3bd21a442a525d7ea1f891ab, type: 3}
   telegraphOnCast: 1
 --- !u!114 &1479067271
 MonoBehaviour:
@@ -5084,7 +5083,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   kickAbilityName: Kick
   kickKey: 101
-  icon: {fileID: 21300000, guid: 908043d61944baa45abcfd5a0dd2cc2a, type: 3}
+  icon: {fileID: 21300000, guid: e9078809423b7f94b9654077ae679a21, type: 3}
   cooldownSeconds: 5
   damage: 10
   knockbackTiles: 2
@@ -5160,7 +5159,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Q
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -5294,7 +5293,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: 7ef1a7c609f064943bc96a4e78b1b72b, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -7007,7 +7006,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Q
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
