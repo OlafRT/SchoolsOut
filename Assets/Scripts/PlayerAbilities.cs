@@ -29,10 +29,7 @@ public class PlayerAbilities : MonoBehaviour
     public GameObject projectilePrefab;
     public float projectileSpeed = 12f;
 
-    // Exposed so abilities can check movement
     [HideInInspector] public PlayerMovement movement;
-
-    // Optional shared camera for mouse-aim abilities (Bomb)
     [HideInInspector] public Camera aimCamera;
 
     void Awake()
@@ -41,35 +38,26 @@ public class PlayerAbilities : MonoBehaviour
         aimCamera = Camera.main;
     }
 
-    // ------------- Shared helpers (abilities call these) -------------
-
-    public Vector3 Snap(Vector3 p)
-    {
-        return new Vector3(
-            Mathf.Round(p.x / tileSize) * tileSize,
-            p.y,
-            Mathf.Round(p.z / tileSize) * tileSize
-        );
-    }
+    public Vector3 Snap(Vector3 p) =>
+        new Vector3(Mathf.Round(p.x / tileSize) * tileSize, p.y, Mathf.Round(p.z / tileSize) * tileSize);
 
     public Vector3 SnapDirTo8(Vector3 v)
     {
         v.y = 0f;
         if (v.sqrMagnitude < 0.0001f) return Vector3.zero;
-        float ang = Mathf.Atan2(v.z, v.x) * Mathf.Rad2Deg;
-        if (ang < 0f) ang += 360f;
+        float ang = Mathf.Atan2(v.z, v.x) * Mathf.Rad2Deg; if (ang < 0f) ang += 360f;
         int step = Mathf.RoundToInt(ang / 45f) % 8;
-        switch (step)
+        return step switch
         {
-            case 0:  return new Vector3( 1,0, 0);                 // E
-            case 1:  return new Vector3( 1,0, 1).normalized;      // NE
-            case 2:  return new Vector3( 0,0, 1);                 // N
-            case 3:  return new Vector3(-1,0, 1).normalized;      // NW
-            case 4:  return new Vector3(-1,0, 0);                 // W
-            case 5:  return new Vector3(-1,0,-1).normalized;      // SW
-            case 6:  return new Vector3( 0,0,-1);                 // S
-            default: return new Vector3( 1,0,-1).normalized;      // SE
-        }
+            0 => new Vector3( 1,0, 0),
+            1 => new Vector3( 1,0, 1).normalized,
+            2 => new Vector3( 0,0, 1),
+            3 => new Vector3(-1,0, 1).normalized,
+            4 => new Vector3(-1,0, 0),
+            5 => new Vector3(-1,0,-1).normalized,
+            6 => new Vector3( 0,0,-1),
+            _ => new Vector3( 1,0,-1).normalized,
+        };
     }
 
     public (int sx, int sz) StepFromDir8(Vector3 dir8)
@@ -79,15 +67,37 @@ public class PlayerAbilities : MonoBehaviour
         return (sx, sz);
     }
 
-    public bool TryGetGroundHeight(Vector3 tileCenter, out float groundY)
+    // 🔧 Hardened: masked ray → unmasked ray → fallback
+    public bool TryGetGroundHeight(Vector3 tileCenter, out float groundY, bool strict = false)
     {
         float h = Mathf.Max(0.1f, groundRaycastHeight);
-        int mask = (groundLayer.value != 0) ? groundLayer.value : Physics.DefaultRaycastLayers;
-        if (Physics.Raycast(tileCenter + Vector3.up * h, Vector3.down, out RaycastHit hit, h * 2f, mask, QueryTriggerInteraction.Ignore))
+        // only the configured Ground layer
+        int mask = (groundLayer.value == 0) ? 0 : groundLayer.value;
+
+        Vector3 origin = tileCenter + Vector3.up * h;
+
+        if (mask != 0)
+        {
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit ghit, h * 2f, mask, QueryTriggerInteraction.Ignore))
+            {
+                groundY = ghit.point.y;
+                return true;
+            }
+            if (strict)
+            {
+                // strict = don't fall back to "everything", better no snap than hitting NPCs
+                groundY = tileCenter.y;
+                return false;
+            }
+        }
+
+        // non-strict fallback (old behavior)
+        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, h * 2f, ~0, QueryTriggerInteraction.Ignore))
         {
             groundY = hit.point.y;
             return true;
         }
+
         groundY = tileCenter.y;
         return false;
     }
@@ -128,7 +138,6 @@ public class PlayerAbilities : MonoBehaviour
 
         if (!diagonal)
         {
-            // row ahead (3-wide)
             int rx = -sz, rz = sx;
             Vector3 rowCenter = basePos + new Vector3(sx, 0, sz) * tileSize;
             yield return rowCenter + new Vector3(-rx, 0, -rz) * tileSize;
@@ -137,7 +146,6 @@ public class PlayerAbilities : MonoBehaviour
         }
         else
         {
-            // diagonal wedge {A, center, B}
             yield return basePos + new Vector3(sx, 0, 0) * tileSize;
             yield return basePos + new Vector3(sx, 0, sz) * tileSize;
             yield return basePos + new Vector3(0 , 0, sz) * tileSize;

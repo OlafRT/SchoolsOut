@@ -21,18 +21,18 @@ public class NPCMovement : MonoBehaviour
     bool isForcedMove; // true while being knocked back / forced
     readonly Queue<Vector3> currentPath = new();
 
-    // Occupancy tracking
+    // Occupancy tracking / reservations
     Vector2Int currentTile;
     bool hasReservedDest;
     Vector2Int reservedDestTile;
 
-    // ---------- Speed modifiers (slows / buffs) ----------
+    // ---------- Speed modifiers ----------
     struct SpeedMod { public float mult; public float until; }
-    readonly List<SpeedMod> speedMods = new();
+    readonly List<SpeedMod> speedMods = new();          // timed mods (existing)
+    readonly Dictionary<object, float> auraMods = new(); // auras keyed by source
 
     public void ApplySlow(float percent, float seconds)
     {
-        // percent = 0.4 → multiplier 0.6
         float mult = Mathf.Clamp01(1f - Mathf.Clamp01(percent));
         ApplySpeedMultiplier(mult, seconds);
     }
@@ -44,21 +44,41 @@ public class NPCMovement : MonoBehaviour
         speedMods.Add(new SpeedMod { mult = m, until = until });
     }
 
+    /// <summary>Set or update an aura (persists until cleared). multiplier=1 removes.</summary>
+    public void SetAuraMultiplier(object sourceKey, float multiplier)
+    {
+        if (sourceKey == null) return;
+        float m = Mathf.Clamp(multiplier, 0.05f, 5f);
+        if (Mathf.Approximately(m, 1f)) { auraMods.Remove(sourceKey); return; }
+        auraMods[sourceKey] = m;
+    }
+
+    /// <summary>Remove an aura for a given source.</summary>
+    public void ClearAura(object sourceKey)
+    {
+        if (sourceKey == null) return;
+        auraMods.Remove(sourceKey);
+    }
+
     float CurrentSpeedMultiplier()
     {
         float now = Time.time;
-        float m = 1f;
+
+        // prune expired timed mods
         for (int i = speedMods.Count - 1; i >= 0; i--)
-        {
             if (speedMods[i].until <= now) speedMods.RemoveAt(i);
-        }
-        for (int i = 0; i < speedMods.Count; i++)
-        {
-            m *= speedMods[i].mult; // multiplicative stacking
-        }
+
+        float m = 1f;
+
+        // auras (persist until cleared)
+        foreach (var kv in auraMods) m *= kv.Value;
+
+        // timed mods (e.g., temporary slows/haste)
+        for (int i = 0; i < speedMods.Count; i++) m *= speedMods[i].mult;
+
         return Mathf.Clamp(m, 0.05f, 5f);
     }
-    // -----------------------------------------------------
+    // ------------------------------------
 
     void Awake()
     {
@@ -77,10 +97,7 @@ public class NPCMovement : MonoBehaviour
         NPCTileRegistry.Unregister(currentTile);
     }
 
-    public void ClearPath()
-    {
-        currentPath.Clear();
-    }
+    public void ClearPath() => currentPath.Clear();
 
     public void SetPath(List<Vector3> worldCenters)
     {
@@ -96,7 +113,6 @@ public class NPCMovement : MonoBehaviour
             if (i == 0 && step == selfSnap) continue;
             currentPath.Enqueue(step);
         }
-
         TryStepNext();
     }
 
@@ -150,12 +166,12 @@ public class NPCMovement : MonoBehaviour
             transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
         }
 
-        // progress-based step so slows affect mid-step
+        // progress-based step so speed changes apply mid-step
         float progress = 0f;
         while (progress < 1f)
         {
             float tps = Mathf.Max(0.01f, tilesPerSecond * CurrentSpeedMultiplier());
-            progress += Time.deltaTime * tps;                 // tiles per second normalized to 1 per step
+            progress += Time.deltaTime * tps; // normalized tile progress
             transform.position = Vector3.Lerp(start, end, Mathf.Clamp01(progress));
             yield return null;
         }
@@ -256,7 +272,7 @@ public class NPCMovement : MonoBehaviour
         while (t < 1f)
         {
             float tps = Mathf.Max(0.01f, tilesPerSecond * CurrentSpeedMultiplier());
-            t += Time.deltaTime / (1f / tps); // keep similar feel
+            t += Time.deltaTime / (1f / tps);
             transform.position = Vector3.Lerp(start, end, Mathf.Clamp01(t));
             yield return null;
         }

@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 7999206819914151012}
   - component: {fileID: 3037205723117297140}
   - component: {fileID: 1471436203686870995}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: TelegraphCube
   m_TagString: Untagged
   m_Icon: {fileID: 0}

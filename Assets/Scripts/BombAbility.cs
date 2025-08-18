@@ -20,12 +20,15 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
 
     [Header("Lingering AoE")]
     public int bombRadiusTiles = 1;
-    public float lingerDuration = 3f;            // how long the field stays (talent upgradable)
-    public float tickInterval = 0.5f;            // how often it ticks
-    public int tickDamage = 5;                   // damage per tick
-    [Range(0f, 0.95f)]
-    public float slowPercent = 0.4f;             // 40% slow
-    public float slowDuration = 1.0f;            // applied each tick (refreshes)
+    public float lingerDuration = 3f;
+    public float tickInterval = 0.5f;
+    public int tickDamage = 5;
+    [Range(0f, 0.95f)] public float slowPercent = 0.4f;
+    public float slowDuration = 1.0f; // kept for compatibility (not used by aura)
+
+    [Header("Status UI")]
+    public string slowStatusTag = "Slow";
+    public Sprite slowStatusIcon; // <-- assign your snail/snowflake/etc icon here
 
     [Header("Charges")]
     public int maxCharges = 2;
@@ -150,16 +153,17 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         if (explosionVfxPrefab) Instantiate(explosionVfxPrefab, targetCenter + Vector3.up * 0.02f, Quaternion.identity);
         Destroy(bomb);
 
-        // Optional burst damage on land
         if (initialImpactDamage > 0)
         {
             foreach (var c in ctx.GetDiamondTiles(targetCenter, bombRadiusTiles))
                 ctx.DamageTile(c, ctx.tileSize * 0.45f, initialImpactDamage);
         }
 
-        // Spawn the lingering field (handles damage ticks, slow, & telegraph lifespan)
+        // Dynamically create the field and pass the icon/tag
         var go = new GameObject("BombAoEField");
         var field = go.AddComponent<BombAoEField>();
+        field.slowStatusTag = slowStatusTag;      // <-- pass tag
+        field.slowStatusIcon = slowStatusIcon;    // <-- pass icon
         field.Init(
             ctx: ctx,
             center: targetCenter,
@@ -176,13 +180,18 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     {
         aimCenter = center;
         if (!ctx.tileMarkerPrefab) return;
-        foreach (var m in markers) if (m) Destroy(m); markers.Clear();
+
+        foreach (var m in markers) if (m) Destroy(m);
+        markers.Clear();
+
+        // Sample ONE ground Y at the center, then use it for the whole preview
+        float gy;
+        if (!ctx.TryGetGroundHeight(center, out gy, strict: true)) gy = center.y;
 
         foreach (var c in ctx.GetDiamondTiles(center, bombRadiusTiles))
         {
             Vector3 pos = c;
-            if (ctx.TryGetGroundHeight(c, out float gy)) pos.y = gy + ctx.markerYOffset;
-            else pos.y = c.y + ctx.markerYOffset;
+            pos.y = gy + ctx.markerYOffset;
 
             var m = Instantiate(ctx.tileMarkerPrefab, pos, Quaternion.identity);
             if (!m.TryGetComponent<TileMarker>(out var tm)) tm = m.AddComponent<TileMarker>();
@@ -191,17 +200,25 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         }
     }
 
+    // Ray straight to ground from camera
     Vector3 GetMouseSnapTileCenter()
     {
         Camera cam = ctx.aimCamera ? ctx.aimCamera : Camera.main;
         if (!cam) return ctx.Snap(transform.position);
+
+        int mask = (ctx.groundLayer.value == 0) ? ~0 : ctx.groundLayer.value;
+
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-        Plane plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
-        if (!plane.Raycast(ray, out float dist)) return ctx.Snap(transform.position);
-        Vector3 hit = ray.GetPoint(dist);
-        Vector3 snapped = ctx.Snap(hit);
-        if (ctx.TryGetGroundHeight(snapped, out float gy)) snapped.y = gy;
-        return snapped;
+        if (Physics.Raycast(ray, out var hit, 500f, mask, QueryTriggerInteraction.Ignore))
+        {
+            Vector3 snapped = ctx.Snap(hit.point);
+            if (ctx.TryGetGroundHeight(snapped, out float gy)) snapped.y = gy;
+            return snapped;
+        }
+
+        Vector3 fallback = ctx.Snap(transform.position);
+        if (ctx.TryGetGroundHeight(fallback, out float gy2)) fallback.y = gy2;
+        return fallback;
     }
 
     // ---- IAbilityUI ----
@@ -209,7 +226,6 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     public Sprite Icon => icon;
     public KeyCode Key => bombKey;
 
-    // Charges-aware cooldown readout for the slot overlay
     public float CooldownRemaining => (currentCharges > 0) ? 0f : Mathf.Max(0f, nextChargeReadyTime - Time.time);
     public float CooldownDuration => Mathf.Max(0.01f, rechargeSeconds);
     public bool IsLearned => ctx && ctx.HasAbility(bombAbilityName);

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1737388366330954062}
   - component: {fileID: 3994853572758515901}
   - component: {fileID: 6814893915081318533}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Snot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
