@@ -17,6 +17,10 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
     public float chargeHitRadius = 0.4f;
     public float chargeHeightOffset = 0.5f;
 
+    [Header("Status UI")]
+    public string stunStatusTag = "Stunned";
+    public Sprite stunStatusIcon; // assign an icon in Inspector
+
     [Header("UI")]
     public Sprite icon;
     public float cooldownSeconds = 0f;
@@ -192,15 +196,30 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
                     // Prefer NPCAI on this object or any parent, then fallback to IStunnable
                     NPCAI ai = plannedTarget.GetComponent<NPCAI>();
                     if (!ai) ai = plannedTarget.GetComponentInParent<NPCAI>();
+
+                    // Add stun status icon immediately
+                    var host = plannedTarget.GetComponentInParent<NPCStatusHost>();
+                    if (host && stunStatusIcon) host.AddOrRefreshAura(stunStatusTag, this, stunStatusIcon);
+
                     if (ai)
                     {
                         ai.ApplyStun(chargeStunSeconds);
                         ai.CancelAttack();
+                        // ensure status cleared when stun ends
+                        StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
                     }
                     else
                     {
-                        if (plannedTarget.TryGetComponent<IStunnable>(out var stun)) stun.ApplyStun(chargeStunSeconds);
-                        else plannedTarget.SendMessage("ApplyStun", chargeStunSeconds, SendMessageOptions.DontRequireReceiver);
+                        if (plannedTarget.TryGetComponent<IStunnable>(out var stun))
+                        {
+                            stun.ApplyStun(chargeStunSeconds);
+                            StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
+                        }
+                        else
+                        {
+                            plannedTarget.SendMessage("ApplyStun", chargeStunSeconds, SendMessageOptions.DontRequireReceiver);
+                            StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
+                        }
                     }
                 }
                 break; // end charge on impact
@@ -221,6 +240,13 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
         }
 
         EndCharge();
+    }
+
+    IEnumerator RemoveStatusAfter(NPCStatusHost host, string tag, Object source, float delay)
+    {
+        if (!host) yield break;
+        yield return new WaitForSeconds(Mathf.Max(0.01f, delay));
+        if (host) host.RemoveAura(tag, source);
     }
 
     void EndCharge()
