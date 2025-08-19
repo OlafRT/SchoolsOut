@@ -155,8 +155,9 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
 
         if (initialImpactDamage > 0)
         {
+            int impact = ctx.stats ? ctx.stats.ComputeDamage(initialImpactDamage, PlayerStats.AbilitySchool.Nerd, true, out _) : initialImpactDamage;
             foreach (var c in ctx.GetDiamondTiles(targetCenter, bombRadiusTiles))
-                ctx.DamageTile(c, ctx.tileSize * 0.45f, initialImpactDamage);
+                ctx.DamageTileScaled(c, ctx.tileSize * 0.45f, impact, PlayerStats.AbilitySchool.Nerd, false);
         }
 
         // Dynamically create the field and pass the icon/tag

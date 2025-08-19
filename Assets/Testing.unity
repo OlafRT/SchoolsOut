@@ -317,6 +317,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHP: 100
   invulnerableIfFriendly: 1
+  xpReward: 10
   currentHP: 0
 --- !u!114 &48856970
 MonoBehaviour:
@@ -534,6 +535,57 @@ Animator:
     type: 3}
   m_PrefabInstance: {fileID: 914827790}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &152889717
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 152889718}
+  - component: {fileID: 152889719}
+  m_Layer: 0
+  m_Name: CombatTextRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &152889718
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 152889717}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1335963212}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &152889719
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 152889717}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16dcd91a1e0140045bd78001104ca271, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  damageNumberPrefab: {fileID: 6175192502233816083, guid: 0e430c72872b01b4b8553df9047f6bec,
+    type: 3}
+  initialPoolSize: 16
 --- !u!1 &156654577
 GameObject:
   m_ObjectHideFlags: 0
@@ -3280,34 +3332,42 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 3
-      addedObject: {fileID: 1479067272}
+      addedObject: {fileID: 1479067277}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 4
-      addedObject: {fileID: 1479067262}
+      addedObject: {fileID: 1479067276}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 5
-      addedObject: {fileID: 1479067256}
+      addedObject: {fileID: 1479067272}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 6
-      addedObject: {fileID: 1479067267}
+      addedObject: {fileID: 1479067262}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 7
-      addedObject: {fileID: 1479067266}
+      addedObject: {fileID: 1479067256}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 8
-      addedObject: {fileID: 1479067265}
+      addedObject: {fileID: 1479067267}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 9
-      addedObject: {fileID: 1479067270}
+      addedObject: {fileID: 1479067266}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       insertIndex: 10
+      addedObject: {fileID: 1479067265}
+    - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
+        type: 3}
+      insertIndex: 11
+      addedObject: {fileID: 1479067270}
+    - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
+        type: 3}
+      insertIndex: 12
       addedObject: {fileID: 1479067271}
     - targetCorrespondingSourceObject: {fileID: 6593525318558412425, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
@@ -4275,6 +4335,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHP: 100
   invulnerableIfFriendly: 1
+  xpReward: 10
   currentHP: 0
 --- !u!114 &1158357066
 MonoBehaviour:
@@ -4678,6 +4739,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 493186293}
+  - {fileID: 152889718}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -4889,11 +4951,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef72fbaa3057cb54b9963f91d2302d9a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerClass: 1
+  playerClass: 0
   playerLevel: 1
   learnedAbilities:
   - Charge
-  - Bomb
+  - Kick
   - Strike
   tileSize: 1
   targetLayer:
@@ -4915,6 +4977,7 @@ MonoBehaviour:
   projectileSpeed: 12
   movement: {fileID: 0}
   aimCamera: {fileID: 330585545}
+  stats: {fileID: 0}
 --- !u!114 &1479067262
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5104,6 +5167,43 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tileSize: 1
+--- !u!114 &1479067276
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1479067249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 395cceda380276f43b649b75b5281aef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerClass: 0
+  level: 1
+  currentXP: 0
+  xpToNext: 100
+  xpCurveMultiplier: 1
+  muscles: 1
+  iq: 1
+  toughness: 5
+  critChance: 0.05
+  baseHP: 50
+  hpPerToughness: 10
+--- !u!114 &1479067277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1479067249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 370b8a2c50586df41a5b4f8f23c219df, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stats: {fileID: 1479067276}
+  currentHP: 0
 --- !u!1 &1605046322
 GameObject:
   m_ObjectHideFlags: 0
@@ -5678,6 +5778,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHP: 100
   invulnerableIfFriendly: 1
+  xpReward: 10
   currentHP: 0
 --- !u!114 &1739118377
 MonoBehaviour:
@@ -6073,6 +6174,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHP: 100
   invulnerableIfFriendly: 1
+  xpReward: 10
   currentHP: 0
 --- !u!114 &1986956651
 MonoBehaviour:

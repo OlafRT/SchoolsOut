@@ -11,13 +11,9 @@ public class KickAbility : MonoBehaviour, IAbilityUI
     public Sprite icon;
 
     [Header("Kick Settings")]
-    [Tooltip("Cooldown time in seconds.")]
     public float cooldownSeconds = 5f;
-    [Tooltip("Damage dealt to each target hit.")]
     public int damage = 10;
-    [Tooltip("How many tiles targets are pushed away from you.")]
     public int knockbackTiles = 2;
-    [Tooltip("Seconds the knockback animation should take.")]
     public float knockbackDuration = 0.2f;
 
     [Header("Telegraph")]
@@ -27,7 +23,6 @@ public class KickAbility : MonoBehaviour, IAbilityUI
     private AutoAttackAbility autoAttack;
     private float nextReadyTime = 0f;
 
-    // ---- IClassRestrictedAbility ----
     public AbilityClassRestriction AllowedFor => AbilityClassRestriction.Jock;
 
     void Awake()
@@ -57,30 +52,21 @@ public class KickAbility : MonoBehaviour, IAbilityUI
         Vector3 baseTile = ctx.Snap(transform.position);
         float t = ctx.tileSize;
 
-        // grid axes from facing
         Vector3 forward = new Vector3(sx, 0, sz);
-        Vector3 right   = new Vector3(-sz, 0, sx); // 90° right on grid
+        Vector3 right   = new Vector3(-sz, 0, sx);
 
-        // --- Build affected tiles (7 tiles like your sketch) ---
         var tiles = new List<Vector3>();
-
-        // Front row (left, center, right)
         Vector3 rowCenter = baseTile + forward * t;
         tiles.Add(rowCenter - right * t);
         tiles.Add(rowCenter);
         tiles.Add(rowCenter + right * t);
-
-        // Forward-leaning diagonals next to the player
         tiles.Add(baseTile + (forward + right) * t);
         tiles.Add(baseTile + (forward - right) * t);
-
-        // Side tiles next to the player
         tiles.Add(baseTile + right * t);
         tiles.Add(baseTile - right * t);
 
         if (showTelegraphOnCast) ctx.TelegraphOnce(tiles);
 
-        // Hit & push anything standing on those tiles
         foreach (var center in tiles)
         {
             var hits = Physics.OverlapBox(
@@ -92,14 +78,11 @@ public class KickAbility : MonoBehaviour, IAbilityUI
 
             foreach (var h in hits)
             {
-                // Damage first
-                if (h.TryGetComponent<IDamageable>(out var dmg))
-                    dmg.ApplyDamage(damage);
+                // Scaled + crit
+                ctx.ApplyDamageToCollider(h, damage, PlayerStats.AbilitySchool.Jock, true);
 
-                // Push using NPC's grid mover if present
                 if (h.TryGetComponent<NPCMovement>(out var mover))
                 {
-                    // step tile-by-tile up to knockbackTiles but stop at walls
                     var pf = mover.pathfinder;
                     Vector3 cur = mover.Snap(h.transform.position);
                     Vector3 step = forward.normalized * t;
@@ -108,15 +91,13 @@ public class KickAbility : MonoBehaviour, IAbilityUI
                     for (int i = 0; i < steps; i++)
                     {
                         Vector3 next = cur + step;
-                        if (pf && pf.IsBlocked(next)) break;   // stop at obstacle
+                        if (pf && pf.IsBlocked(next)) break;
                         cur = next;
                     }
-
                     mover.KnockbackTo(cur, knockbackDuration);
                 }
                 else
                 {
-                    // Fallback: smooth world-space lerp if no NPCMovement
                     Vector3 start = h.transform.position;
                     Vector3 dest  = ctx.Snap(start + forward.normalized * (knockbackTiles * t));
                     StartCoroutine(FallbackKnockback(h.transform, dest, knockbackDuration));
@@ -148,7 +129,6 @@ public class KickAbility : MonoBehaviour, IAbilityUI
         if (hadRB) rb.isKinematic = prevKinematic;
     }
 
-    // ---- IAbilityUI ----
     public string AbilityName => kickAbilityName;
     public Sprite Icon => icon;
     public KeyCode Key => kickKey;

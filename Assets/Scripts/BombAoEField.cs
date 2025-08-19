@@ -123,8 +123,18 @@ public class BombAoEField : MonoBehaviour
                     var col = hits[i];
                     if (!col) continue;
 
-                    if (tickDamage > 0 && col.TryGetComponent<IDamageable>(out var dmg))
-                        dmg.ApplyDamage(tickDamage);
+                    if (tickDamage > 0 && col.TryGetComponent<IDamageable>(out var _))
+                    {
+                        int finalTick = ctx.stats ? ctx.stats.ComputeDotDamage(tickDamage, PlayerStats.AbilitySchool.Nerd) : tickDamage;
+                        // show a briefer number for DoT
+                        if (CombatTextManager.Instance)
+                        {
+                            Vector3 pos = col.bounds.center;
+                            pos.y = col.bounds.max.y;
+                            CombatTextManager.Instance.ShowDamage(pos, finalTick, false, col.transform, lifetimeOverride: 0.6f);
+                        }
+                        col.GetComponent<IDamageable>()?.ApplyDamage(finalTick);
+                    }
 
                     NPCMovement move = null;
                     if (!col.TryGetComponent<NPCMovement>(out move))

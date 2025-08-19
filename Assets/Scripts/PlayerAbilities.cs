@@ -32,10 +32,14 @@ public class PlayerAbilities : MonoBehaviour
     [HideInInspector] public PlayerMovement movement;
     [HideInInspector] public Camera aimCamera;
 
+    // NEW: Stats hook
+    [HideInInspector] public PlayerStats stats;
+
     void Awake()
     {
         movement = GetComponent<PlayerMovement>();
         aimCamera = Camera.main;
+        stats = GetComponent<PlayerStats>();
     }
 
     public Vector3 Snap(Vector3 p) =>
@@ -67,39 +71,27 @@ public class PlayerAbilities : MonoBehaviour
         return (sx, sz);
     }
 
-    // 🔧 Hardened: masked ray → unmasked ray → fallback
+    // Hardened: masked ray → unmasked ray → fallback
     public bool TryGetGroundHeight(Vector3 tileCenter, out float groundY, bool strict = false)
     {
         float h = Mathf.Max(0.1f, groundRaycastHeight);
-        // only the configured Ground layer
         int mask = (groundLayer.value == 0) ? 0 : groundLayer.value;
-
         Vector3 origin = tileCenter + Vector3.up * h;
 
         if (mask != 0)
         {
             if (Physics.Raycast(origin, Vector3.down, out RaycastHit ghit, h * 2f, mask, QueryTriggerInteraction.Ignore))
             {
-                groundY = ghit.point.y;
-                return true;
+                groundY = ghit.point.y; return true;
             }
-            if (strict)
-            {
-                // strict = don't fall back to "everything", better no snap than hitting NPCs
-                groundY = tileCenter.y;
-                return false;
-            }
+            if (strict) { groundY = tileCenter.y; return false; }
         }
 
-        // non-strict fallback (old behavior)
         if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, h * 2f, ~0, QueryTriggerInteraction.Ignore))
         {
-            groundY = hit.point.y;
-            return true;
+            groundY = hit.point.y; return true;
         }
-
-        groundY = tileCenter.y;
-        return false;
+        groundY = tileCenter.y; return false;
     }
 
     public void TelegraphOnce(IEnumerable<Vector3> tileCenters)
@@ -117,6 +109,39 @@ public class PlayerAbilities : MonoBehaviour
         }
     }
 
+    // --------- NEW: scaled damage helpers ---------
+
+    // Spawns floating number + applies scaled (and possibly crit) damage to a single collider.
+    public void ApplyDamageToCollider(Collider col, int baseDamage, PlayerStats.AbilitySchool school, bool allowCrit = true)
+    {
+        if (!col || baseDamage <= 0) return;
+
+        int final = baseDamage;
+        bool didCrit = false;
+
+        if (stats)
+            final = stats.ComputeDamage(baseDamage, school, allowCrit, out didCrit);
+
+        // Floating number at target head
+        if (CombatTextManager.Instance)
+        {
+            Vector3 pos = col.bounds.center;
+            pos.y = col.bounds.max.y;
+            CombatTextManager.Instance.ShowDamage(pos, final, didCrit, col.transform);
+        }
+
+        if (col.TryGetComponent<IDamageable>(out var dmg))
+            dmg.ApplyDamage(final);
+    }
+    // Applies damage to everything in a tile-radius (calls the helper above per collider).
+    public void DamageTileScaled(Vector3 tileCenter, float radius, int baseDamage, PlayerStats.AbilitySchool school, bool allowCrit = true)
+    {
+        var hits = Physics.OverlapSphere(tileCenter + Vector3.up * 0.5f, radius, targetLayer, QueryTriggerInteraction.Ignore);
+        foreach (var h in hits)
+            ApplyDamageToCollider(h, baseDamage, school, allowCrit);
+    }
+
+    // (legacy) unscaled version still here for reference
     public void DamageTile(Vector3 tileCenter, float radius, int damage)
     {
         var hits = Physics.OverlapSphere(tileCenter + Vector3.up * 0.5f, radius, targetLayer, QueryTriggerInteraction.Ignore);

@@ -17,7 +17,7 @@ public class AutoAttackAbility : MonoBehaviour
 
     void Awake() => ctx = GetComponent<PlayerAbilities>();
 
-    public bool IsSuppressedByOtherAbilities { get; set; } // set by Charge/Bomb each frame if needed
+    public bool IsSuppressedByOtherAbilities { get; set; }
 
     void Update()
     {
@@ -42,24 +42,47 @@ public class AutoAttackAbility : MonoBehaviour
 
         if (ctx.playerClass == PlayerAbilities.PlayerClass.Jock)
         {
-            // Melee: three tiles in front
+            // Jock melee: let the damage helper roll crits & spawn combat text per target.
             var tiles = ctx.GetMeleeTiles(sx, sz);
             ctx.TelegraphOnce(tiles);
             foreach (var c in ctx.GetMeleeTiles(sx, sz))
-                ctx.DamageTile(c, ctx.tileSize * 0.45f, weaponDamage);
+            {
+                ctx.DamageTileScaled(
+                    tileCenter: c,
+                    radius: ctx.tileSize * 0.45f,
+                    baseDamage: weaponDamage,
+                    school: PlayerStats.AbilitySchool.Jock,
+                    allowCrit: true
+                );
+            }
         }
-        else // Nerd ranged
+        else
         {
+            // Nerd ranged: compute damage + crit now, pass to projectile so it can show numbers on hit.
             var path = ctx.GetRangedPathTiles(sx, sz, weaponRangeTiles);
             ctx.TelegraphOnce(path);
 
             if (ctx.projectilePrefab)
             {
+                bool didCrit = false;
+                int final = ctx.stats
+                    ? ctx.stats.ComputeDamage(weaponDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
+                    : weaponDamage;
+
                 Vector3 spawn = ctx.Snap(transform.position) + new Vector3(sx, 0, sz) * (ctx.tileSize * 0.5f);
-                var go = Instantiate(ctx.projectilePrefab, spawn, Quaternion.LookRotation(dir8, Vector3.up));
+                var go = Object.Instantiate(ctx.projectilePrefab, spawn, Quaternion.LookRotation(dir8, Vector3.up));
                 var p = go.GetComponent<StraightProjectile>();
                 if (!p) p = go.AddComponent<StraightProjectile>();
-                p.Init(dir8, ctx.projectileSpeed, weaponRangeTiles * ctx.tileSize, ctx.targetLayer, weaponDamage, ctx.tileSize);
+
+                p.Init(
+                    direction: dir8,
+                    speed: ctx.projectileSpeed,
+                    maxDistance: weaponRangeTiles * ctx.tileSize,
+                    targetLayer: ctx.targetLayer,
+                    damage: final,
+                    tileSize: ctx.tileSize,
+                    wasCrit: didCrit
+                );
             }
         }
     }
