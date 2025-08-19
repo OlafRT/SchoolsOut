@@ -29,6 +29,10 @@ public class PlayerAbilities : MonoBehaviour
     public GameObject projectilePrefab;
     public float projectileSpeed = 12f;
 
+    // Prevent duplicate text on floating combat text
+    private static HashSet<Collider> damageTextFrameBlock = new HashSet<Collider>();
+    private static int lastFrame = -1;
+
     [HideInInspector] public PlayerMovement movement;
     [HideInInspector] public Camera aimCamera;
 
@@ -112,27 +116,37 @@ public class PlayerAbilities : MonoBehaviour
     // --------- NEW: scaled damage helpers ---------
 
     // Spawns floating number + applies scaled (and possibly crit) damage to a single collider.
-    public void ApplyDamageToCollider(Collider col, int baseDamage, PlayerStats.AbilitySchool school, bool allowCrit = true)
+    public void ApplyDamageToCollider(Collider target, int baseDamage, PlayerStats.AbilitySchool school, bool allowCrit = true)
     {
-        if (!col || baseDamage <= 0) return;
-
-        int final = baseDamage;
-        bool didCrit = false;
-
-        if (stats)
-            final = stats.ComputeDamage(baseDamage, school, allowCrit, out didCrit);
-
-        // Floating number at target head
-        if (CombatTextManager.Instance)
+        // Reset per-frame block at start of frame
+        if (Time.frameCount != lastFrame)
         {
-            Vector3 pos = col.bounds.center;
-            pos.y = col.bounds.max.y;
-            CombatTextManager.Instance.ShowDamage(pos, final, didCrit, col.transform);
+            damageTextFrameBlock.Clear();
+            lastFrame = Time.frameCount;
         }
 
-        if (col.TryGetComponent<IDamageable>(out var dmg))
-            dmg.ApplyDamage(final);
+        if (!target) return;
+        var dmg = target.GetComponent<IDamageable>();
+        if (dmg == null) return;
+
+        bool didCrit = false;
+        int final = stats ? stats.ComputeDamage(baseDamage, school, allowCrit, out didCrit) : baseDamage;
+
+        dmg.ApplyDamage(final);
+
+        // Show combat text only once per collider per frame
+        if (!damageTextFrameBlock.Contains(target))
+        {
+            if (CombatTextManager.Instance)
+            {
+                Vector3 pos = target.bounds.center;
+                pos.y = target.bounds.max.y; // near head height
+                CombatTextManager.Instance.ShowDamage(pos, final, didCrit, target.transform);
+            }
+            damageTextFrameBlock.Add(target);
+        }
     }
+
     // Applies damage to everything in a tile-radius (calls the helper above per collider).
     public void DamageTileScaled(Vector3 tileCenter, float radius, int baseDamage, PlayerStats.AbilitySchool school, bool allowCrit = true)
     {

@@ -153,5 +153,5 @@ MonoBehaviour:
   spawnJitter: {x: 12, y: 6}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   critColor: {r: 1, g: 0.55, b: 0, a: 1}
-  normalFontSize: 28
-  critFontSize: 48
+  normalFontSize: 48
+  critFontSize: 64
