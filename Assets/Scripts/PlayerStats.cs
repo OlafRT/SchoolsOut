@@ -31,6 +31,19 @@ public class PlayerStats : MonoBehaviour
     public int baseHP = 50;
     public int hpPerToughness = 10;
 
+    [Header("Level Up FX")]
+    [Tooltip("Prefab spawned on level up (e.g., particles).")]
+    public GameObject levelUpEffectPrefab;
+    [Tooltip("Optional AudioClip to play on level up.")]
+    public AudioClip levelUpSfx;
+    [Range(0f, 1f)] public float levelUpSfxVolume = 0.8f;
+    [Tooltip("Offset from the player's position to spawn the effect.")]
+    public Vector3 levelUpEffectOffset = new Vector3(0f, 1.2f, 0f);
+    [Tooltip("Destroy the spawned FX after this many seconds.")]
+    public float levelUpEffectLifetime = 2.0f;
+    [Tooltip("Parent the spawned FX to the player so it follows if you move right away.")]
+    public bool parentEffectToPlayer = true;
+
     public int MaxHP => Mathf.Max(1, baseHP + toughness * hpPerToughness);
 
     public event Action OnStatsChanged;
@@ -65,8 +78,29 @@ public class PlayerStats : MonoBehaviour
 
         xpToNext = ComputeXpToNext(level);
 
+        // Spawn FX/SFX right here
+        SpawnLevelUpEffect();
+
         OnLeveledUp?.Invoke(level);
         OnStatsChanged?.Invoke();
+    }
+
+    void SpawnLevelUpEffect()
+    {
+        // VFX
+        if (levelUpEffectPrefab)
+        {
+            Vector3 pos = transform.position + levelUpEffectOffset;
+            var fx = Instantiate(levelUpEffectPrefab, pos, Quaternion.identity);
+            if (parentEffectToPlayer && fx) fx.transform.SetParent(transform, true);
+            if (fx && levelUpEffectLifetime > 0f) Destroy(fx, levelUpEffectLifetime);
+        }
+
+        // SFX
+        if (levelUpSfx)
+        {
+            AudioSource.PlayClipAtPoint(levelUpSfx, transform.position, levelUpSfxVolume);
+        }
     }
 
     int ComputeXpToNext(int lvl)
