@@ -808,6 +808,7 @@ GameObject:
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
+  - component: {fileID: 330585549}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -947,6 +948,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   player: {fileID: 1479067255}
   offset: {x: 0, y: 5, z: -6.5}
+  extraOffset: {x: 0, y: 0, z: 0}
+--- !u!114 &330585549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa200b3fcbde998408226d4a926f8172, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  defaultDuration: 0.12
+  defaultAmplitude: 0.25
 --- !u!1 &351372056
 GameObject:
   m_ObjectHideFlags: 0
@@ -5102,8 +5118,14 @@ MonoBehaviour:
   chargeDistanceTiles: 10
   chargeSpeedTilesPerSecond: 16
   chargeStunSeconds: 2
-  chargeHitRadius: 0.4
-  chargeHeightOffset: 0.5
+  stopYOffsetClamp: 0
+  nextTileHitRadius: 0.45
+  impactVfxPrefab: {fileID: 0}
+  impactVfxLifetime: 1.2
+  impactSfx: {fileID: 0}
+  impactSfxVolume: 0.9
+  cameraShakeAmplitude: 0.25
+  cameraShakeDuration: 0.12
   stunStatusTag: Stunned
   stunStatusIcon: {fileID: 21300000, guid: b3977864e8075d748ac6ec196f3466e7, type: 3}
   icon: {fileID: 21300000, guid: 883950fe0e5840f4096602b54b5ff3e4, type: 3}

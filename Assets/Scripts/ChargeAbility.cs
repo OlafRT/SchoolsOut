@@ -11,27 +11,39 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
     public KeyCode chargeKey = KeyCode.Q;
 
     [Header("Charge")]
-    public int chargeDistanceTiles = 10;
-    public float chargeSpeedTilesPerSecond = 16f;
-    public float chargeStunSeconds = 2f;
-    public float chargeHitRadius = 0.4f;
-    public float chargeHeightOffset = 0.5f;
+    public int   chargeDistanceTiles       = 10;
+    public float chargeSpeedTilesPerSecond = 16f;   // tiles per second (center-to-center)
+    public float chargeStunSeconds         = 2f;
+    public float stopYOffsetClamp          = 0f;    // keep Y locked; leave at 0
+
+    [Header("Hit Detection")]
+    [Tooltip("Radius (world units) to detect a target on the next tile.")]
+    public float nextTileHitRadius = 0.45f;
+
+    [Header("Impact FX (plays only if we collide with wall/obstacle/NPC)")]
+    public GameObject impactVfxPrefab;
+    public float      impactVfxLifetime = 1.2f;
+    public AudioClip  impactSfx;
+    [Range(0f, 1f)] public float impactSfxVolume = 0.9f;
+    [Tooltip("Camera shake amplitude and duration on impact.")]
+    public float cameraShakeAmplitude = 0.25f;
+    public float cameraShakeDuration  = 0.12f;
 
     [Header("Status UI")]
-    public string stunStatusTag = "Stunned";
-    public Sprite stunStatusIcon; // assign an icon in Inspector
+    public string  stunStatusTag = "Stunned";
+    public Sprite  stunStatusIcon;
 
     [Header("UI")]
     public Sprite icon;
-    public float cooldownSeconds = 0f;
+    public float  cooldownSeconds = 0f;
 
-    private PlayerAbilities ctx;
+    // ---- runtime
+    private PlayerAbilities   ctx;
     private AutoAttackAbility autoAttack;
-    private float nextReadyTime = 0f;
-    public bool IsCharging { get; private set; }
+    private float             nextReadyTime = 0f;
 
-    // ---- IClassRestrictedAbility ----
-    public AbilityClassRestriction AllowedFor => AbilityClassRestriction.Jock;
+    public  bool IsCharging { get; private set; }
+    public  AbilityClassRestriction AllowedFor => AbilityClassRestriction.Jock; // if you use class restriction
 
     void Awake()
     {
@@ -43,6 +55,7 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
     {
         if (!IsLearned) return;
 
+        // while charging, keep AA suppressed; don't allow steering
         if (IsCharging)
         {
             if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = true;
@@ -52,24 +65,17 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
         if (CooldownRemaining > 0f) return;
 
         if (Input.GetKeyDown(chargeKey))
-            StartCoroutine(DoCharge());
+            StartCoroutine(DoChargeTilePerfect());
     }
 
-    IEnumerator DoCharge()
+    IEnumerator DoChargeTilePerfect()
     {
         if (cooldownSeconds > 0f) nextReadyTime = Time.time + cooldownSeconds;
 
         IsCharging = true;
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = true;
 
-        // 8-way direction
-        Vector3 dir8 = ctx.SnapDirTo8(transform.forward);
-        var (sx, sz) = ctx.StepFromDir8(dir8);
-        if (sx == 0 && sz == 0) { EndCharge(); yield break; }
-        Vector3 dir = new Vector3(sx, 0f, sz).normalized;
-        transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
-
-        // Cancel any tile move to avoid rubber-banding
+        // Lock player-movement during charge
         if (ctx.movement)
         {
             ctx.movement.StopAllCoroutines();
@@ -77,166 +83,131 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
             ctx.movement.canMove = false;
         }
 
-        // Lock Y to the starting value
+        // Determine 8-way direction once and lock it
+        Vector3 dir8 = ctx.SnapDirTo8(transform.forward);
+        var (sx, sz) = ctx.StepFromDir8(dir8);
+        if (sx == 0 && sz == 0) { EndCharge(); yield break; }
+
+        Vector3 stepDir = new Vector3(sx, 0f, sz).normalized;
+        transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
+
+        // Keep Y strictly fixed to the start
         float startY = transform.position.y;
-        void ForceY(ref Vector3 p) { p.y = startY; }
-        var snapNow = transform.position; ForceY(ref snapNow); transform.position = snapNow;
+        Vector3 FixY(Vector3 p) { p.y = startY + stopYOffsetClamp; return p; }
 
-        // Temporarily neutralize Rigidbody so physics can’t add drift
-        Rigidbody rb = GetComponent<Rigidbody>();
-        bool hadRB = rb != null;
-        bool prevKinematic = false, prevUseGravity = false;
-        if (hadRB)
-        {
-            prevKinematic = rb.isKinematic;
-            prevUseGravity = rb.useGravity;
-            rb.isKinematic = true;
-            rb.useGravity = false;
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-        }
+        // Tile-by-tile march
+        Vector3 currentTile = ctx.Snap(transform.position);
+        float tileSize = Mathf.Max(0.01f, ctx.tileSize);
+        float moveSpeed = Mathf.Max(0.01f, chargeSpeedTilesPerSecond) * tileSize;
+        float radius    = Mathf.Max(0.05f, nextTileHitRadius);
 
-        float maxDistance = Mathf.Max(0, chargeDistanceTiles) * ctx.tileSize;
-        float traveled = 0f;
-        float speed = Mathf.Max(0.01f, chargeSpeedTilesPerSecond) * ctx.tileSize;
-        float epsilon = 0.01f;
-
-        // masks
-        int wallMask = ctx.wallLayer.value;
+        // Convenience masks (walls + targets)
+        int wallMask   = ctx.wallLayer.value;
         int targetMask = ctx.targetLayer.value;
-        int blockMask = wallMask | targetMask;
 
-        // tile-sized check box extents
-        Vector3 tileHalf = new Vector3(ctx.tileSize * 0.45f, 0.6f, ctx.tileSize * 0.45f);
-
-        bool IsTileBlocked(Vector3 tileCenter)
+        // Helper: is that tile blocked by WALLS? (targets are handled separately)
+        bool IsWallBlocked(Vector3 tileCenter)
         {
-            return Physics.CheckBox(tileCenter + Vector3.up * tileHalf.y, tileHalf, Quaternion.identity, blockMask, QueryTriggerInteraction.Ignore);
+            Vector3 half = new Vector3(tileSize * 0.45f, 0.6f, tileSize * 0.45f);
+            return Physics.CheckBox(tileCenter + Vector3.up * half.y, half, Quaternion.identity, wallMask, QueryTriggerInteraction.Ignore);
         }
 
-        bool havePlannedImpact = false;
-        Vector3 plannedStop = Vector3.zero;
-        Transform plannedTarget = null;
+        bool didImpact = false;     // ← we only play FX if true
+        Vector3 impactPoint = currentTile;
 
-        while (traveled < maxDistance)
+        // Move up to N tiles
+        int maxSteps = Mathf.Max(0, chargeDistanceTiles);
+        for (int step = 0; step < maxSteps; step++)
         {
-            float remaining = maxDistance - traveled;
-            float stepDist = speed * Time.deltaTime;
+            transform.rotation = Quaternion.LookRotation(dir8, Vector3.up); // defeat RMB steering
 
-            if (!havePlannedImpact)
+            Vector3 nextTile = currentTile + stepDir * tileSize;
+
+            // If the next tile is a WALL → stop here (impact)
+            if (IsWallBlocked(nextTile))
             {
-                Vector3 origin = transform.position + Vector3.up * chargeHeightOffset;
-
-                if (Physics.SphereCast(origin, chargeHitRadius, dir, out RaycastHit hit, remaining, blockMask, QueryTriggerInteraction.Ignore))
-                {
-                    bool hitIsTarget = ((targetMask & (1 << hit.collider.gameObject.layer)) != 0);
-
-                    if (hitIsTarget)
-                    {
-                        plannedTarget = hit.collider.transform;
-                        Vector3 targetTile = ctx.Snap(plannedTarget.position);
-                        Vector3 desiredStop = targetTile - new Vector3(sx, 0f, sz) * ctx.tileSize;
-
-                        Vector3 stopTile = desiredStop;
-                        int backSteps = 0;
-                        while (IsTileBlocked(stopTile) && backSteps < chargeDistanceTiles)
-                        {
-                            stopTile -= new Vector3(sx, 0f, sz) * ctx.tileSize;
-                            backSteps++;
-                        }
-
-                        plannedStop = stopTile;
-                        ForceY(ref plannedStop);
-                        havePlannedImpact = true;
-                    }
-                    else
-                    {
-                        float toHit = Mathf.Max(0f, hit.distance - epsilon);
-                        float deltaWall = Mathf.Min(stepDist, toHit);
-
-                        if (deltaWall > 0f)
-                        {
-                            Vector3 p = transform.position + dir * deltaWall;
-                            ForceY(ref p);
-                            transform.position = p;
-                            traveled += deltaWall;
-                            yield return null;
-                            continue;
-                        }
-
-                        Vector3 stop = hit.point - dir * (chargeHitRadius + epsilon);
-                        ForceY(ref stop);
-                        transform.position = stop;
-                        break; // stop charge at wall
-                    }
-                }
+                didImpact = true;
+                impactPoint = FixY(nextTile); // the blocked tile we slammed into
+                break;
             }
 
-            Vector3 frameTarget = havePlannedImpact
-                ? plannedStop
-                : transform.position + dir * remaining;
-
-            float distToTarget = Vector3.Distance(transform.position, frameTarget);
-            float delta = Mathf.Min(stepDist, distToTarget);
-
-            if (delta > 0f)
+            // If the next tile contains a TARGET → stop here (impact) and we'll stun them after the loop
+            var hits = Physics.OverlapSphere(nextTile + Vector3.up * 0.4f, radius, targetMask, QueryTriggerInteraction.Ignore);
+            if (hits != null && hits.Length > 0)
             {
-                Vector3 p = transform.position + dir * delta;
-                ForceY(ref p);
-                transform.position = p;
-                traveled += delta;
+                didImpact = true;
+                impactPoint = FixY(nextTile);
+                break;
+            }
+
+            // Otherwise, move to the next tile center at charge speed
+            Vector3 start = transform.position;
+            Vector3 end   = FixY(nextTile);
+            float dist    = Vector3.Distance(start, end);
+            float t       = 0f;
+            float dur     = Mathf.Max(0.01f, dist / moveSpeed);
+
+            while (t < 1f)
+            {
+                transform.rotation = Quaternion.LookRotation(dir8, Vector3.up); // keep locked
+                t += Time.deltaTime / dur;
+                transform.position = Vector3.Lerp(start, end, t);
                 yield return null;
             }
+            transform.position = end;
 
-            // ---- IMPACT ----
-            if (havePlannedImpact && Vector3.SqrMagnitude(transform.position - plannedStop) <= 0.0004f)
+            // Arrived → advance current tile
+            currentTile = nextTile;
+        }
+
+        // After we stop, if the *tile in front* has targets, stun them.
+        {
+            Vector3 tileAhead = currentTile + stepDir * tileSize;
+            var hits = Physics.OverlapSphere(tileAhead + Vector3.up * 0.4f, radius, targetMask, QueryTriggerInteraction.Ignore);
+            if (hits != null && hits.Length > 0)
             {
-                if (plannedTarget)
+                foreach (var col in hits)
                 {
-                    // Prefer NPCAI on this object or any parent, then fallback to IStunnable
-                    NPCAI ai = plannedTarget.GetComponent<NPCAI>();
-                    if (!ai) ai = plannedTarget.GetComponentInParent<NPCAI>();
+                    if (!col) continue;
 
-                    // Add stun status icon immediately
-                    var host = plannedTarget.GetComponentInParent<NPCStatusHost>();
+                    var host = col.GetComponentInParent<NPCStatusHost>();
                     if (host && stunStatusIcon) host.AddOrRefreshAura(stunStatusTag, this, stunStatusIcon);
 
+                    var ai = col.GetComponentInParent<NPCAI>();
                     if (ai)
                     {
                         ai.ApplyStun(chargeStunSeconds);
                         ai.CancelAttack();
-                        // ensure status cleared when stun ends
+                        StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
+                    }
+                    else if (col.TryGetComponent<IStunnable>(out var stun))
+                    {
+                        stun.ApplyStun(chargeStunSeconds);
                         StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
                     }
                     else
                     {
-                        if (plannedTarget.TryGetComponent<IStunnable>(out var stun))
-                        {
-                            stun.ApplyStun(chargeStunSeconds);
-                            StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
-                        }
-                        else
-                        {
-                            plannedTarget.SendMessage("ApplyStun", chargeStunSeconds, SendMessageOptions.DontRequireReceiver);
-                            StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
-                        }
+                        col.SendMessage("ApplyStun", chargeStunSeconds, SendMessageOptions.DontRequireReceiver);
+                        StartCoroutine(RemoveStatusAfter(host, stunStatusTag, this, chargeStunSeconds));
                     }
                 }
-                break; // end charge on impact
             }
-
-            if (!havePlannedImpact && delta < 0.0001f)
-                break;
         }
 
-        // Restore Rigidbody & finish
-        if (hadRB)
+        // Snap to final tile center (keeps Y)
+        transform.position = FixY(currentTile);
+
+        // Play impact FX/SFX/camera shake only if we collided with something
+        if (didImpact)
         {
-            var p = transform.position; ForceY(ref p); transform.position = p;
-            rb.isKinematic = prevKinematic;
-            rb.useGravity  = prevUseGravity;
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            if (impactVfxPrefab)
+            {
+                var vfx = Instantiate(impactVfxPrefab, impactPoint, Quaternion.identity);
+                if (impactVfxLifetime > 0f) Destroy(vfx, impactVfxLifetime);
+            }
+            if (impactSfx) AudioSource.PlayClipAtPoint(impactSfx, impactPoint, impactSfxVolume);
+
+            CameraShaker.Instance?.Shake(cameraShakeDuration, cameraShakeAmplitude);
         }
 
         EndCharge();

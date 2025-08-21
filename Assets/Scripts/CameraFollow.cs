@@ -2,19 +2,15 @@ using UnityEngine;
 
 public class CameraFollow : MonoBehaviour
 {
-    public Transform player; // Reference to the player's transform
-    public Vector3 offset;   // Offset position relative to the player
+    public Transform player;
+    public Vector3 offset = new Vector3(0, 10, -10);
 
-    void Start()
-    {
-        // Optional: Set an initial offset if none is specified
-        if (offset == Vector3.zero)
-            offset = new Vector3(0, 10, -10);
-    }
+    // Shaker (and other systems) can add to this safely.
+    [HideInInspector] public Vector3 extraOffset = Vector3.zero;
 
     void LateUpdate()
     {
-        // Update camera position to follow the player
-        transform.position = player.position + offset;
+        if (!player) return;
+        transform.position = player.position + offset + extraOffset;
     }
 }
