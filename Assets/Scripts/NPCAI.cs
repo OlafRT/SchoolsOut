@@ -7,6 +7,12 @@ public class NPCAI : MonoBehaviour, IStunnable
 {
     public enum Hostility { Friendly, Neutral, Hostile }
 
+    [Header("Faction / Class")]
+    [Tooltip("Determines which abilities this NPC may use later, and can be used for faction logic.")]
+    public NPCFaction faction = NPCFaction.Jock;
+    [Tooltip("Optional display name for UI/plates.")]
+    public string npcDisplayName = "Student";
+
     [Header("Basics")]
     public Hostility hostility = Hostility.Neutral;
     public float tileSize = 1f;
@@ -37,6 +43,11 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Tooltip("Animator trigger to play when stunned.")]
     public string stunTriggerName = "Stun";
 
+    // ---- convenience for future abilities/UI ----
+    public NPCFaction Faction => faction;
+    public bool IsFaction(NPCFaction f) => faction == f;
+    public PlayerStats.AbilitySchool? FactionSchool => faction.ToAbilitySchool();
+
     // state
     float nextMeleeReady;
     Vector3 homeTile;
@@ -66,7 +77,7 @@ public class NPCAI : MonoBehaviour, IStunnable
 
         // Mark initial tile
         Vector2Int myTile = new Vector2Int(Mathf.RoundToInt(homeTile.x / tileSize),
-                                        Mathf.RoundToInt(homeTile.z / tileSize));
+                                           Mathf.RoundToInt(homeTile.z / tileSize));
         NPCTileRegistry.Register(myTile);
     }
 
@@ -118,17 +129,13 @@ public class NPCAI : MonoBehaviour, IStunnable
                 TryHitPlayer();
                 isAttacking = false;
             }
-            // stop moving when adjacent
             mover.ClearPath();
         }
         else if (CanSeePlayer())
         {
-            // Instead of moving INTO player, move to a free adjacent tile
+            // Move to a free adjacent tile near player (don’t stack on player tile)
             Vector3 targetTile = FindClosestAdjacentTile(playerTile);
-            if (targetTile != Vector3.positiveInfinity)
-            {
-                TryPathTo(targetTile);
-            }
+            if (targetTile != Vector3.positiveInfinity) TryPathTo(targetTile);
         }
         else
         {
@@ -138,7 +145,7 @@ public class NPCAI : MonoBehaviour, IStunnable
 
     Vector3 FindClosestAdjacentTile(Vector3 playerTile)
     {
-        Vector3[] directions = new Vector3[]
+        Vector3[] dirs =
         {
             new Vector3( tileSize, 0, 0),
             new Vector3(-tileSize, 0, 0),
@@ -150,26 +157,20 @@ public class NPCAI : MonoBehaviour, IStunnable
             new Vector3(-tileSize, 0, -tileSize)
         };
 
-        Vector3 bestTile = Vector3.positiveInfinity;
+        Vector3 best = Vector3.positiveInfinity;
         float bestDist = float.MaxValue;
 
-        foreach (var dir in directions)
+        foreach (var d in dirs)
         {
-            Vector3 candidate = playerTile + dir;
-            if (pathfinder && !pathfinder.IsBlocked(candidate))
+            Vector3 cand = playerTile + d;
+            if (pathfinder && !pathfinder.IsBlocked(cand))
             {
-                float d = DistanceTiles(transform.position, candidate);
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    bestTile = candidate;
-                }
+                float dist = DistanceTiles(transform.position, cand);
+                if (dist < bestDist) { bestDist = dist; best = cand; }
             }
         }
-
-        return bestTile;
+        return best;
     }
-
 
     void DoWander()
     {
@@ -244,7 +245,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     {
         isAttacking = false;
         nextMeleeReady = Mathf.Max(nextMeleeReady, Time.time + 0.25f);
-        // TODO: stop attack animation trigger if you add one
+        // stop attack anim trigger here if you add one
     }
 
     public void OnKnockbackEnd()
@@ -268,9 +269,6 @@ public class NPCAI : MonoBehaviour, IStunnable
     }
 
     // ---------- Stun (IStunnable) ----------
-    /// <summary>
-    /// Freeze this NPC for 'seconds'. Cancels movement and attacks, plays a stun animation trigger if assigned.
-    /// </summary>
     public void ApplyStun(float seconds)
     {
         float dur = Mathf.Max(0f, seconds);
@@ -279,17 +277,11 @@ public class NPCAI : MonoBehaviour, IStunnable
         isStunned = true;
         stunUntil = Mathf.Max(stunUntil, Time.time + dur);
 
-        // STOP movement *immediately* (don’t let it finish the current step)
         if (mover) mover.HardStop();
-
-        // stop wander coroutine if running
         StopAllCoroutines();
         wanderRunning = false;
-
-        // cancel attack with tiny recovery
         CancelAttack();
 
-        // Play stun animation trigger (placeholder)
         if (animator && !string.IsNullOrEmpty(stunTriggerName))
             animator.SetTrigger(stunTriggerName);
     }
@@ -320,30 +312,37 @@ public class NPCAI : MonoBehaviour, IStunnable
         }
         return center;
     }
+
+    public NPCAI.Hostility GetHostilityTowards(NPCAI other)
+    {
+        return FactionRelations.GetRelation(this.faction, other.faction);
+    }
+
+    public NPCAI.Hostility GetHostilityTowardsPlayer(PlayerStats.AbilitySchool playerSchool)
+    {
+        // Convert player school to an NPCFaction for relation lookup
+        NPCFaction pseudoFaction = playerSchool == PlayerStats.AbilitySchool.Jock
+            ? NPCFaction.Jock
+            : NPCFaction.Nerd;
+        return FactionRelations.GetRelation(this.faction, pseudoFaction);
+    }
 }
 
+// ---- existing registry stays as-is (unchanged) ----
 public static class NPCTileRegistry
 {
     private static readonly HashSet<Vector2Int> occupied = new();
     private static readonly HashSet<Vector2Int> reserved = new();
 
-    /// <summary> A tile is blocked if it is currently occupied or reserved. </summary>
     public static bool IsBlocked(Vector2Int tile) => occupied.Contains(tile) || reserved.Contains(tile);
-
-    /// <summary> Backwards-compat: returns only whether a tile is occupied. </summary>
     public static bool IsOccupied(Vector2Int tile) => occupied.Contains(tile);
 
-    // Occupied
     public static void Register(Vector2Int tile) => occupied.Add(tile);
     public static void Unregister(Vector2Int tile) => occupied.Remove(tile);
 
-    // Reserved
     public static void Reserve(Vector2Int tile) => reserved.Add(tile);
     public static void Unreserve(Vector2Int tile) => reserved.Remove(tile);
 
-    /// <summary>
-    /// Finalize a move: free 'from', occupy 'to', and clear any reservation on 'to'.
-    /// </summary>
     public static void CommitReservation(Vector2Int from, Vector2Int to)
     {
         reserved.Remove(to);

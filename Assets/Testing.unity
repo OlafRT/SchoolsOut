@@ -267,6 +267,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed0a2afc419cdf44a8d95c22f0475819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  faction: 1
+  npcDisplayName: Placeholder_Nerd
   hostility: 1
   tileSize: 1
   home: {fileID: 0}
@@ -4166,6 +4168,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed0a2afc419cdf44a8d95c22f0475819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  faction: 1
+  npcDisplayName: Placeholder_Nerd
   hostility: 1
   tileSize: 1
   home: {fileID: 0}
@@ -5801,6 +5805,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed0a2afc419cdf44a8d95c22f0475819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  faction: 1
+  npcDisplayName: Placeholder_Nerd
   hostility: 1
   tileSize: 1
   home: {fileID: 0}
@@ -6198,6 +6204,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed0a2afc419cdf44a8d95c22f0475819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  faction: 1
+  npcDisplayName: Placeholder_Nerd
   hostility: 1
   tileSize: 1
   home: {fileID: 0}
