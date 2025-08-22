@@ -27,12 +27,15 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     public void ApplyDamage(int amount)
     {
         if (amount <= 0) return;
-        if (invulnerableIfFriendly && ai && ai.hostility == NPCAI.Hostility.Friendly) return;
+
+        // If we are flagged invulnerable while friendly, ignore damage
+        if (invulnerableIfFriendly && ai && ai.CurrentHostility == NPCAI.Hostility.Friendly)
+            return;
 
         currentHP = Mathf.Max(0, currentHP - amount);
 
-        // If neutral, being hit turns hostile to the attacker’s faction (simple version)
-        if (ai && ai.hostility == NPCAI.Hostility.Neutral)
+        // If we were neutral, being hit should aggro (manual override)
+        if (ai && ai.CurrentHostility == NPCAI.Hostility.Neutral)
             ai.BecomeHostile();
 
         if (currentHP == 0)
