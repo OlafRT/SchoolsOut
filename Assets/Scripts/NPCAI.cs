@@ -20,8 +20,8 @@ public class NPCAI : MonoBehaviour, IStunnable
     public bool autoRelations = true;
     [Tooltip("Tile radius to scan for faction-based relations each frame.")]
     public int detectRadiusTiles = 8;
-    [Tooltip("Layer of NPCs for scanning allies/enemies.")]
-    public LayerMask npcLayer = ~0;
+    [Tooltip("Layer of NPCs for scanning allies/enemies (set to your NPC layer, e.g., 'Target').")]
+    public LayerMask npcSenseLayer = ~0;
     [Tooltip("Also consider the player for relations.")]
     public bool includePlayer = true;
 
@@ -67,7 +67,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     bool hasManualHostility = false;
     float manualHostilityUntil = 0f;
 
-    Transform attackTarget; // who we are hostile toward; can be player or another NPC
+    Transform attackTarget; // can be player or another NPC
 
     float nextMeleeReady;
     Vector3 homeTile;
@@ -111,12 +111,12 @@ public class NPCAI : MonoBehaviour, IStunnable
             if (Time.time >= stunUntil)
             {
                 isStunned = false;
-                DecideNextAction();
+                // fall through
             }
-            return;
+            else return;
         }
 
-        // Update manual leash
+        // Update manual leash expiry
         if (hasManualHostility && manualHostilityUntil != float.PositiveInfinity && Time.time >= manualHostilityUntil)
         {
             hasManualHostility = false; // leash expired
@@ -180,7 +180,7 @@ public class NPCAI : MonoBehaviour, IStunnable
         }
 
         // 2) Consider other NPCs
-        var cols = Physics.OverlapSphere(transform.position, radius, npcLayer, QueryTriggerInteraction.Ignore);
+        var cols = Physics.OverlapSphere(transform.position, radius, npcSenseLayer, QueryTriggerInteraction.Ignore);
         float bestDist = float.MaxValue;
 
         foreach (var c in cols)
@@ -193,7 +193,7 @@ public class NPCAI : MonoBehaviour, IStunnable
 
             var rel = FactionRelations.GetRelation(this.faction, other.faction);
 
-            // If we are friendly to the player, and we see an NPC whose faction is hostile to the player, assist player by attacking that NPC.
+            // If we are friendly to the player and we see a hostile-to-player NPC, assist player → target that NPC.
             if (includePlayer && player)
             {
                 var ps = player.GetComponent<PlayerStats>();
@@ -222,11 +222,11 @@ public class NPCAI : MonoBehaviour, IStunnable
             }
         }
 
-        // Assist player if applicable
+        // Make assist STICK: enter manual hostile leash targeting that hostile NPC
         if (bestAssistTarget)
         {
+            BecomeHostile(aggroLeashSeconds, bestAssistTarget);
             runtimeHostility = Hostility.Hostile;
-            attackTarget = bestAssistTarget;
             return;
         }
 
@@ -239,7 +239,7 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (runtimeHostility == Hostility.Hostile && !attackTarget && player) attackTarget = player.transform;
     }
 
-    // Public property for other scripts (e.g., health)
+    // Public property for other scripts
     public Hostility CurrentHostility
     {
         get
@@ -270,7 +270,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     public void AlertAlliesOnAggro(int radiusTiles, Transform focus)
     {
         float r = Mathf.Max(1, radiusTiles) * Mathf.Max(0.01f, tileSize);
-        var cols = Physics.OverlapSphere(transform.position, r, npcLayer, QueryTriggerInteraction.Ignore);
+        var cols = Physics.OverlapSphere(transform.position, r, npcSenseLayer, QueryTriggerInteraction.Ignore);
         foreach (var c in cols)
         {
             if (!c || c.gameObject == this.gameObject) continue;
@@ -295,6 +295,14 @@ public class NPCAI : MonoBehaviour, IStunnable
 
         Vector3 tgtTile = Snap(tgt.position);
 
+        // Use a bigger chase range for NPC targets (assist cases)
+        int pursuitRange = (tgt != null && tgt != (player ? player.transform : null))
+            ? Mathf.Max(aggroRangeTiles, detectRadiusTiles)
+            : aggroRangeTiles;
+
+        bool withinRange = WithinTiles(transform.position, tgt.position, pursuitRange);
+        bool canSee      = HasLineOfSight(tgt.position);
+
         if (DistanceTiles(transform.position, tgtTile) <= 1.01f)
         {
             if (!isAttacking && Time.time >= nextMeleeReady)
@@ -308,7 +316,8 @@ public class NPCAI : MonoBehaviour, IStunnable
         }
         else
         {
-            if (WithinTiles(transform.position, tgt.position, aggroRangeTiles) && HasLineOfSight(tgt.position))
+            // Chase if within pursuit range; if LOS is blocked, still path toward last known tile
+            if (withinRange)
             {
                 Vector3 targetTile = FindClosestAdjacentTile(tgtTile);
                 if (targetTile != Vector3.positiveInfinity) TryPathTo(targetTile);
@@ -490,7 +499,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     }
 }
 
-// ---- Tile registry (same as before) ----
+// ---- Tile registry ----
 public static class NPCTileRegistry
 {
     private static readonly HashSet<Vector2Int> occupied = new();

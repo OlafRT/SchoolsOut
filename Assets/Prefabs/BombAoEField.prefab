@@ -343,7 +343,7 @@ MonoBehaviour:
     m_Bits: 128
   sampleRayHeight: 10
   slowStatusTag: Slow
-  slowStatusIcon: {fileID: 0}
+  slowStatusIcon: {fileID: 21300000, guid: 808e5257d93c0704fbe71ce7e0a4e7b3, type: 3}
 --- !u!1 &7710387680424352540
 GameObject:
   m_ObjectHideFlags: 0

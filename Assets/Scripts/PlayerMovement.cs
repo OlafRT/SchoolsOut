@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -32,6 +33,29 @@ public class PlayerMovement : MonoBehaviour
 
     // Cache last facing (useful if cursor is on top of player)
     private Vector3 lastFacing = Vector3.forward;
+
+    // ---------- NEW: Aura slow ----------
+    // Multipliers from different sources (e.g., stink field). Use the MIN (strongest slow).
+    private readonly Dictionary<object, float> auraMultipliers = new Dictionary<object, float>(); // value in [0..1]
+    private float EffectiveSpeedMultiplier
+    {
+        get
+        {
+            float mult = 1f;
+            foreach (var kv in auraMultipliers)
+                mult = Mathf.Min(mult, Mathf.Clamp01(kv.Value));
+            return mult;
+        }
+    }
+    public void SetAuraMultiplier(object source, float multiplier01)
+    {
+        auraMultipliers[source] = Mathf.Clamp01(multiplier01);
+    }
+    public void ClearAura(object source)
+    {
+        if (auraMultipliers.ContainsKey(source)) auraMultipliers.Remove(source);
+    }
+    // -----------------------------------
 
     void Start()
     {
@@ -72,9 +96,11 @@ public class PlayerMovement : MonoBehaviour
             lastFacing = snappedMoveDir;
         }
 
+        // Apply sprint and aura slow
         float currentSpeed = moveSpeed;
         if (hasRunningShoes && Input.GetKey(KeyCode.LeftShift))
             currentSpeed *= sprintMultiplier;
+        currentSpeed *= EffectiveSpeedMultiplier; // ← slow applied here
 
         if (direction != Vector3.zero)
         {
@@ -86,7 +112,7 @@ public class PlayerMovement : MonoBehaviour
         }
 
         animator.SetFloat("Speed",
-            direction.magnitude * (hasRunningShoes && Input.GetKey(KeyCode.LeftShift) ? sprintMultiplier : 1));
+            direction.magnitude * (hasRunningShoes && Input.GetKey(KeyCode.LeftShift) ? sprintMultiplier : 1) * EffectiveSpeedMultiplier);
     }
 
     private IEnumerator MoveToPosition(Vector3 direction, float speed)
@@ -133,14 +159,11 @@ public class PlayerMovement : MonoBehaviour
 
     // ----------------- NEW HELPERS -----------------
 
-    // Get 8-way aim direction from mouse position (world), snapped to NESW + diagonals.
     private Vector3 GetMouseAimDir8()
     {
         if (!cameraForAim) return lastFacing;
 
         Ray ray = cameraForAim.ScreenPointToRay(Input.mousePosition);
-
-        // Ray-plane intersect at player's Y height
         Plane plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         if (!plane.Raycast(ray, out float dist)) return lastFacing;
 
@@ -153,28 +176,23 @@ public class PlayerMovement : MonoBehaviour
         return SnapDirTo8(v);
     }
 
-    // Snap any vector on XZ to the nearest of 8 directions.
     private static Vector3 SnapDirTo8(Vector3 v)
     {
         if (v.sqrMagnitude < 0.0001f) return Vector3.zero;
-
-        // Convert to angle; x = east, z = north
-        float ang = Mathf.Atan2(v.z, v.x) * Mathf.Rad2Deg; // -180..180, 0 = +X (east)
+        float ang = Mathf.Atan2(v.z, v.x) * Mathf.Rad2Deg;
         if (ang < 0f) ang += 360f;
-
-        // Snap to nearest 45°
         int step = Mathf.RoundToInt(ang / 45f) % 8;
 
         switch (step)
         {
-            case 0:  return new Vector3( 1,0, 0); // E
-            case 1:  return new Vector3( 1,0, 1).normalized; // NE
-            case 2:  return new Vector3( 0,0, 1); // N
-            case 3:  return new Vector3(-1,0, 1).normalized; // NW
-            case 4:  return new Vector3(-1,0, 0); // W
-            case 5:  return new Vector3(-1,0,-1).normalized; // SW
-            case 6:  return new Vector3( 0,0,-1); // S
-            default: return new Vector3( 1,0,-1).normalized; // SE
+            case 0:  return new Vector3( 1,0, 0);
+            case 1:  return new Vector3( 1,0, 1).normalized;
+            case 2:  return new Vector3( 0,0, 1);
+            case 3:  return new Vector3(-1,0, 1).normalized;
+            case 4:  return new Vector3(-1,0, 0);
+            case 5:  return new Vector3(-1,0,-1).normalized;
+            case 6:  return new Vector3( 0,0,-1);
+            default: return new Vector3( 1,0,-1).normalized;
         }
     }
 }
