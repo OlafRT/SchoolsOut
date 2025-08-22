@@ -12,18 +12,24 @@ public class NPCAI : MonoBehaviour, IStunnable
     public string npcDisplayName = "Student";
 
     [Header("Basics")]
-    public Hostility startingHostility = Hostility.Neutral; // inspector default
+    public Hostility startingHostility = Hostility.Neutral; // default when calm
     public float tileSize = 1f;
 
-    [Header("Auto Hostility (Faction relationships)")]
-    [Tooltip("If true, hostility will switch at runtime based on faction relations when enemies are visible.")]
+    [Header("Auto Relations / Detection")]
+    [Tooltip("If true, hostility can switch based on faction relations when enemies are visible.")]
     public bool autoRelations = true;
-    [Tooltip("How many tiles away we can see enemies and react (before LOS check).")]
+    [Tooltip("Tile radius to scan for faction-based relations each frame.")]
     public int detectRadiusTiles = 8;
-    [Tooltip("Layer containing other NPCs for detection.")]
-    public LayerMask npcLayer = ~0; // set to your NPC layer
-    [Tooltip("Also consider the player as a potential target using their class (Jock/Nerd).")]
+    [Tooltip("Layer of NPCs for scanning allies/enemies.")]
+    public LayerMask npcLayer = ~0;
+    [Tooltip("Also consider the player for relations.")]
     public bool includePlayer = true;
+
+    [Header("Assist / Aggro Propagation")]
+    [Tooltip("Same-faction allies within this many tiles will aggro when one is hit by the player.")]
+    public int allyAssistRadiusTiles = 8;
+    [Tooltip("How long (seconds) manual hostility persists before re-evaluating auto relations.")]
+    public float aggroLeashSeconds = 6f;
 
     [Header("Territory")]
     public Transform home;
@@ -51,15 +57,18 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Tooltip("Animator trigger to play when stunned.")]
     public string stunTriggerName = "Stun";
 
-    // ---- convenience for abilities/UI
+    // ---- convenience
     public NPCFaction Faction => faction;
-    public bool IsFaction(NPCFaction f) => faction == f;
     public PlayerStats.AbilitySchool? FactionSchool => faction.ToAbilitySchool();
 
     // ---- state
-    Hostility runtimeHostility;       // what we actually use for behavior each frame
-    Hostility manualHostility;        // sticky hostility set by script (e.g., BecomeHostile on hit)
-    bool hasManualHostility = false;  // if true, overrides autoRelations
+    Hostility runtimeHostility;
+    Hostility manualHostility;
+    bool hasManualHostility = false;
+    float manualHostilityUntil = 0f;
+
+    Transform attackTarget; // who we are hostile toward; can be player or another NPC
+
     float nextMeleeReady;
     Vector3 homeTile;
     NPCHealth hp;
@@ -84,14 +93,14 @@ public class NPCAI : MonoBehaviour, IStunnable
         homeTile = Snap((home ? home.position : transform.position));
         transform.position = homeTile;
 
-        // Initial tile register
+        // Register starting tile
         Vector2Int myTile = new Vector2Int(
             Mathf.RoundToInt(homeTile.x / tileSize),
             Mathf.RoundToInt(homeTile.z / tileSize));
         NPCTileRegistry.Register(myTile);
 
-        // seed runtime hostility
         runtimeHostility = startingHostility;
+        if (!attackTarget && player) attackTarget = player.transform;
     }
 
     void Update()
@@ -107,8 +116,14 @@ public class NPCAI : MonoBehaviour, IStunnable
             return;
         }
 
-        // Determine hostility for this frame
-        UpdateRuntimeHostility();
+        // Update manual leash
+        if (hasManualHostility && manualHostilityUntil != float.PositiveInfinity && Time.time >= manualHostilityUntil)
+        {
+            hasManualHostility = false; // leash expired
+        }
+
+        // Determine hostility/target for this frame
+        UpdateRuntimeHostilityAndTarget();
 
         switch (runtimeHostility)
         {
@@ -127,10 +142,10 @@ public class NPCAI : MonoBehaviour, IStunnable
     }
 
     // ======================
-    //  Auto-hostility logic
+    //  Hostility + Target
     // ======================
 
-    void UpdateRuntimeHostility()
+    void UpdateRuntimeHostilityAndTarget()
     {
         if (hasManualHostility)
         {
@@ -144,33 +159,30 @@ public class NPCAI : MonoBehaviour, IStunnable
             return;
         }
 
-        // Scan for enemies within detect radius (tiles -> meters)
-        float radius = Mathf.Max(1, detectRadiusTiles) * Mathf.Max(0.01f, tileSize);
-        Hostility result = startingHostility;
+        runtimeHostility = startingHostility;
+        Transform bestAssistTarget = null;
 
+        float radius = Mathf.Max(1, detectRadiusTiles) * Mathf.Max(0.01f, tileSize);
         bool sawHostile = false;
         bool sawFriendly = false;
 
-        // 1) Consider the Player
-        if (includePlayer && player)
+        // 1) Consider player
+        if (includePlayer && player && WithinTiles(transform.position, player.transform.position, detectRadiusTiles) && HasLineOfSight(player.transform.position))
         {
-            if (WithinTiles(transform.position, player.transform.position, detectRadiusTiles)
-                && HasLineOfSight(player.transform.position))
+            var ps = player.GetComponent<PlayerStats>();
+            if (ps)
             {
-                var ps = player.GetComponent<PlayerStats>();
-                if (ps)
-                {
-                    // Convert player school to pseudo-faction for relation
-                    NPCFaction pf = ps.playerClass == PlayerStats.PlayerClass.Jock ? NPCFaction.Jock : NPCFaction.Nerd;
-                    var rel = FactionRelations.GetRelation(this.faction, pf);
-                    if (rel == Hostility.Hostile) sawHostile = true;
-                    else if (rel == Hostility.Friendly) sawFriendly = true;
-                }
+                NPCFaction pf = ps.playerClass == PlayerStats.PlayerClass.Jock ? NPCFaction.Jock : NPCFaction.Nerd;
+                var rel = FactionRelations.GetRelation(this.faction, pf);
+                if (rel == Hostility.Hostile) { sawHostile = true; attackTarget = player.transform; }
+                else if (rel == Hostility.Friendly) sawFriendly = true;
             }
         }
 
         // 2) Consider other NPCs
         var cols = Physics.OverlapSphere(transform.position, radius, npcLayer, QueryTriggerInteraction.Ignore);
+        float bestDist = float.MaxValue;
+
         foreach (var c in cols)
         {
             if (!c || c.gameObject == this.gameObject) continue;
@@ -180,34 +192,94 @@ public class NPCAI : MonoBehaviour, IStunnable
             if (!HasLineOfSight(other.transform.position)) continue;
 
             var rel = FactionRelations.GetRelation(this.faction, other.faction);
-            if (rel == Hostility.Hostile) sawHostile = true;
-            else if (rel == Hostility.Friendly) sawFriendly = true;
 
-            // Early out if we’ve seen a hostile already
-            if (sawHostile) break;
+            // If we are friendly to the player, and we see an NPC whose faction is hostile to the player, assist player by attacking that NPC.
+            if (includePlayer && player)
+            {
+                var ps = player.GetComponent<PlayerStats>();
+                if (ps)
+                {
+                    NPCFaction pf = ps.playerClass == PlayerStats.PlayerClass.Jock ? NPCFaction.Jock : NPCFaction.Nerd;
+                    var otherVsPlayer = FactionRelations.GetRelation(other.faction, pf);
+                    bool weAreFriendlyToPlayer = (FactionRelations.GetRelation(this.faction, pf) == Hostility.Friendly);
+
+                    if (weAreFriendlyToPlayer && otherVsPlayer == Hostility.Hostile)
+                    {
+                        float d = (other.transform.position - transform.position).sqrMagnitude;
+                        if (d < bestDist) { bestDist = d; bestAssistTarget = other.transform; }
+                    }
+                }
+            }
+
+            if (rel == Hostility.Hostile)
+            {
+                sawHostile = true;
+                if (!attackTarget) attackTarget = other.transform;
+            }
+            else if (rel == Hostility.Friendly)
+            {
+                sawFriendly = true;
+            }
+        }
+
+        // Assist player if applicable
+        if (bestAssistTarget)
+        {
+            runtimeHostility = Hostility.Hostile;
+            attackTarget = bestAssistTarget;
+            return;
         }
 
         // Priority: Hostile > Friendly > Neutral
-        if (sawHostile) result = Hostility.Hostile;
-        else if (sawFriendly) result = Hostility.Friendly;
-        else result = Hostility.Neutral;
+        if (sawHostile) runtimeHostility = Hostility.Hostile;
+        else if (sawFriendly) runtimeHostility = Hostility.Friendly;
+        else runtimeHostility = Hostility.Neutral;
 
-        runtimeHostility = result;
+        // Default target to player if hostile and nothing else picked
+        if (runtimeHostility == Hostility.Hostile && !attackTarget && player) attackTarget = player.transform;
     }
 
-    bool WithinTiles(Vector3 a, Vector3 b, int tiles)
+    // Public property for other scripts (e.g., health)
+    public Hostility CurrentHostility
     {
-        float dx = Mathf.Abs(a.x - b.x);
-        float dz = Mathf.Abs(a.z - b.z);
-        float cheb = Mathf.Max(dx, dz) / Mathf.Max(0.01f, tileSize);
-        return cheb <= tiles + 0.001f;
+        get
+        {
+            if (hasManualHostility) return manualHostility;
+            return runtimeHostility;
+        }
     }
 
-    bool HasLineOfSight(Vector3 worldTarget)
+    // Manual hostility override (with leash)
+    public void BecomeHostile(float seconds = -1f, Transform target = null)
     {
-        Vector3 a = transform.position + Vector3.up * losHeight;
-        Vector3 b = worldTarget + Vector3.up * losHeight;
-        return !Physics.Linecast(a, b, lineOfSightBlockers, QueryTriggerInteraction.Ignore);
+        hasManualHostility = true;
+        manualHostility = Hostility.Hostile;
+        manualHostilityUntil = (seconds > 0f) ? Time.time + seconds : float.PositiveInfinity;
+        if (target) attackTarget = target;
+    }
+
+    // Called by NPCHealth when damaged by the PLAYER
+    public void OnDamagedByPlayer()
+    {
+        if (!player) player = GameObject.FindGameObjectWithTag("Player");
+        BecomeHostile(aggroLeashSeconds, player ? player.transform : null);
+        AlertAlliesOnAggro(allyAssistRadiusTiles, player ? player.transform : null);
+    }
+
+    // Alert same-faction allies to aggro the given target (usually player)
+    public void AlertAlliesOnAggro(int radiusTiles, Transform focus)
+    {
+        float r = Mathf.Max(1, radiusTiles) * Mathf.Max(0.01f, tileSize);
+        var cols = Physics.OverlapSphere(transform.position, r, npcLayer, QueryTriggerInteraction.Ignore);
+        foreach (var c in cols)
+        {
+            if (!c || c.gameObject == this.gameObject) continue;
+            if (!c.TryGetComponent<NPCAI>(out var ally)) continue;
+            if (ally.faction != this.faction) continue;
+            if (!ally.HasLineOfSight(this.transform.position)) continue;
+
+            ally.BecomeHostile(ally.aggroLeashSeconds, focus);
+        }
     }
 
     // ======================
@@ -218,29 +290,33 @@ public class NPCAI : MonoBehaviour, IStunnable
 
     void DoHostile()
     {
-        if (!player) { DoWander(); return; }
+        Transform tgt = attackTarget ? attackTarget : (player ? player.transform : null);
+        if (!tgt) { DoWander(); return; }
 
-        Vector3 pTile = Snap(player.transform.position);
+        Vector3 tgtTile = Snap(tgt.position);
 
-        if (DistanceTiles(transform.position, pTile) <= 1.01f)
+        if (DistanceTiles(transform.position, tgtTile) <= 1.01f)
         {
             if (!isAttacking && Time.time >= nextMeleeReady)
             {
                 isAttacking = true;
                 nextMeleeReady = Time.time + meleeCooldown;
-                TryHitPlayer();
+                TryHit(tgt);
                 isAttacking = false;
             }
             mover.ClearPath();
         }
-        else if (CanSeePlayer())
-        {
-            Vector3 targetTile = FindClosestAdjacentTile(pTile);
-            if (targetTile != Vector3.positiveInfinity) TryPathTo(targetTile);
-        }
         else
         {
-            if (!mover.IsMoving) ReturnHomeOrWander();
+            if (WithinTiles(transform.position, tgt.position, aggroRangeTiles) && HasLineOfSight(tgt.position))
+            {
+                Vector3 targetTile = FindClosestAdjacentTile(tgtTile);
+                if (targetTile != Vector3.positiveInfinity) TryPathTo(targetTile);
+            }
+            else
+            {
+                if (!mover.IsMoving) ReturnHomeOrWander();
+            }
         }
     }
 
@@ -271,16 +347,16 @@ public class NPCAI : MonoBehaviour, IStunnable
     }
 
     // ======================
-    //  Combat helpers
+    //  Combat
     // ======================
 
-    void TryHitPlayer()
+    void TryHit(Transform tgt)
     {
-        if (!player) return;
-        Vector3 pt = Snap(player.transform.position);
-        if (DistanceTiles(transform.position, pt) <= 1.01f)
+        if (!tgt) return;
+        Vector3 tt = Snap(tgt.position);
+        if (DistanceTiles(transform.position, tt) <= 1.01f)
         {
-            if (player.TryGetComponent<IDamageable>(out var dmg))
+            if (tgt.TryGetComponent<IDamageable>(out var dmg))
                 dmg.ApplyDamage(meleeDamage);
         }
     }
@@ -296,11 +372,11 @@ public class NPCAI : MonoBehaviour, IStunnable
             mover.SetPath(path);
     }
 
-    bool CanSeePlayer()
+    bool HasLineOfSight(Vector3 worldTarget)
     {
-        if (!player) return false;
-        if (!WithinTiles(transform.position, player.transform.position, aggroRangeTiles)) return false;
-        return HasLineOfSight(player.transform.position) && runtimeHostility == Hostility.Hostile;
+        Vector3 a = transform.position + Vector3.up * losHeight;
+        Vector3 b = worldTarget + Vector3.up * losHeight;
+        return !Physics.Linecast(a, b, lineOfSightBlockers, QueryTriggerInteraction.Ignore);
     }
 
     Vector3 FindClosestAdjacentTile(Vector3 centerTile)
@@ -336,25 +412,6 @@ public class NPCAI : MonoBehaviour, IStunnable
     //  Public controls
     // ======================
 
-    public void BecomeHostile()
-    {
-        hasManualHostility = true;
-        manualHostility = Hostility.Hostile;
-        DecideNextAction();
-    }
-
-    public void BecomeNeutral()
-    {
-        hasManualHostility = true;
-        manualHostility = Hostility.Neutral;
-        DecideNextAction();
-    }
-
-    public void ClearManualHostility()
-    {
-        hasManualHostility = false;
-    }
-
     public void HardStop()
     {
         if (mover) mover.ClearPath();
@@ -368,25 +425,10 @@ public class NPCAI : MonoBehaviour, IStunnable
 
     public void OnKnockbackEnd()
     {
-        DecideNextAction();
+        // will re-evaluate next Update
     }
 
-    public void DecideNextAction()
-    {
-        // Called after state changes (e.g., stun end, manual hostility changes)
-        // Behavior branch in Update() uses runtimeHostility, which we recompute each frame.
-    }
-
-    // Expose current hostility used for behavior this frame.
-    // If manual override is set (e.g., BecomeHostile on hit), it takes precedence.
-    public Hostility CurrentHostility
-    {
-        get
-        {
-            if (hasManualHostility) return manualHostility;
-            return runtimeHostility;
-        }
-    }
+    public void DecideNextAction() { /* behavior re-evaluated each Update */ }
 
     // ======================
     //  Stun (IStunnable)
@@ -427,6 +469,14 @@ public class NPCAI : MonoBehaviour, IStunnable
         return Mathf.Max(Mathf.Abs(a.x - b.x), Mathf.Abs(a.z - b.z)) / Mathf.Max(0.0001f, tileSize);
     }
 
+    bool WithinTiles(Vector3 a, Vector3 b, int tiles)
+    {
+        float dx = Mathf.Abs(a.x - b.x);
+        float dz = Mathf.Abs(a.z - b.z);
+        float cheb = Mathf.Max(dx, dz) / Mathf.Max(0.01f, tileSize);
+        return cheb <= tiles + 0.001f;
+    }
+
     Vector3 RandomReachableTileAround(Vector3 center, int radius, int attempts)
     {
         for (int i = 0; i < attempts; i++)
@@ -440,7 +490,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     }
 }
 
-// ---- Tile registry (unchanged from your version) ----
+// ---- Tile registry (same as before) ----
 public static class NPCTileRegistry
 {
     private static readonly HashSet<Vector2Int> occupied = new();

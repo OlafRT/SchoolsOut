@@ -37,36 +37,37 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     {
         if (amount <= 0) return;
 
-        // --- Correct friendliness gate: check relation TOWARD PLAYER, not CurrentHostility ---
-        if (invulnerableIfFriendly && ai && cachedPlayerStats)
-        {
-            NPCFaction playerFaction = (cachedPlayerStats.playerClass == PlayerStats.PlayerClass.Jock)
-                ? NPCFaction.Jock
-                : NPCFaction.Nerd;
+        // Ignore damage ONLY if friendly to the PLAYER (per relations)
+        if (invulnerableIfFriendly && ai && PlayerIsFriendlyToThisNPC())
+            return;
 
-            var relationToPlayer = FactionRelations.GetRelation(ai.faction, playerFaction);
-
-            // Only ignore damage if this NPC is explicitly Friendly to the PLAYER.
-            if (relationToPlayer == NPCAI.Hostility.Friendly)
-                return;
-        }
-
-        // Apply damage
         currentHP = Mathf.Max(0, currentHP - amount);
 
-        // If Neutral toward player before the hit, force a manual hostile override so they fight back.
-        if (ai && ai.CurrentHostility == NPCAI.Hostility.Neutral)
-            ai.BecomeHostile();
+        // Aggro this NPC + alert same-faction allies to attack the PLAYER
+        if (ai)
+        {
+            ai.OnDamagedByPlayer(); // sets manual hostile + leash targeting player and alerts allies
+        }
 
         if (currentHP == 0)
         {
             AwardXP();
-            // Simple death: disable AI & collider
             if (ai) ai.enabled = false;
             var col = GetComponent<Collider>(); if (col) col.enabled = false;
-            // Optional: VFX/animation here
             Destroy(gameObject, 2f);
         }
+    }
+
+    bool PlayerIsFriendlyToThisNPC()
+    {
+        var player = GameObject.FindWithTag("Player");
+        if (!player || !ai) return false;
+        var stats = player.GetComponent<PlayerStats>();
+        if (!stats) return false;
+
+        NPCFaction pf = (stats.playerClass == PlayerStats.PlayerClass.Jock) ? NPCFaction.Jock : NPCFaction.Nerd;
+        var relation = FactionRelations.GetRelation(ai.faction, pf);
+        return (relation == NPCAI.Hostility.Friendly);
     }
 
     void AwardXP()
