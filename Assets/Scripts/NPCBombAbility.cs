@@ -40,6 +40,17 @@ public class NPCBombAbility : MonoBehaviour
     public float markerYOffset = 0.02f;
     public Color windupColor = new Color(1f, 0.2f, 0.1f, 0.85f);
 
+    // --- New: smarter leading controls ---
+    [Header("Leading (Prediction)")]
+    [Tooltip("Max tiles to lead ahead of the player.")]
+    public int leadMaxTiles = 2;
+    [Tooltip("Blend 0..1 between current tile (0) and predicted tile (1).")]
+    [Range(0f, 1f)] public float leadBlend = 0.5f;
+    [Tooltip("Ignore leading if player avg speed < this (tiles/sec).")]
+    public float minLeadSpeedTilesPerSec = 0.3f;
+    [Tooltip("How many seconds of movement history to smooth over.")]
+    public float historyWindowSeconds = 0.6f;
+
     // Refs
     NPCAI ai;
     NPCMovement mover;
@@ -48,10 +59,9 @@ public class NPCBombAbility : MonoBehaviour
     float nextReadyTime = 0f;
     readonly List<GameObject> windupMarkers = new();
 
-    // ---- Leading cache ----
-    Vector3 lastSnap;
-    Vector3 prevSnap;
-    float lastSnapTime;
+    // ---- Leading history ----
+    struct Sample { public Vector3 snapPos; public float time; }
+    readonly Queue<Sample> samples = new Queue<Sample>(8);
 
     void Awake()
     {
@@ -63,22 +73,23 @@ public class NPCBombAbility : MonoBehaviour
             if (p) player = p.transform;
         }
         if (mover) tileSize = mover.tileSize;
-        prevSnap = lastSnap = Snap(transform.position); // init
-        lastSnapTime = Time.time;
+        // seed a sample so we start sane
+        var s = new Sample { snapPos = Snap(transform.position), time = Time.time };
+        samples.Enqueue(s);
     }
 
     void Update()
     {
-        // Update player snap history for velocity
+        // Update player movement history (snapped)
         if (player)
         {
-            Vector3 snapNow = Snap(player.position);
-            if ((snapNow - lastSnap).sqrMagnitude > 0.0001f)
-            {
-                prevSnap = lastSnap;
-                lastSnap = snapNow;
-                lastSnapTime = Time.time;
-            }
+            var now = new Sample { snapPos = Snap(player.position), time = Time.time };
+            if (samples.Count == 0 || (now.snapPos - samples.Peek().snapPos).sqrMagnitude > 0.0001f)
+                samples.Enqueue(now);
+
+            // Trim old samples beyond window
+            while (samples.Count > 0 && (Time.time - samples.Peek().time) > Mathf.Max(0.1f, historyWindowSeconds))
+                samples.Dequeue();
         }
 
         if (!CanConsiderCasting()) return;
@@ -89,7 +100,6 @@ public class NPCBombAbility : MonoBehaviour
             Vector3 pt = player.position;
             if (!WithinTiles(self, pt, maxRangeTiles)) return;
 
-            // Predict landing tile
             Vector3 targetCenter = PredictTargetCenter();
             StartCoroutine(CastRoutine(targetCenter));
             nextReadyTime = Time.time + cooldownSeconds;
@@ -103,26 +113,62 @@ public class NPCBombAbility : MonoBehaviour
         return true;
     }
 
+    // --------- NEW: robust, tile-aware prediction ----------
     Vector3 PredictTargetCenter()
     {
         if (!player) return Snap(transform.position);
 
-        // Estimate player velocity from last two snapped positions
+        // Current snapped positions
+        Vector3 npcSnap = Snap(transform.position);
         Vector3 pNow = Snap(player.position);
-        Vector3 pPrev = prevSnap;
-        float dt = Mathf.Max(0.0001f, Time.time - lastSnapTime);
-        Vector3 vel = (pNow - pPrev) / dt; // world units/sec
 
-        // Estimate bomb travel time = windup + flight time
-        float dist = Vector3.Distance(Snap(transform.position), pNow);
-        float tiles = Mathf.Max(1f, dist / Mathf.Max(0.0001f, tileSize));
-        float flight = tiles * bombThrowTimePerTile;
-        float leadTime = Mathf.Max(0f, windupSeconds + flight * 0.8f); // slight bias
+        // Compute smoothed velocity in tiles/sec from oldest to newest sample
+        if (samples.Count < 2) return pNow;
 
-        Vector3 predicted = pNow + vel * leadTime;
-        Vector3 clamped = ClampWithinRange(Snap(transform.position), predicted, maxRangeTiles * tileSize);
+        Sample oldest = default;
+        Sample newest = default;
+        foreach (var s in samples) { oldest = oldest.time == 0f ? s : oldest; newest = s; }
+
+        float dt = Mathf.Max(0.0001f, newest.time - oldest.time);
+        Vector3 deltaWorld = newest.snapPos - oldest.snapPos;
+        // world units/sec
+        Vector3 vWorld = deltaWorld / dt;
+        // tiles/sec (in world)
+        float tilesPerSec = vWorld.magnitude / Mathf.Max(0.0001f, tileSize);
+
+        // If barely moving, don't lead at all
+        if (tilesPerSec < minLeadSpeedTilesPerSec)
+            return pNow;
+
+        // Estimate total time until impact (windup + flight)
+        float distNow = Vector3.Distance(npcSnap, pNow);
+        float tilesNow = Mathf.Max(1f, distNow / Mathf.Max(0.0001f, tileSize));
+        float flight = tilesNow * bombThrowTimePerTile;
+        float totalTime = windupSeconds + flight;
+
+        // Predict, then cap lead distance
+        Vector3 predicted = pNow + vWorld * totalTime;
+
+        // Limit lead along velocity direction to leadMaxTiles
+        Vector3 dir = vWorld.sqrMagnitude > 0.0001f ? vWorld.normalized : Vector3.zero;
+        if (dir == Vector3.zero) return pNow;
+
+        // Project predicted relative to current, clamp magnitude
+        Vector3 rel = predicted - pNow; rel.y = 0f;
+        float maxLead = Mathf.Clamp(leadMaxTiles, 0, maxRangeTiles) * tileSize;
+        if (rel.magnitude > maxLead) rel = dir * maxLead;
+
+        Vector3 limited = pNow + rel;
+
+        // Blend with current tile so we don't overcorrect
+        Vector3 blended = Vector3.Lerp(pNow, limited, Mathf.Clamp01(leadBlend));
+
+        // Clamp to max throw range from NPC
+        Vector3 clamped = ClampWithinRange(npcSnap, blended, maxRangeTiles * tileSize);
+
         return Snap(clamped);
     }
+    // -------------------------------------------------------
 
     Vector3 ClampWithinRange(Vector3 origin, Vector3 target, float maxDist)
     {
@@ -134,17 +180,54 @@ public class NPCBombAbility : MonoBehaviour
 
     IEnumerator CastRoutine(Vector3 targetCenter)
     {
-        // 1) WINDUP – show telegraph in red
+        // 1) WINDUP – telegraph
         float gy = SampleGroundY(targetCenter);
         ShowWindupTelegraph(targetCenter, gy, bombRadiusTiles);
         yield return new WaitForSeconds(Mathf.Max(0.05f, windupSeconds));
         ClearWindupMarkers();
 
-        // 2) THROW
-        yield return StartCoroutine(ThrowBombArc(targetCenter));
+        // 2) THROW via independent projectile (won't get stuck if NPC dies)
+        {
+            Vector3 start = Snap(transform.position) + Vector3.up * 0.5f;
+            Vector3 end   = targetCenter + Vector3.up * 0.5f;
 
-        // 3) VFX + Field
-        if (explosionVfxPrefab) Instantiate(explosionVfxPrefab, targetCenter + Vector3.up * 0.02f, Quaternion.identity);
+            float distTiles = Mathf.Max(1f, Vector3.Distance(start, end) / Mathf.Max(0.0001f, tileSize));
+            float duration = bombThrowTimePerTile * distTiles;
+
+            var bomb = Instantiate(bombPrefab, start, Quaternion.identity);
+            var proj = bomb.GetComponent<BombProjectileArc>();
+            if (!proj) proj = bomb.AddComponent<BombProjectileArc>();
+
+            proj.Init(
+                start: start,
+                end: end,
+                duration: duration,
+                arcHeight: bombArcHeight,
+                groundMask: groundMask,
+                explosionPrefab: explosionVfxPrefab,
+                onExplode: (landPos) =>
+                {
+                    // 3) After landing: spawn lingering field
+                    var go = new GameObject("BombAoEFieldHostile");
+                    var field = go.AddComponent<BombAoEFieldHostile>();
+                    field.Init(
+                        center: targetCenter,
+                        tileSize: tileSize,
+                        markerPrefab: tileMarkerPrefab,
+                        markerYOffset: markerYOffset,
+                        groundMask: groundMask,
+                        victimsLayer: victimLayer,
+                        radiusTiles: bombRadiusTiles,
+                        duration: lingerDuration,
+                        tickInterval: tickInterval,
+                        tickDamage: tickDamage,
+                        slowPercent: slowPercent,
+                        slowTag: slowStatusTag,
+                        slowIcon: slowStatusIcon
+                    );
+                }
+            );
+        }
 
         var go = new GameObject("BombAoEFieldHostile");
         var field = go.AddComponent<BombAoEFieldHostile>();
@@ -165,34 +248,6 @@ public class NPCBombAbility : MonoBehaviour
         );
     }
 
-    IEnumerator ThrowBombArc(Vector3 targetCenter)
-    {
-        Vector3 start = Snap(transform.position) + Vector3.up * 0.5f;
-        Vector3 end = targetCenter + Vector3.up * 0.5f;
-
-        float distTiles = Mathf.Max(1f, Vector3.Distance(start, end) / Mathf.Max(0.0001f, tileSize));
-        float duration = bombThrowTimePerTile * distTiles;
-
-        var bomb = Instantiate(bombPrefab, start, Quaternion.identity);
-
-        float t = 0f;
-        Vector3 flatStart = new Vector3(start.x, 0f, start.z);
-        Vector3 flatEnd = new Vector3(end.x, 0f, end.z);
-        float flatDist = Vector3.Distance(flatStart, flatEnd);
-        float arc = bombArcHeight + 0.15f * flatDist;
-
-        while (t < 1f)
-        {
-            t += Time.deltaTime / Mathf.Max(0.0001f, duration);
-            float u = Mathf.Clamp01(t);
-            Vector3 pos = Vector3.Lerp(start, end, u);
-            pos.y = Mathf.Lerp(start.y, end.y, u) + (-4f * arc * (u * u - u));
-            bomb.transform.position = pos;
-            yield return null;
-        }
-
-        Destroy(bomb);
-    }
 
     void ShowWindupTelegraph(Vector3 center, float groundY, int radiusTiles)
     {
