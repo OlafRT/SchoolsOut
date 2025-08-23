@@ -7,9 +7,15 @@ using System.Collections.Generic;
 /// Lingering AoE that damages/slows anything on victimsLayer. 
 /// Parameters are injected by NPCBombAbility.
 /// Shows status icon via NPCStatusHost if present (NPCs only).
+/// Also drives PlayerHUD "Slowed" banner with a static ref-count so
+/// multiple overlapping fields behave correctly.
 /// </summary>
 public class BombAoEFieldHostile : MonoBehaviour
 {
+    // ----- player HUD slow banner ref-count -----
+    static int s_activePlayerSlowCount = 0;
+    bool weWereAffectingPlayer = false;
+
     // injected
     float tileSize;
     GameObject markerPrefab;
@@ -149,7 +155,7 @@ public class BombAoEFieldHostile : MonoBehaviour
                     {
                         playerInsideNow.Add(pMv);
                         pMv.SetAuraMultiplier(this, Mathf.Clamp01(1f - slowPercent));
-                        // (No player status UI for now)
+                        // HUD banner control handled below via ref-count
                     }
                 }
             }
@@ -174,6 +180,21 @@ public class BombAoEFieldHostile : MonoBehaviour
                 }
             }
 
+            // ---- HUD slow banner ref-count transitions ----
+            bool nowAffecting = playerInsideNow.Count > 0;
+            if (nowAffecting && !weWereAffectingPlayer)
+            {
+                weWereAffectingPlayer = true;
+                s_activePlayerSlowCount++;
+                PlayerHUD.SetSlowed(true);
+            }
+            else if (!nowAffecting && weWereAffectingPlayer)
+            {
+                weWereAffectingPlayer = false;
+                s_activePlayerSlowCount = Mathf.Max(0, s_activePlayerSlowCount - 1);
+                PlayerHUD.SetSlowed(s_activePlayerSlowCount > 0);
+            }
+
             yield return new WaitForSeconds(tickInterval);
         }
 
@@ -186,6 +207,14 @@ public class BombAoEFieldHostile : MonoBehaviour
         }
         foreach (var p in playerInsideNow)
             p.ClearAura(this);
+
+        // Final HUD ref-count cleanup (in case field ends while affecting the player)
+        if (weWereAffectingPlayer)
+        {
+            weWereAffectingPlayer = false;
+            s_activePlayerSlowCount = Mathf.Max(0, s_activePlayerSlowCount - 1);
+            PlayerHUD.SetSlowed(s_activePlayerSlowCount > 0);
+        }
 
         Destroy(gameObject);
     }
