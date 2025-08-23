@@ -14,9 +14,14 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     public event Action<int> OnHealed;       // amount
     public event Action OnDied;
 
+    // NEW
+    private BlockAbility block;
+
     void Awake()
     {
         if (!stats) stats = GetComponent<PlayerStats>();
+        block = GetComponent<BlockAbility>();
+
         currentHP = stats ? stats.MaxHP : 100;
         if (stats) stats.OnStatsChanged += RecomputeMaxHP;
         NotifyHUD(); // initial
@@ -37,6 +42,24 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     public void ApplyDamage(int amount)
     {
         if (IsDead) return;
+
+        // ---- BLOCK INTERCEPT ----
+        if (block && block.IsLearned)
+        {
+            if (block.TryBlockIncomingHit(out bool consumed))
+            {
+                // Blocked! Maybe show a small "BLOCK" text:
+                if (CombatTextManager.Instance)
+                {
+                    Vector3 pos = transform.position; pos.y += 1.6f;
+                    CombatTextManager.Instance.ShowText(pos, "BLOCK", Color.cyan, transform, 0.6f, 32f);
+                }
+                // No damage, no shake/flash
+                return;
+            }
+        }
+        // -------------------------
+
         int dmg = Mathf.Max(0, amount);
         if (dmg == 0) return;
 
@@ -44,8 +67,8 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         OnDamaged?.Invoke(currentHP, dmg);
 
         // UI + FX
-        PlayerHUD.TryFlashDamage();                 // red flash
-        CameraShaker.Instance?.Shake(0.12f, 0.25f); // small hit shake
+        PlayerHUD.TryFlashDamage();                 
+        CameraShaker.Instance?.Shake(0.12f, 0.25f); 
         NotifyHUD();
 
         if (currentHP <= 0)
@@ -72,20 +95,15 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         if (IsDead) return;
         IsDead = true;
 
-        // Optional: disable movement/abilities here if you haven’t elsewhere
         var move = GetComponent<PlayerMovement>(); if (move) move.enabled = false;
         var abilities = GetComponent<PlayerAbilities>(); if (abilities) abilities.enabled = false;
 
         OnDied?.Invoke();
         PlayerHUD.TryShowDeathPanel();
 
-        // keep currentHP at 0
         currentHP = 0;
         NotifyHUD();
     }
 
-    void NotifyHUD()
-    {
-        PlayerHUD.TryUpdateHealth(currentHP, stats ? stats.MaxHP : 100);
-    }
+    void NotifyHUD() => PlayerHUD.TryUpdateHealth(currentHP, stats ? stats.MaxHP : 100);
 }

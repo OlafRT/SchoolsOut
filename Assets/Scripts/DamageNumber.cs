@@ -51,6 +51,35 @@ public class DamageNumber : MonoBehaviour
         t = 0f;
     }
 
+    /// <summary>
+    /// NEW: Initialize as arbitrary text (e.g., "BLOCK") with custom color and font size.
+    /// </summary>
+    public void InitText(Vector3 worldPos, string text, Color color, Transform follow = null, float lifetimeOverride = -1f, float fontSize = 32f)
+    {
+        if (!tmp) tmp = GetComponentInChildren<TextMeshProUGUI>(true);
+        if (!cam) cam = Camera.main;
+
+        this.worldPos = worldPos;
+        this.follow = follow;
+        if (lifetimeOverride > 0f) lifetime = lifetimeOverride;
+
+        Vector3 baseWp = follow ? follow.position : worldPos;
+        Vector3 baseSp = cam ? cam.WorldToScreenPoint(baseWp) : baseWp;
+        baseSp.x += Random.Range(-spawnJitter.x, spawnJitter.x);
+        baseSp.y += Random.Range(-spawnJitter.y, spawnJitter.y);
+        screenPos = baseSp;
+
+        if (tmp)
+        {
+            tmp.text = text ?? "";
+            tmp.color = color;
+            tmp.fontSize = Mathf.Max(1f, fontSize);
+            tmp.alpha = 1f;
+        }
+
+        t = 0f;
+    }
+
     void Update()
     {
         if (!cam) cam = Camera.main;
