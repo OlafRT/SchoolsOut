@@ -148,6 +148,28 @@ public class PlayerMovement : MonoBehaviour
         StartCoroutine(TeleportCooldown());
     }
 
+    public void RebaseTo(Vector3 worldPos, bool withCooldown = false)
+    {
+        // Cancel any step/coroutine intent
+        isMoving = false;
+
+        // Snap & place
+        transform.position = RoundToNearestTile(worldPos);
+        targetPosition = transform.position;
+        lastPosition = targetPosition;
+
+        if (withCooldown)
+        {
+            StopAllCoroutines(); // ensure no lingering coroutines
+            StartCoroutine(TeleportCooldown()); // the old behavior
+        }
+        else
+        {
+            // Immediate control (no "stun" pause)
+            canMove = true;
+        }
+    }
+
     private IEnumerator TeleportCooldown()
     {
         canMove = false;

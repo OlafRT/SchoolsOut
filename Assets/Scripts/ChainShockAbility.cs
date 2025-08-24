@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
-// Nerd-only chain lightning that branches to targets 2–3 tiles away.
+// Nerd-only chain lightning that branches 2–3 tiles, with cast bar + move-to-cancel.
 [DisallowMultipleComponent]
 public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility
 {
@@ -13,35 +13,30 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     public KeyCode castKey = KeyCode.T;
 
     [Header("Core")]
-    [Tooltip("Seconds to cast before it fires.")]
     public float castTime = 1.5f;
-    [Tooltip("Cooldown after a successful cast.")]
     public float cooldownSeconds = 8f;
-    [Tooltip("Base damage per target before stats/crit.")]
     public int baseDamage = 18;
-    [Tooltip("Max number of targets the chain can hit in total.")]
     public int maxTargets = 8;
-    [Tooltip("Initial search range from the player in tiles.")]
     public int initialSearchRangeTiles = 10;
 
     [Header("Chain Rules")]
-    [Tooltip("Minimum tile distance for a hop (rings outside the hit target).")]
-    public int minHopTiles = 2;
-    [Tooltip("Maximum tile distance for a hop.")]
+    public int minHopTiles = 1;
     public int maxHopTiles = 3;
 
-    [Header("VFX (optional)")]
+    [Header("VFX (multi-LR prefab)")]
     public Sprite icon;
-    public LineRenderer linePrefab;
-    public float segmentLife = 0.18f;
-    public float lineWidth = 0.06f;
+    [Tooltip("Prefab root with LightningLine + two child LineRenderers (Core, Glow).")]
+    public GameObject linePrefabGO;
+    public float lineLifetime = 0.18f;   // pushed to LightningLine at runtime
+    public float lineWidth = 0.06f;      // optional: if you want to override child widths
+    [Tooltip("Sawtooth offset per step in tiles (0 = straight).")]
+    public float sawtoothOffsetTiles = 0.15f;
 
     [Header("Animation (optional)")]
     public string castTrigger = "CastStart";
     public string releaseTrigger = "CastRelease";
 
     [Header("UI")]
-    [Tooltip("Reference to your cast bar UI.")]
     public CastBarUI castBar;
 
     // ---- Runtime ----
@@ -69,8 +64,7 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         if (Input.GetKeyDown(castKey))
         {
             var first = FindNearestTarget();
-            if (first == null) return;
-
+            if (!first) return;
             StartCoroutine(CastRoutine(first));
         }
     }
@@ -80,20 +74,15 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         isCasting = true;
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = true;
         if (anim && !string.IsNullOrEmpty(castTrigger)) anim.SetTrigger(castTrigger);
-
-        // Cast bar on
         if (castBar) castBar.Show(abilityName, castTime);
 
-        // Movement-cancel: remember the start tile
         Vector3 startTile = ctx.Snap(transform.position);
-
         float endTime = Time.time + Mathf.Max(0.01f, castTime);
         while (Time.time < endTime)
         {
-            // update bar
-            float remaining = endTime - Time.time;
-            float progressed = 1f - Mathf.Clamp01(remaining / castTime);
-            if (castBar) castBar.SetProgress(progressed, remaining);
+            float remain = endTime - Time.time;
+            float p = 1f - Mathf.Clamp01(remain / castTime);
+            if (castBar) castBar.SetProgress(p, remain);
 
             // cancel if moved to a different tile
             if (ctx.Snap(transform.position) != startTile)
@@ -101,11 +90,10 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
                 CancelCast();
                 yield break;
             }
-
             yield return null;
         }
 
-        // Re-validate target
+        // revalidate target
         if (!initialTarget || !initialTarget.gameObject.activeInHierarchy)
         {
             initialTarget = FindNearestTarget();
@@ -115,18 +103,15 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         if (anim && !string.IsNullOrEmpty(releaseTrigger)) anim.SetTrigger(releaseTrigger);
         FireChain(initialTarget);
 
-        // success → cooldown
         cdUntil = Time.time + Mathf.Max(0.01f, cooldownSeconds);
-        FinishCastNoFire(); // re-enables AA, hides bar
+        FinishCastNoFire();
     }
 
     void CancelCast()
     {
-        // hide bar + re-enable AA
         if (castBar) castBar.Hide();
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = false;
         isCasting = false;
-        // (optional: play cancel anim/sfx)
     }
 
     void FinishCastNoFire()
@@ -135,6 +120,8 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = false;
         isCasting = false;
     }
+
+    // ---------- Chain logic ----------
 
     void FireChain(Collider firstHit)
     {
@@ -146,8 +133,8 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
 
         frontier.Add(firstHit);
         visited.Add(firstHit);
-
         int targetsLeft = Mathf.Max(1, maxTargets);
+
         allHits.Add(firstHit);
         targetsLeft--;
 
@@ -178,8 +165,6 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
             DamageColliderOnce(c);
     }
 
-    // --------- Targeting ---------
-
     Collider FindNearestTarget()
     {
         float r = initialSearchRangeTiles * ctx.tileSize;
@@ -187,8 +172,8 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
 
         Collider best = null;
         float bestTiles = float.MaxValue;
-
         Vector3 myTile = ctx.Snap(transform.position);
+
         foreach (var h in hits)
         {
             if (!h) continue;
@@ -207,10 +192,9 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     {
         var results = new List<Collider>();
         Vector3 centerTile = ctx.Snap(from.bounds.center);
-
         float maxR = (maxRing + 0.5f) * ctx.tileSize;
-        var hits = Physics.OverlapSphere(centerTile, maxR + 0.1f, ctx.targetLayer, QueryTriggerInteraction.Ignore);
 
+        var hits = Physics.OverlapSphere(centerTile, maxR + 0.1f, ctx.targetLayer, QueryTriggerInteraction.Ignore);
         foreach (var h in hits)
         {
             if (!h || exclude.Contains(h)) continue;
@@ -227,12 +211,11 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         return Mathf.Max(Mathf.Abs(a.x - b.x), Mathf.Abs(a.z - b.z)) / Mathf.Max(0.0001f, ctx.tileSize);
     }
 
-    // --------- Damage & VFX ---------
+    // ---------- Damage & VFX ----------
 
     void DamageColliderOnce(Collider c)
     {
         if (!c) return;
-
         bool didCrit;
         int final = ctx.stats ? ctx.stats.ComputeDamage(baseDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
                               : baseDamage;
@@ -243,40 +226,72 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
 
     void DrawAllEdges(List<(Collider from, Collider to)> edges)
     {
-        if (edges.Count == 0 || (!linePrefab && segmentLife <= 0f)) return;
+        if (edges.Count == 0 || !linePrefabGO) return;
 
         foreach (var e in edges)
         {
             Vector3 a = ctx.Snap(e.from.bounds.center);
             Vector3 b = ctx.Snap(e.to.bounds.center);
 
-            var pts = BuildTilePath(a, b);
-            if (linePrefab)
+            // Build a tile path and add "sawtooth" midpoints
+            var points = BuildTilePathSawtooth(a, b);
+
+            var fx = Instantiate(linePrefabGO);
+            // optional: push lifetime into LightningLine
+            var ll = fx.GetComponent<LightningLine>();
+            if (ll) ll.lifetime = lineLifetime;
+
+            // set positions on ALL child line renderers
+            var lrs = fx.GetComponentsInChildren<LineRenderer>(true);
+            foreach (var lr in lrs)
             {
-                var lr = Instantiate(linePrefab);
-                lr.positionCount = pts.Count;
-                lr.startWidth = lr.endWidth = lineWidth;
-                lr.SetPositions(pts.ToArray());
-                Destroy(lr.gameObject, segmentLife);
+                lr.positionCount = points.Count;
+                lr.SetPositions(points.ToArray());
+                // If you want to override widths globally:
+                // var curve = lr.widthCurve;
+                // for a quick override, just set start/end widths (if you used constant width):
+                // lr.startWidth = lr.endWidth = lineWidth;
             }
         }
     }
 
-    List<Vector3> BuildTilePath(Vector3 from, Vector3 to)
+    // Tile path with optional sawtooth midpoints
+    List<Vector3> BuildTilePathSawtooth(Vector3 from, Vector3 to)
     {
         var path = new List<Vector3>();
         Vector3 cur = from;
-        path.Add(new Vector3(cur.x, from.y, cur.z));
+        float y = from.y;
+        path.Add(new Vector3(cur.x, y, cur.z));
 
         int guard = 256;
+        int stepIndex = 0;
+        float jitter = sawtoothOffsetTiles * ctx.tileSize;
+
         while (guard-- > 0)
         {
             if (ChebyshevTiles(cur, to) < 0.1f) break;
+
             int dx = Mathf.Clamp(Mathf.RoundToInt((to.x - cur.x) / ctx.tileSize), -1, 1);
             int dz = Mathf.Clamp(Mathf.RoundToInt((to.z - cur.z) / ctx.tileSize), -1, 1);
-            cur += new Vector3(dx * ctx.tileSize, 0f, dz * ctx.tileSize);
-            path.Add(new Vector3(cur.x, from.y, cur.z));
+            Vector3 next = cur + new Vector3(dx * ctx.tileSize, 0f, dz * ctx.tileSize);
+
+            if (jitter > 0f)
+            {
+                // add a midpoint offset perpendicular to the segment
+                Vector3 mid = (cur + next) * 0.5f;
+                Vector3 seg = (next - cur).normalized;
+                Vector3 perp = new Vector3(-seg.z, 0f, seg.x); // 90° on XZ
+                float sign = (stepIndex % 2 == 0) ? 1f : -1f;  // alternate
+                Vector3 midOffset = mid + perp * (jitter * sign);
+
+                path.Add(new Vector3(midOffset.x, y, midOffset.z));
+            }
+
+            path.Add(new Vector3(next.x, y, next.z));
+            cur = next;
+            stepIndex++;
         }
+
         return path;
     }
 
