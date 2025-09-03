@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
-// Nerd-only chain lightning that branches 2–3 tiles, with cast bar + move-to-cancel.
+// Nerd-only chain lightning that branches 1–3 tiles, with cast bar + move-to-cancel.
 [DisallowMultipleComponent]
 public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility
 {
@@ -28,7 +28,7 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     [Tooltip("Prefab root with LightningLine + two child LineRenderers (Core, Glow).")]
     public GameObject linePrefabGO;
     public float lineLifetime = 0.18f;   // pushed to LightningLine at runtime
-    public float lineWidth = 0.06f;      // optional: if you want to override child widths
+    public float lineWidth = 0.06f;      // optional
     [Tooltip("Sawtooth offset per step in tiles (0 = straight).")]
     public float sawtoothOffsetTiles = 0.15f;
 
@@ -39,12 +39,28 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     [Header("UI")]
     public CastBarUI castBar;
 
+    [Header("Audio")]
+    public AudioClip castHitSfx;
+    public float castHitVolume = 1f;
+
+    [Header("Crit FX (only on crit bolts)")]
+    [Tooltip("Volume multiplier applied to castHitSfx for crits.")]
+    public float critVolumeMultiplier = 1.35f;
+    [Range(0.25f, 2f)]
+    [Tooltip("Pitch for crit zaps (lower than 1.0 sounds meatier).")]
+    public float critPitch = 0.9f;
+    [Tooltip("Camera shake amplitude when a crit happens.")]
+    public float critShakeAmplitude = 0.35f;
+    [Tooltip("Camera shake duration when a crit happens.")]
+    public float critShakeDuration  = 0.12f;
+
     // ---- Runtime ----
     private PlayerAbilities ctx;
     private AutoAttackAbility autoAttack;
     private Animator anim;
     private bool isCasting;
     private float cdUntil;
+    private bool critShakeDoneThisCast; // ensure we shake only once per cast
 
     public AbilityClassRestriction AllowedFor => AbilityClassRestriction.Nerd;
 
@@ -125,10 +141,12 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
 
     void FireChain(Collider firstHit)
     {
+        critShakeDoneThisCast = false;
+
         var visited = new HashSet<Collider>();
         var frontier = new List<Collider>();
         var next = new List<Collider>();
-        var edges = new List<(Collider from, Collider to)>();
+        var edges = new List<(Vector3 from, Collider to)>(); // root uses player world pos
         var allHits = new List<Collider>();
 
         frontier.Add(firstHit);
@@ -138,6 +156,9 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         allHits.Add(firstHit);
         targetsLeft--;
 
+        // root edge: from player to first target
+        edges.Add((ctx.Snap(transform.position), firstHit));
+
         while (targetsLeft > 0 && frontier.Count > 0)
         {
             next.Clear();
@@ -146,7 +167,7 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
                 var neighbors = FindHopNeighbors(node, minHopTiles, maxHopTiles, visited);
                 foreach (var n in neighbors)
                 {
-                    edges.Add((node, n));
+                    edges.Add((ctx.Snap(node.bounds.center), n));
                     allHits.Add(n);
                     visited.Add(n);
                     next.Add(n);
@@ -163,6 +184,10 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
 
         foreach (var c in allHits)
             DamageColliderOnce(c);
+
+        // baseline zap once if we hit anything
+        if (allHits.Count > 0 && castHitSfx)
+            AudioSource.PlayClipAtPoint(castHitSfx, transform.position, castHitVolume);
     }
 
     Collider FindNearestTarget()
@@ -211,46 +236,57 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         return Mathf.Max(Mathf.Abs(a.x - b.x), Mathf.Abs(a.z - b.z)) / Mathf.Max(0.0001f, ctx.tileSize);
     }
 
-    // ---------- Damage & VFX ----------
+    // ---------- Damage & FX ----------
 
     void DamageColliderOnce(Collider c)
     {
         if (!c) return;
-        bool didCrit;
-        int final = ctx.stats ? ctx.stats.ComputeDamage(baseDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
-                              : baseDamage;
+
+        bool didCrit = false;
+        int final = ctx.stats
+            ? ctx.stats.ComputeDamage(baseDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
+            : baseDamage;
 
         Vector3 tileCenter = ctx.Snap(c.bounds.center);
+
+        // Deal damage (we pass 'false' for didCrit here to avoid duplicate combat text in ctx)
         ctx.DamageTileScaled(tileCenter, ctx.tileSize * 0.45f, final, PlayerStats.AbilitySchool.Nerd, false);
+
+        // Crit-only extras: louder zap (lower pitch) + one shake per cast
+        if (didCrit && castHitSfx)
+        {
+            PlayOneShotAt(tileCenter, castHitSfx,
+                castHitVolume * Mathf.Max(0.01f, critVolumeMultiplier),
+                Mathf.Clamp(critPitch, 0.25f, 2f));
+
+            if (!critShakeDoneThisCast)
+            {
+                CameraShaker.Instance?.Shake(critShakeDuration, critShakeAmplitude);
+                critShakeDoneThisCast = true;
+            }
+        }
     }
 
-    void DrawAllEdges(List<(Collider from, Collider to)> edges)
+    void DrawAllEdges(List<(Vector3 from, Collider to)> edges)
     {
         if (edges.Count == 0 || !linePrefabGO) return;
 
         foreach (var e in edges)
         {
-            Vector3 a = ctx.Snap(e.from.bounds.center);
+            Vector3 a = e.from; // already snapped
             Vector3 b = ctx.Snap(e.to.bounds.center);
 
-            // Build a tile path and add "sawtooth" midpoints
             var points = BuildTilePathSawtooth(a, b);
 
             var fx = Instantiate(linePrefabGO);
-            // optional: push lifetime into LightningLine
             var ll = fx.GetComponent<LightningLine>();
             if (ll) ll.lifetime = lineLifetime;
 
-            // set positions on ALL child line renderers
             var lrs = fx.GetComponentsInChildren<LineRenderer>(true);
             foreach (var lr in lrs)
             {
                 lr.positionCount = points.Count;
                 lr.SetPositions(points.ToArray());
-                // If you want to override widths globally:
-                // var curve = lr.widthCurve;
-                // for a quick override, just set start/end widths (if you used constant width):
-                // lr.startWidth = lr.endWidth = lineWidth;
             }
         }
     }
@@ -277,13 +313,12 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
 
             if (jitter > 0f)
             {
-                // add a midpoint offset perpendicular to the segment
+                // midpoint offset perpendicular to segment for a 'jaggy' feel
                 Vector3 mid = (cur + next) * 0.5f;
                 Vector3 seg = (next - cur).normalized;
-                Vector3 perp = new Vector3(-seg.z, 0f, seg.x); // 90° on XZ
-                float sign = (stepIndex % 2 == 0) ? 1f : -1f;  // alternate
+                Vector3 perp = new Vector3(-seg.z, 0f, seg.x);
+                float sign = (stepIndex % 2 == 0) ? 1f : -1f;
                 Vector3 midOffset = mid + perp * (jitter * sign);
-
                 path.Add(new Vector3(midOffset.x, y, midOffset.z));
             }
 
@@ -291,8 +326,24 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
             cur = next;
             stepIndex++;
         }
-
         return path;
+    }
+
+    // --- audio helper (lets us control pitch, unlike PlayClipAtPoint) ---
+    void PlayOneShotAt(Vector3 pos, AudioClip clip, float volume, float pitch)
+    {
+        if (!clip) return;
+        var go = new GameObject("OneShotAudio_ChainShock");
+        go.transform.position = pos;
+        var a = go.AddComponent<AudioSource>();
+        a.clip = clip;
+        a.volume = Mathf.Clamp01(volume);
+        a.pitch = Mathf.Clamp(pitch, 0.25f, 2f);
+        a.spatialBlend = 1f; // 3D
+        a.rolloffMode = AudioRolloffMode.Linear;
+        a.maxDistance = 30f;
+        a.Play();
+        Destroy(go, clip.length / Mathf.Max(0.01f, a.pitch) + 0.1f);
     }
 
     // --------- IAbilityUI ---------
