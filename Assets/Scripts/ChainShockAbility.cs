@@ -237,27 +237,29 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     }
 
     // ---------- Damage & FX ----------
-
     void DamageColliderOnce(Collider c)
     {
         if (!c) return;
 
-        bool didCrit = false;
+        bool didCrit = false; // make compiler happy + capture crit
         int final = ctx.stats
             ? ctx.stats.ComputeDamage(baseDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
             : baseDamage;
 
         Vector3 tileCenter = ctx.Snap(c.bounds.center);
 
-        // Deal damage (we pass 'false' for didCrit here to avoid duplicate combat text in ctx)
-        ctx.DamageTileScaled(tileCenter, ctx.tileSize * 0.45f, final, PlayerStats.AbilitySchool.Nerd, false);
+        // Pass 'didCrit' so combat text shows crit styling (big/orange) instead of a normal hit
+        ctx.DamageTileScaled(tileCenter, ctx.tileSize * 0.45f, final, PlayerStats.AbilitySchool.Nerd, didCrit);
 
-        // Crit-only extras: louder zap (lower pitch) + one shake per cast
+        // Crit-only spice: louder/low-pitch zap + (only once per cast) camera shake
         if (didCrit && castHitSfx)
         {
-            PlayOneShotAt(tileCenter, castHitSfx,
+            PlayOneShotAt(
+                tileCenter,
+                castHitSfx,
                 castHitVolume * Mathf.Max(0.01f, critVolumeMultiplier),
-                Mathf.Clamp(critPitch, 0.25f, 2f));
+                Mathf.Clamp(critPitch, 0.25f, 2f)
+            );
 
             if (!critShakeDoneThisCast)
             {
