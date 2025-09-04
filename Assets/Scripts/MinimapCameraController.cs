@@ -5,19 +5,24 @@ using UnityEngine;
 public class MinimapCameraController : MonoBehaviour
 {
     [Header("Follow")]
-    public Transform target;                 // Player
-    public Vector3 worldOffset = new Vector3(0f, 50f, 0f); // Height above player
-    public float followSmooth = 15f;         // 0 = snap
+    public Transform target;                         // Player root
+    public Vector3 worldOffset = new Vector3(0, 50, 0);
+    public float followSmooth = 15f;
 
     [Header("Rotation Lock")]
-    public float pitchDown = 90f;            // Look straight down
-    public bool lockYawAndRoll = true;       // Keep map “north-up”
+    public float pitchDown = 90f;                    // Straight down
+    public bool lockYawAndRoll = true;               // true = north-up map
 
     [Header("Zoom (Orthographic)")]
     public float defaultSize = 15f;
     public float step = 5f;
     public float minSize = 5f;
     public float maxSize = 30f;
+
+    [Header("UI Arrow (HUD)")]
+    public RectTransform headingArrow;               // UI element anchored to map center
+    public float arrowSmooth = 20f;                  // 0 = snap
+    public bool invertArrow = true;                  // flip if your art points “up”
 
     Camera cam;
 
@@ -32,25 +37,38 @@ public class MinimapCameraController : MonoBehaviour
     {
         if (!target) return;
 
-        // Follow (smooth in world space)
+        // Follow
         Vector3 wantedPos = target.position + worldOffset;
         transform.position = (followSmooth <= 0f)
             ? wantedPos
             : Vector3.Lerp(transform.position, wantedPos, 1f - Mathf.Exp(-followSmooth * Time.deltaTime));
 
-        // Keep the minimap from rotating with the player
+        // Keep map north-up (no yaw/roll)
         if (lockYawAndRoll)
-            transform.rotation = Quaternion.Euler(pitchDown, 0f, 0f); // north-up
+            transform.rotation = Quaternion.Euler(pitchDown, 0f, 0f);
         else
-            transform.rotation = Quaternion.Euler(pitchDown, target.eulerAngles.y, 0f); // rotate with player if you ever want it
+            transform.rotation = Quaternion.Euler(pitchDown, target.eulerAngles.y, 0f);
+
+        // Rotate UI arrow to show player heading
+        if (headingArrow)
+        {
+            // Target angle in UI space (Z-rotation). 
+            // For “north-up” maps this should be opposite the player yaw in screen space.
+            float sign = invertArrow ? -1f : 1f;
+            float targetZ = sign * target.eulerAngles.y;
+
+            Quaternion targetRot = Quaternion.Euler(0f, 0f, targetZ);
+            if (arrowSmooth <= 0f)
+                headingArrow.rotation = targetRot;
+            else
+                headingArrow.rotation = Quaternion.Slerp(
+                    headingArrow.rotation, targetRot, 1f - Mathf.Exp(-arrowSmooth * Time.deltaTime));
+        }
     }
 
-    // Hook these to your + / – UI buttons (OnClick)
-    public void ZoomIn()  => SetSize(cam.orthographicSize - step); // smaller size = zoom in
-    public void ZoomOut() => SetSize(cam.orthographicSize + step); // larger size  = zoom out
+    // Hook these to your + / – buttons:
+    public void ZoomIn()  => SetSize(cam.orthographicSize - step); // zoom in
+    public void ZoomOut() => SetSize(cam.orthographicSize + step); // zoom out
 
-    void SetSize(float s)
-    {
-        cam.orthographicSize = Mathf.Clamp(s, minSize, maxSize);
-    }
+    void SetSize(float s) => cam.orthographicSize = Mathf.Clamp(s, minSize, maxSize);
 }
