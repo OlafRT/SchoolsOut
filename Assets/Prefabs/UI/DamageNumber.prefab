@@ -96,7 +96,7 @@ MonoBehaviour:
   m_fontSize: 28
   m_fontSizeBase: 28
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
@@ -147,10 +147,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: af75cb6ca0c9d9142800869597bf3c97, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  label: {fileID: 4803298259336224172}
-  defaultLifetime: 0.8
-  screenJitter: {x: 12, y: 6}
-  screenDrift: {x: 0, y: 20}
+  tmp: {fileID: 0}
+  lifetime: 1
+  risePixelsPerSec: 60
+  spawnJitter: {x: 12, y: 6}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   critColor: {r: 1, g: 0.55, b: 0, a: 1}
-  critScale: 1.6
+  normalFontSize: 28
+  critFontSize: 48
