@@ -2,6 +2,12 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+// Script by:
+//      __   __     __   ____    ____    ____ 
+//     /  \ (  )   / _\ (  __)  (  _ \  (_  _)
+//    (  O )/ (_/\/    \ ) _)    )   /    )(  
+//     \__/ \____/\_/\_/(__)    (__\_)   (__) 
+//
 // Nerd-only chain lightning that branches 1–3 tiles, with cast bar + move-to-cancel.
 [DisallowMultipleComponent]
 public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility
