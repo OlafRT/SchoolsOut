@@ -3188,7 +3188,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 75.3, y: -137.3}
+  m_AnchoredPosition: {x: 0, y: -228.6}
   m_SizeDelta: {x: 115, y: 120}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &426176668
@@ -6442,6 +6442,11 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 3
       objectReference: {fileID: 0}
+    - target: {fileID: 3052134453572792502, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
+        type: 3}
+      propertyPath: DopplerLevel
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3080143522075202704, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
         type: 3}
       propertyPath: m_Layer
@@ -6738,8 +6743,7 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents:
-    - {fileID: 7312079587105140752, guid: 5233dcd9c8bdd9d498a7875561b3b7d0, type: 3}
-    - {fileID: 3052134453572792502, guid: 5233dcd9c8bdd9d498a7875561b3b7d0, type: 3}
+    - {fileID: 0}
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 7988343672459371158, guid: 5233dcd9c8bdd9d498a7875561b3b7d0,
@@ -10099,11 +10103,15 @@ MonoBehaviour:
   hpPerToughness: 10
   levelUpEffectPrefab: {fileID: 4319787064465725915, guid: 083619a7502c5084c8b160c5f8bebbf4,
     type: 3}
-  levelUpSfx: {fileID: 0}
-  levelUpSfxVolume: 0.8
-  levelUpEffectOffset: {x: 0, y: 1.2, z: 0}
-  levelUpEffectLifetime: 2
+  levelUpSfx: {fileID: 8300000, guid: 6790f21d76f9aa248ae52ce8a455dea6, type: 3}
+  levelUpSfxVolume: 1
+  levelUpEffectOffset: {x: 0, y: 0, z: 0}
   parentEffectToPlayer: 1
+  destroyOnParticlesEnd: 1
+  levelUpEffectLifetime: 2
+  effectTimeoutCap: 8
+  simulateLevelUpOnStart: 1
+  testLevelUpKey: 291
 --- !u!114 &1479067277
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11032,8 +11040,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 16763378
-  m_fontColor: {r: 0.95042, g: 0.7877358, b: 1, a: 0}
+    rgba: 16777215
+  m_fontColor: {r: 1, g: 1, b: 1, a: 0}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15039,7 +15047,7 @@ RectTransform:
   m_GameObject: {fileID: 2500118549000452867}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.2407231, y: 1.2407231, z: 1.2407231}
+  m_LocalScale: {x: 1.1, y: 1.1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 811122500480996766}
@@ -15051,7 +15059,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 27, y: 36}
+  m_AnchoredPosition: {x: 22, y: 30}
   m_SizeDelta: {x: 245, y: 245}
   m_Pivot: {x: 1, y: 1}
 --- !u!1660057539 &9223372036854775807

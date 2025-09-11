@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections;
 
 [DisallowMultipleComponent]
 public class PlayerStats : MonoBehaviour
@@ -18,13 +19,9 @@ public class PlayerStats : MonoBehaviour
     public float xpCurveMultiplier = 1.0f;
 
     [Header("Core Stats")]
-    [Tooltip("Jock scaling stat (affects Jock abilities).")]
     public int muscles = 1;
-    [Tooltip("Nerd scaling stat (affects Nerd abilities).")]
     public int iq = 1;
-    [Tooltip("Affects HP.")]
     public int toughness = 5;
-    [Tooltip("0..1 (e.g., 0.05 = 5%)")]
     [Range(0f, 1f)] public float critChance = 0.05f;
 
     [Header("HP From Toughness")]
@@ -32,17 +29,20 @@ public class PlayerStats : MonoBehaviour
     public int hpPerToughness = 10;
 
     [Header("Level Up FX")]
-    [Tooltip("Prefab spawned on level up (e.g., particles).")]
     public GameObject levelUpEffectPrefab;
-    [Tooltip("Optional AudioClip to play on level up.")]
     public AudioClip levelUpSfx;
     [Range(0f, 1f)] public float levelUpSfxVolume = 0.8f;
-    [Tooltip("Offset from the player's position to spawn the effect.")]
     public Vector3 levelUpEffectOffset = new Vector3(0f, 1.2f, 0f);
-    [Tooltip("Destroy the spawned FX after this many seconds.")]
-    public float levelUpEffectLifetime = 2.0f;
-    [Tooltip("Parent the spawned FX to the player so it follows if you move right away.")]
     public bool parentEffectToPlayer = true;
+    public bool destroyOnParticlesEnd = true;
+    public float levelUpEffectLifetime = 2.0f;
+    public float effectTimeoutCap = 8f;
+
+    [Header("Testing / Debug")]
+    [Tooltip("Automatically trigger LevelUp() on scene start for testing.")]
+    public bool simulateLevelUpOnStart = false;
+    [Tooltip("Key to press at runtime to instantly level up.")]
+    public KeyCode testLevelUpKey = KeyCode.F10;
 
     public int MaxHP => Mathf.Max(1, baseHP + toughness * hpPerToughness);
 
@@ -52,6 +52,24 @@ public class PlayerStats : MonoBehaviour
     void Awake()
     {
         xpToNext = ComputeXpToNext(level);
+    }
+
+    void Start()
+    {
+        if (simulateLevelUpOnStart)
+            LevelUp();
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(testLevelUpKey))
+            LevelUp();
+    }
+
+    [ContextMenu("Test ▶ Level Up")]
+    private void ContextTestLevelUp()
+    {
+        LevelUp();
     }
 
     public void AddXP(int amount)
@@ -74,11 +92,10 @@ public class PlayerStats : MonoBehaviour
         else iq += 1;
 
         toughness += 1;
-        critChance = Mathf.Clamp01(critChance + 0.01f); // +1%
+        critChance = Mathf.Clamp01(critChance + 0.01f);
 
         xpToNext = ComputeXpToNext(level);
 
-        // Spawn FX/SFX right here
         SpawnLevelUpEffect();
 
         OnLeveledUp?.Invoke(level);
@@ -87,32 +104,65 @@ public class PlayerStats : MonoBehaviour
 
     void SpawnLevelUpEffect()
     {
-        // VFX
         if (levelUpEffectPrefab)
         {
             Vector3 pos = transform.position + levelUpEffectOffset;
             var fx = Instantiate(levelUpEffectPrefab, pos, Quaternion.identity);
-            if (parentEffectToPlayer && fx) fx.transform.SetParent(transform, true);
-            if (fx && levelUpEffectLifetime > 0f) Destroy(fx, levelUpEffectLifetime);
+
+            if (fx)
+            {
+                if (parentEffectToPlayer)
+                    fx.transform.SetParent(transform, true);
+
+                var pss = fx.GetComponentsInChildren<ParticleSystem>(true);
+                foreach (var ps in pss)
+                    if (ps && !ps.isPlaying) ps.Play();
+
+                if (destroyOnParticlesEnd)
+                    StartCoroutine(DestroyWhenParticlesDone(fx, pss, GetEffectiveTimeout()));
+                else if (levelUpEffectLifetime > 0f)
+                    Destroy(fx, levelUpEffectLifetime);
+                else
+                    StartCoroutine(DestroyWhenParticlesDone(fx, pss, GetEffectiveTimeout()));
+            }
         }
 
-        // SFX
         if (levelUpSfx)
-        {
             AudioSource.PlayClipAtPoint(levelUpSfx, transform.position, levelUpSfxVolume);
+    }
+
+    float GetEffectiveTimeout()
+    {
+        float t = Mathf.Max(levelUpEffectLifetime, 0f);
+        if (t <= 0f) t = 4f;
+        return Mathf.Min(t + 2f, Mathf.Max(2f, effectTimeoutCap));
+    }
+
+    IEnumerator DestroyWhenParticlesDone(GameObject fx, ParticleSystem[] systems, float timeout)
+    {
+        float elapsed = 0f;
+        while (fx)
+        {
+            bool anyAlive = false;
+            foreach (var ps in systems)
+            {
+                if (ps && ps.IsAlive(true)) { anyAlive = true; break; }
+            }
+            if (!anyAlive) break;
+
+            elapsed += Time.unscaledDeltaTime;
+            if (elapsed >= timeout) break;
+            yield return null;
         }
+        if (fx) Destroy(fx);
     }
 
     int ComputeXpToNext(int lvl)
     {
-        // Smooth-ish curve; tweak to taste
         float baseVal = 60f * lvl + 25f * lvl * lvl;
         return Mathf.Max(50, Mathf.RoundToInt(baseVal * Mathf.Max(0.1f, xpCurveMultiplier)));
     }
 
-    // ------ Damage helpers ------
-
-    /// <summary>Compute final damage for a hit. WoW-style crit doubles.</summary>
     public int ComputeDamage(int baseDamage, AbilitySchool school, bool allowCrit, out bool didCrit)
     {
         didCrit = false;
@@ -121,9 +171,8 @@ public class PlayerStats : MonoBehaviour
         float scaled = baseDamage;
         switch (school)
         {
-            case AbilitySchool.Jock: scaled *= (1f + muscles * 0.05f); break; // +5% per Muscles
-            case AbilitySchool.Nerd: scaled *= (1f + iq * 0.05f);      break; // +5% per IQ
-            default: break;
+            case AbilitySchool.Jock: scaled *= (1f + muscles * 0.05f); break;
+            case AbilitySchool.Nerd: scaled *= (1f + iq * 0.05f); break;
         }
 
         if (allowCrit && UnityEngine.Random.value < critChance)
@@ -135,10 +184,10 @@ public class PlayerStats : MonoBehaviour
         return Mathf.Max(0, Mathf.RoundToInt(scaled));
     }
 
-    /// <summary>No crits (for DoTs/ticks).</summary>
     public int ComputeDotDamage(int baseDamage, AbilitySchool school)
     {
         bool _;
         return ComputeDamage(baseDamage, school, false, out _);
     }
 }
+
