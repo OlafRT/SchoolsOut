@@ -6177,7 +6177,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 393}
   m_SizeDelta: {x: 599.1, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &893883578
@@ -6210,8 +6210,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 13956597
-  m_fontColor: {r: 0.9622642, g: 0.9622642, b: 0.8306337, a: 0}
+    rgba: 16777215
+  m_fontColor: {r: 1, g: 1, b: 1, a: 0}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -9794,7 +9794,7 @@ RectTransform:
   m_GameObject: {fileID: 1476468746}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1, y: 1.0463, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 642255489}
@@ -9806,7 +9806,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -956, y: 511.3}
+  m_AnchoredPosition: {x: -956, y: 513}
   m_SizeDelta: {x: 300, y: 169}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1476468748
@@ -10103,7 +10103,7 @@ MonoBehaviour:
   hpPerToughness: 10
   levelUpEffectPrefab: {fileID: 4319787064465725915, guid: 083619a7502c5084c8b160c5f8bebbf4,
     type: 3}
-  levelUpSfx: {fileID: 8300000, guid: 6790f21d76f9aa248ae52ce8a455dea6, type: 3}
+  levelUpSfx: {fileID: 8300000, guid: 0b021128ca4cf264988e1a6219ed9dab, type: 3}
   levelUpSfxVolume: 1
   levelUpEffectOffset: {x: 0, y: 0, z: 0}
   parentEffectToPlayer: 1
@@ -10126,6 +10126,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stats: {fileID: 1479067276}
   currentHP: 0
+  baseRegenPerSecond: 0.2
+  regenMultiplier: 1
 --- !u!114 &1479067281
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11007,7 +11009,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -172}
+  m_AnchoredPosition: {x: 0, y: 261}
   m_SizeDelta: {x: 599.1, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1648163592
@@ -12006,7 +12008,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 2100000, guid: bd6d2a90db9e6774ca462d09e6a3201f, type: 2}
-  m_Color: {r: 1, g: 0.9848267, b: 0.48584908, a: 0.4745098}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.4745098}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -12146,7 +12148,7 @@ GameObject:
   - component: {fileID: 1804261052}
   - component: {fileID: 1804261053}
   m_Layer: 5
-  m_Name: QuestComplete
+  m_Name: QuestCompleteLevelUp
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -12245,14 +12247,19 @@ MonoBehaviour:
   titleMaxFontSize: 100
   xpSlideDistance: 200
   xpStartAlpha: 0
+  levelUpTitleSize: 80
+  levelUpSubtitleSize: 50
   videoColorProperty: _BaseColor
   videoStartIntensity: 0.8
   videoStartScale: 0.45
   videoEndScale: 0.7
-  simulateOnStart: 0
-  testKey: 290
+  videoTargetColor: {r: 1, g: 1, b: 0.7688679, a: 1}
+  simulateQuestOnStart: 0
+  simulateLevelUpOnStart: 0
+  testQuestKey: 290
+  testLevelKey: 289
   testXp: 1000
-  testTitle: QUEST COMPLETE
+  testLevel: 2
 --- !u!1 &1848000196
 GameObject:
   m_ObjectHideFlags: 0

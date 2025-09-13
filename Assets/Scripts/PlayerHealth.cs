@@ -9,13 +9,34 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     public bool IsDead { get; private set; }
 
+    [Header("Regeneration")]
+    public float baseRegenPerSecond = 0.2f;   // 1 HP / 5s
+    public float regenMultiplier = 1f;        // talents can raise this (e.g., 1.5 = +50%)
+    private float regenAccumulator = 0f;
+
     // Events
     public event Action<int,int> OnDamaged;  // (newHP, delta)
     public event Action<int> OnHealed;       // amount
     public event Action OnDied;
 
-    // NEW
     private BlockAbility block;
+
+    void Update()
+    {
+        if (IsDead || stats == null) return;
+
+        float rate = baseRegenPerSecond * regenMultiplier;
+        if (rate <= 0f) return;
+
+        regenAccumulator += rate * Time.deltaTime;
+        // Convert accumulated fractional regen into whole HP points
+        int whole = Mathf.FloorToInt(regenAccumulator);
+        if (whole > 0)
+        {
+            regenAccumulator -= whole;
+            Heal(whole);
+        }
+    }
 
     void Awake()
     {
@@ -87,6 +108,14 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         currentHP = Mathf.Min(stats ? stats.MaxHP : 100, currentHP + heal);
         int gained = currentHP - before;
         if (gained > 0) OnHealed?.Invoke(gained);
+        NotifyHUD();
+    }
+
+    public void FullHeal()
+    {
+        if (stats == null) return;
+        currentHP = stats.MaxHP;
+        OnHealed?.Invoke(currentHP);  // notify listeners (amount semantics aren't strict here)
         NotifyHUD();
     }
 

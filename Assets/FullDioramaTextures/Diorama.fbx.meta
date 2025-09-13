@@ -1,0 +1,279 @@
+fileFormatVersion: 2
+guid: 46aab2bea09735a42b258d67d96fbc6c
+ModelImporter:
+  serializedVersion: 22200
+  internalIDToNameTable: []
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BallAndHelmet1
+    second: {fileID: 2100000, guid: e2e3b69a0c439a04395b38b0a30e6ce9, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Banner1
+    second: {fileID: 2100000, guid: 97f05713c0a0ac2469b153654616aecd, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BaseballBat1
+    second: {fileID: 2100000, guid: 9c7e7fa55486d174ba4aed92830b018f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Basketball1
+    second: {fileID: 2100000, guid: 972e06fc1f9238f44a5f7bb4dc15623c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Board
+    second: {fileID: 2100000, guid: 0907c56ea9e3af34bad2453f5a8c32e3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Board2
+    second: {fileID: 2100000, guid: 1fd8e6f186dca8b47a73a675c949bba5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Book
+    second: {fileID: 2100000, guid: c04c83ef7b700cd498d18baa7681884c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BricksNnails
+    second: {fileID: 2100000, guid: 5f3da2e75d8bd4142a4504e7d4e4f91e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BroteinShake
+    second: {fileID: 2100000, guid: fe6c71f74a55bf742b0c813d4f383926, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: CablesWires
+    second: {fileID: 2100000, guid: 125f64934114bcc43950e1428a5a488c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: CorkBurnerTubeMagnetPip1
+    second: {fileID: 2100000, guid: 6a34daebebdca634dbbe3a56fe31da01, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: CrackedFloor
+    second: {fileID: 2100000, guid: 8f36de898c55f7d47bf1c44807b6d083, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: DentedLocker1
+    second: {fileID: 2100000, guid: cc9bf27de53611341931e7fcce8faeee, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Extras
+    second: {fileID: 2100000, guid: ff22ce8d49aa1314ea6ff762a1ec3a53, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: FumeHood1
+    second: {fileID: 2100000, guid: d3a770c07a48cb44ca8790397ce5a9d4, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Glass1
+    second: {fileID: 2100000, guid: 3ed5c5c80b36bb545bd8ca5b0029fafd, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: HoodFumeHood
+    second: {fileID: 2100000, guid: 9a49c2938ed40494dbb74c0bbf8e17d2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: LighterPlanks
+    second: {fileID: 2100000, guid: 89ac9b1b944dfa6489d97fb181f15688, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Liquid1
+    second: {fileID: 2100000, guid: afdcc57ce00809c44a3ef59eb9e36d6f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Microscope2
+    second: {fileID: 2100000, guid: fc07b44c134701a45a5ed8dabd00ab96, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Pages
+    second: {fileID: 2100000, guid: 06cdb5ee0ac708843905cf271b496399, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Panties1
+    second: {fileID: 2100000, guid: e691244319740d44bb8467fd2f309005, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: PencilAndBookmark
+    second: {fileID: 2100000, guid: b2e7231162906ef42b42f8d4ac824a52, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Photos
+    second: {fileID: 2100000, guid: c892c42f6decab944a5ce208cd8caaf1, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Planks
+    second: {fileID: 2100000, guid: 8952c296463ca5c49a333374e7000a08, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Pole
+    second: {fileID: 2100000, guid: 50bbf016d54121c41ab6ea25748e667e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ropes
+    second: {fileID: 2100000, guid: 1fe4ca9d8286c1641950a115fa922c2b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Shelf1
+    second: {fileID: 2100000, guid: 1769e8363abdf704cac1da9681ddaf01, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Stands1
+    second: {fileID: 2100000, guid: e5a962e87c5da5b4187d233d684068b6, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Table2
+    second: {fileID: 2100000, guid: 4a9d4fa4757df4543a57113660bafa4e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Tape1
+    second: {fileID: 2100000, guid: 77bc8d8a7d287644493a01c3effbc87a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Tape3
+    second: {fileID: 2100000, guid: fed52bc539ce77244b556411ad7ea59b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TrayChalkSponge
+    second: {fileID: 2100000, guid: 9e3fbb11c30517848a78cded71faffab, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Trophy1
+    second: {fileID: 2100000, guid: 98423ee488d56b8489c1d29ededa6fba, type: 2}
+  materials:
+    materialImportMode: 2
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 0
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    nodeNameCollisionStrategy: 1
+    fileIdsGeneration: 2
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    keepQuads: 0
+    weldVertices: 1
+    bakeAxisConversion: 0
+    preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    meshOptimizationFlags: -1
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 1
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    strictVertexDataChecks: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  referencedClips: []
+  importAnimation: 1
+  humanDescription:
+    serializedVersion: 3
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    globalScale: 1
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
+  animationType: 2
+  humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  importBlendShapeDeformPercent: 1
+  remapMaterialsIfMaterialImportModeIsNone: 0
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

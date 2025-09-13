@@ -96,6 +96,18 @@ public class PlayerStats : MonoBehaviour
 
         xpToNext = ComputeXpToNext(level);
 
+        // NEW: refill HP (and power, if you have a resource script—see note below)
+        var health = GetComponent<PlayerHealth>();
+        if (health) health.FullHeal();
+
+        // OPTIONAL: if you have a power/mana component, mirror this:
+        // GetComponent<PlayerPower>()?.FullRefill();
+
+        // NEW: trigger the Level Up banner UI
+        var levelUI = FindObjectOfType<QuestCompleteUI>();
+        if (levelUI) levelUI.PlayLevelUp(level);
+
+        // existing FX/SFX
         SpawnLevelUpEffect();
 
         OnLeveledUp?.Invoke(level);
