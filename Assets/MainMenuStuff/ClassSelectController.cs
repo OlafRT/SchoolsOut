@@ -11,15 +11,23 @@ public class ClassSelectController : MonoBehaviour
     [SerializeField] private GameObject backButtonRoot;  // set inactive by default
 
     [Header("Animator State/Trigger Names")]
-    [SerializeField] private string nerdForwardState = "NerdChosen";
-    [SerializeField] private string jockForwardState = "JockChosen";
+    //[SerializeField] private string nerdForwardState = "NerdChosen";
+    //[SerializeField] private string jockForwardState = "JockChosen";
     [SerializeField] private string backNerdTrigger  = "backnerd";
     [SerializeField] private string backJockTrigger  = "backjock";
     [SerializeField] private string selectIdleState  = "CamIdle";
 
+    [Header("Start→Menu Back")]
+    [SerializeField] private string startBackTrigger = "startback";  // your trigger
+    [SerializeField] private string startBackState   = "BackFromStart"; // state name
+    [SerializeField] private bool  fallbackDetectStartBackDone = true;
+    [SerializeField] private MenuController menu; // to re-show menu if using fallback
+
     [Header("Layer / Fallback")]
     [SerializeField] private int layer = 0;
     [SerializeField] private bool fallbackDetectBackDone = true;
+
+    [SerializeField] private RewindFX rewindFX;
 
     private ClassType _lastPick = ClassType.None;
     private bool _busy;
@@ -34,10 +42,70 @@ public class ClassSelectController : MonoBehaviour
         if (backButtonRoot) backButtonRoot.SetActive(true);
     }
 
+    public void BackFromStart()
+    {
+        if (_busy || cameraAnimator == null) return;
+        if (rewindFX) rewindFX.Play();
+        _busy = true;
+
+        // Hide class-select UI while we fly back
+        if (classSelectRoot) classSelectRoot.SetActive(false);
+        if (backButtonRoot)  backButtonRoot.SetActive(false);
+
+        HoverGlowButton.ResetChoiceLock();
+
+        if (!string.IsNullOrEmpty(startBackTrigger))
+            cameraAnimator.SetTrigger(startBackTrigger);
+
+        if (fallbackDetectStartBackDone)
+            StartCoroutine(WatchStartBackReturnToMenu());
+    }
+
+    public void OnStartBackFinished_ShowMenu()
+    {
+        FinishStartBack_ShowMenu();
+    }
+
+    private IEnumerator WatchStartBackReturnToMenu()
+    {
+        int hash = Animator.StringToHash(startBackState);
+        // Wait until we ENTER BackFromStart
+        while (true)
+        {
+            var st = cameraAnimator.GetCurrentAnimatorStateInfo(layer);
+            bool inState = st.shortNameHash == hash || st.IsName(startBackState);
+            if (inState) break;
+            yield return null;
+        }
+        // Wait until it finishes
+        while (true)
+        {
+            var st = cameraAnimator.GetCurrentAnimatorStateInfo(layer);
+            bool inState = st.shortNameHash == hash || st.IsName(startBackState);
+            if (!inState || (!cameraAnimator.IsInTransition(layer) && st.normalizedTime >= 0.99f))
+                break;
+            yield return null;
+        }
+        FinishStartBack_ShowMenu();
+    }
+
+    void FinishStartBack_ShowMenu()
+    {
+        // Ensure class-select stays hidden
+        if (classSelectRoot) classSelectRoot.SetActive(false);
+
+        // Re-show the main menu buttons
+        if (menu) menu.ShowMainMenuButtons();
+
+        _lastPick = ClassType.None;
+        _busy = false;
+    }
+
     // Back button OnClick
     public void BackFromChoice()
     {
         if (_busy || _lastPick == ClassType.None || cameraAnimator == null) return;
+        if (rewindFX) rewindFX.Play();
         _busy = true;
 
         if (backButtonRoot) backButtonRoot.SetActive(false);

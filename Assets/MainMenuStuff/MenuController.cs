@@ -16,6 +16,9 @@ public class MenuController : MonoBehaviour
     [SerializeField] private AudioSource sfxSource;
     [SerializeField] private AudioClip clickSfx;
 
+    [Header("SFX Volumes")]
+    [SerializeField, Range(0f, 1f)] private float eraseSfxVolume = 1f;
+
     [Header("Timing")]
     [SerializeField] private float preEffectHideTime = 0.15f;
 
@@ -36,6 +39,12 @@ public class MenuController : MonoBehaviour
 
     [Header("Class Select UI")]
     [SerializeField] private GameObject classSelectRoot; // set inactive by default in the Scene
+
+    [Header("Credits")]
+    [SerializeField] private string cameraCreditsTrigger = "credits";
+    [SerializeField] private string creditsStateName = "CreditsCam"; // name of the credits state
+    [SerializeField] private int cameraLayerIndex = 0;
+    [SerializeField] private bool useCreditsEvent = true; // set false to ignore the anim event
 
     bool _busy, _waitVideo, _waitSponge;
 
@@ -102,7 +111,7 @@ public class MenuController : MonoBehaviour
 
         if (sfxSource)
         {
-            if (clickSfx) sfxSource.PlayOneShot(clickSfx);
+            if (clickSfx) sfxSource.PlayOneShot(clickSfx, eraseSfxVolume); // volumeScale
             else if (!sfxSource.isPlaying) sfxSource.Play();
         }
 
@@ -142,5 +151,62 @@ public class MenuController : MonoBehaviour
     public void OnCameraArrived_ShowClassSelect()
     {
         if (classSelectRoot) classSelectRoot.SetActive(true);
+    }
+
+    public void PlayCredits()
+    {
+        if (cameraAnimator && !string.IsNullOrEmpty(cameraCreditsTrigger))
+        {
+            cameraAnimator.ResetTrigger(cameraCreditsTrigger);
+            cameraAnimator.SetTrigger(cameraCreditsTrigger);
+
+            if (!useCreditsEvent)    // fallback path
+                StartCoroutine(WaitCreditsThenShowMenu());
+        }
+    }
+
+    // Call from an Animation Event at the END of the CreditsCam clip (via CameraEventReceiver).
+    public void OnCreditsFinished_ShowMenu()
+    {
+        if (buttonsRoot) buttonsRoot.SetActive(true);
+    }
+
+    public void ShowMainMenuButtons()
+    {
+        if (buttonsRoot) buttonsRoot.SetActive(true);
+    }
+
+    public void OnStartBackFinished_ShowMenu()
+    {
+        if (classSelectRoot) classSelectRoot.SetActive(false);
+        ShowMainMenuButtons();
+    }
+
+    private System.Collections.IEnumerator WaitCreditsThenShowMenu()
+    {
+        if (!cameraAnimator) yield break;
+
+        int creditsHash = Animator.StringToHash(creditsStateName);
+
+        // Wait until we ENTER the credits state
+        while (true)
+        {
+            var st = cameraAnimator.GetCurrentAnimatorStateInfo(cameraLayerIndex);
+            bool inCredits = st.shortNameHash == creditsHash || st.IsName(creditsStateName);
+            if (inCredits) break;
+            yield return null;
+        }
+
+        // Wait until we EXIT the credits state or it finishes (normalizedTime >= 0.99f without transition)
+        while (true)
+        {
+            var st = cameraAnimator.GetCurrentAnimatorStateInfo(cameraLayerIndex);
+            bool inCredits = st.shortNameHash == creditsHash || st.IsName(creditsStateName);
+            if (!inCredits || (!cameraAnimator.IsInTransition(cameraLayerIndex) && st.normalizedTime >= 0.99f))
+                break;
+            yield return null;
+        }
+
+        OnCreditsFinished_ShowMenu();
     }
 }
