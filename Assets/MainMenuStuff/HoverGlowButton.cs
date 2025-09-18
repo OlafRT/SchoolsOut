@@ -21,7 +21,13 @@ public class HoverGlowButton : MonoBehaviour, IPointerEnterHandler, IPointerExit
     [SerializeField] private GameObject classSelectRoot;
     [SerializeField] private bool hideRootOnClick = true;
 
-    // NEW: lock hover after a class is chosen
+    [Header("Class-choice behavior")]
+    [Tooltip("If true, hovering/clicking is blocked after a class has been chosen.")]
+    [SerializeField] private bool respectClassChoiceLock = true;   // set FALSE on back buttons
+    [Tooltip("If true, clicking this button marks the class as chosen (locks others).")]
+    [SerializeField] private bool markClassChosenOnClick = true;   // set FALSE on back buttons
+
+    // lock after the player chooses a class
     private static bool s_ClassChosen = false;
 
     private readonly List<Material> _instancedMats = new List<Material>();
@@ -57,7 +63,7 @@ public class HoverGlowButton : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (s_ClassChosen) return;     // don't re-glow after a pick
+        if (respectClassChoiceLock && s_ClassChosen) return;
         SetGlow(true);
     }
 
@@ -68,10 +74,14 @@ public class HoverGlowButton : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void OnClick()
     {
-        if (s_ClassChosen) return;
-        s_ClassChosen = true;
+        // Block only if this button respects the lock and a class is already chosen
+        if (respectClassChoiceLock && s_ClassChosen) return;
 
-        // Ensure glow is OFF on the picked model
+        // For the real class buttons, mark chosen now; back buttons keep this false
+        if (markClassChosenOnClick && !s_ClassChosen)
+            s_ClassChosen = true;
+
+        // turn off highlight immediately
         SetGlow(false);
 
         // Fire camera trigger
@@ -83,7 +93,6 @@ public class HoverGlowButton : MonoBehaviour, IPointerEnterHandler, IPointerExit
             classSelectRoot.SetActive(false);
     }
 
-    // IMPORTANT: when the panel or button gets disabled, clear glow
     void OnDisable()
     {
         SetGlow(false);
