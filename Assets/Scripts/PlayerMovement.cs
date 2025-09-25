@@ -16,26 +16,41 @@ public class PlayerMovement : MonoBehaviour
     [Header("Animation")]
     public Animator animator;
 
-    // NEW: mouse snap-aim
+    // Animator parameter names (change to match your controller if needed)
+    [Header("Animation Parameters")]
+    [SerializeField] private string p_IsMoving   = "IsMoving";
+    [SerializeField] private string p_IsRunning  = "IsRunning";
+    [SerializeField] private string p_Speed01    = "Speed01";
+    [SerializeField] private string p_Forward    = "Forward";  // -1..1 (back..forward)
+    [SerializeField] private string p_Right      = "Right";    // -1..1 (left..right)
+    [SerializeField] private string p_TurnLeft45 = "TurnLeft45";
+    [SerializeField] private string p_TurnRight45= "TurnRight45";
+
     [Header("Mouse Aim (8-way)")]
     [Tooltip("Hold Right Mouse to face the cursor snapped to 8 directions.")]
     public bool enableMouseSnapAim = true;
     public KeyCode aimMouseButton = KeyCode.Mouse1;
     public Camera cameraForAim; // if null, falls back to Camera.main
 
+    [Header("Animation Tuning")]
+    [Tooltip("Smoothing of Forward/Right animator floats.")]
+    [SerializeField] private float animDamp = 0.08f;
+    [Tooltip("Minimum magnitude considered 'moving' (prevents jitter).")]
+    [SerializeField] private float moveEpsilon = 0.01f;
+
     private bool isMoving = false;
     private Vector3 targetPosition;
     private Vector3 lastPosition;
 
-    // Optional movement lock (unchanged)
     public bool canMove = true;
     private float moveCooldown = 0.2f;
 
-    // Cache last facing (useful if cursor is on top of player)
     private Vector3 lastFacing = Vector3.forward;
 
-    // ---------- NEW: Aura slow ----------
-    // Multipliers from different sources (e.g., stink field). Use the MIN (strongest slow).
+    // 8-way yaw index for turn-in-place (0..7, each = 45deg)
+    private int lastYawIndex = -1;
+
+    // ---------- Aura slow ----------
     private readonly Dictionary<object, float> auraMultipliers = new Dictionary<object, float>(); // value in [0..1]
     private float EffectiveSpeedMultiplier
     {
@@ -48,71 +63,89 @@ public class PlayerMovement : MonoBehaviour
         }
     }
     public void SetAuraMultiplier(object source, float multiplier01)
-    {
-        auraMultipliers[source] = Mathf.Clamp01(multiplier01);
-    }
+        => auraMultipliers[source] = Mathf.Clamp01(multiplier01);
     public void ClearAura(object source)
     {
         if (auraMultipliers.ContainsKey(source)) auraMultipliers.Remove(source);
     }
-    // -----------------------------------
 
     void Start()
     {
         if (!cameraForAim) cameraForAim = Camera.main;
         transform.position = RoundToNearestTile(transform.position);
         targetPosition = transform.position;
+
+        // init yaw index for turning-in-place detection
+        lastYawIndex = YawIndex8(transform.forward);
+        lastFacing = transform.forward;
     }
 
     void Update()
     {
-        // --- NEW: Right-click snap-aim (runs even when not moving) ---
+        // --- RMB snap-aim (updates facing even when not moving) ---
         if (enableMouseSnapAim && Input.GetKey(aimMouseButton))
         {
             Vector3 aimDir = GetMouseAimDir8();
             if (aimDir.sqrMagnitude > 0.1f)
             {
+                int newIdx = YawIndex8(aimDir);
+                bool standingStill = !isMoving;
+
+                // If we are idle and yaw steps changed, fire 45° turn triggers
+                if (standingStill && newIdx != lastYawIndex)
+                {
+                    // how many 45° steps? positive = right, negative = left
+                    int delta = DeltaYawSteps(lastYawIndex, newIdx);
+                    if (delta > 0) for (int i = 0; i < delta; i++) animator.SetTrigger(p_TurnRight45);
+                    if (delta < 0) for (int i = 0; i < -delta; i++) animator.SetTrigger(p_TurnLeft45);
+                }
+
                 transform.rotation = Quaternion.LookRotation(aimDir, Vector3.up);
                 lastFacing = aimDir;
+                lastYawIndex = newIdx;
             }
         }
 
-        if (!(canMove && !isMoving)) return;
-
-        Vector3 direction = Vector3.zero;
-
-        // Input (allows diagonals)
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) direction += Vector3.forward;
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) direction += Vector3.back;
-        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) direction += Vector3.left;
-        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) direction += Vector3.right;
-
-        // Rotate to movement dir only if not currently aiming
-        if (direction != Vector3.zero && !(enableMouseSnapAim && Input.GetKey(aimMouseButton)))
+        if (!canMove)
         {
-            // Snap movement-facing to 8-way too (prevents tiny jitter)
-            Vector3 snappedMoveDir = SnapDirTo8(direction);
+            // Only freeze if you’ve disabled movement globally.
+            UpdateAnimatorLocomotion(Vector3.zero, false);
+            return;
+        }
+
+        // --- Input (allows diagonals in world axes) ---
+        Vector3 wish = Vector3.zero;
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))    wish += Vector3.forward;
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))  wish += Vector3.back;
+        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))  wish += Vector3.left;
+        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) wish += Vector3.right;
+
+        // If not aiming, snap facing to the 8-way movement direction
+        if (wish != Vector3.zero && !(enableMouseSnapAim && Input.GetKey(aimMouseButton)))
+        {
+            Vector3 snappedMoveDir = SnapDirTo8(wish);
             transform.rotation = Quaternion.LookRotation(snappedMoveDir, Vector3.up);
             lastFacing = snappedMoveDir;
+            lastYawIndex = YawIndex8(snappedMoveDir);
         }
 
-        // Apply sprint and aura slow
-        float currentSpeed = moveSpeed;
-        if (hasRunningShoes && Input.GetKey(KeyCode.LeftShift))
-            currentSpeed *= sprintMultiplier;
-        currentSpeed *= EffectiveSpeedMultiplier; // ← slow applied here
+        // Sprint + aura slow
+        bool isRunning = hasRunningShoes && Input.GetKey(KeyCode.LeftShift);
+        float currentSpeed = moveSpeed * (isRunning ? sprintMultiplier : 1f) * EffectiveSpeedMultiplier;
 
-        if (direction != Vector3.zero)
+        // Try to start a step if we have intent
+        if (!isMoving && wish != Vector3.zero)
         {
-            direction = direction.normalized * tileSize;
-            Vector3 desiredPosition = RoundToNearestTile(transform.position + direction);
+            Vector3 snappedDir = SnapDirTo8(wish).normalized;
+            Vector3 moveDelta  = snappedDir * tileSize;
+            Vector3 desired    = RoundToNearestTile(transform.position + moveDelta);
 
-            if (!Physics.Raycast(transform.position, direction, tileSize, obstacleLayer))
-                StartCoroutine(MoveToPosition(direction, currentSpeed));
+            if (!Physics.Raycast(transform.position, moveDelta, tileSize, obstacleLayer))
+                StartCoroutine(MoveToPosition(moveDelta, currentSpeed));
         }
 
-        animator.SetFloat("Speed",
-            direction.magnitude * (hasRunningShoes && Input.GetKey(KeyCode.LeftShift) ? sprintMultiplier : 1) * EffectiveSpeedMultiplier);
+        // Update animator using either the active step direction (if moving) or current wish
+        UpdateAnimatorLocomotion(wish, /*wishDirValid*/ wish != Vector3.zero, isRunning);
     }
 
     private IEnumerator MoveToPosition(Vector3 direction, float speed)
@@ -123,12 +156,56 @@ public class PlayerMovement : MonoBehaviour
         while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
         {
             transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
+            // while sliding, keep animator hot
+            UpdateAnimatorLocomotion(direction, /*wishDirValid*/ true, hasRunningShoes && Input.GetKey(KeyCode.LeftShift));
             yield return null;
         }
 
         transform.position = targetPosition;
         isMoving = false;
         lastPosition = targetPosition;
+
+        // after arriving, zero out locomotion params smoothly
+        // UpdateAnimatorLocomotion(Vector3.zero, false);
+    }
+
+    private void UpdateAnimatorLocomotion(Vector3 wishDirWorld, bool wishDirValid, bool isRunning = false)
+    {
+        if (!animator) return;
+
+        // Compute current effective move direction in WORLD during a step
+        Vector3 stepDir = Vector3.zero;
+        if (isMoving)
+        {
+            Vector3 v = (targetPosition - transform.position);
+            if (v.magnitude > moveEpsilon) stepDir = v.normalized;
+        }
+
+        // If not moving yet, use the user's desired direction
+        Vector3 worldMove = stepDir != Vector3.zero ? stepDir : (wishDirValid ? SnapDirTo8(wishDirWorld).normalized : Vector3.zero);
+
+        // Project onto local forward/right to get directional intent
+        float fwd = 0f, right = 0f, speed01 = 0f;
+        bool anyMove = worldMove.sqrMagnitude > 0.0001f;
+
+        if (anyMove)
+        {
+            fwd   = Mathf.Clamp(Vector3.Dot(worldMove, transform.forward), -1f, 1f);
+            right = Mathf.Clamp(Vector3.Dot(worldMove, transform.right),   -1f, 1f);
+
+            // normalized speed (0..1): 1 when running, ~0.6 when walking (tweak as needed)
+            speed01 = isRunning ? 1f : 0.6f;
+        }
+        else
+        {
+            fwd = right = speed01 = 0f;
+        }
+
+        animator.SetBool(p_IsMoving, anyMove);
+        animator.SetBool(p_IsRunning, isRunning);
+        animator.SetFloat(p_Speed01, speed01, animDamp, Time.deltaTime);
+        animator.SetFloat(p_Forward, fwd,     animDamp, Time.deltaTime);
+        animator.SetFloat(p_Right,   right,   animDamp, Time.deltaTime);
     }
 
     private Vector3 RoundToNearestTile(Vector3 position)
@@ -150,22 +227,18 @@ public class PlayerMovement : MonoBehaviour
 
     public void RebaseTo(Vector3 worldPos, bool withCooldown = false)
     {
-        // Cancel any step/coroutine intent
         isMoving = false;
-
-        // Snap & place
         transform.position = RoundToNearestTile(worldPos);
         targetPosition = transform.position;
         lastPosition = targetPosition;
 
         if (withCooldown)
         {
-            StopAllCoroutines(); // ensure no lingering coroutines
-            StartCoroutine(TeleportCooldown()); // the old behavior
+            StopAllCoroutines();
+            StartCoroutine(TeleportCooldown());
         }
         else
         {
-            // Immediate control (no "stun" pause)
             canMove = true;
         }
     }
@@ -179,8 +252,7 @@ public class PlayerMovement : MonoBehaviour
 
     public Vector3 GetLastPosition() => lastPosition;
 
-    // ----------------- NEW HELPERS -----------------
-
+    // ----------------- Helpers -----------------
     private Vector3 GetMouseAimDir8()
     {
         if (!cameraForAim) return lastFacing;
@@ -192,7 +264,6 @@ public class PlayerMovement : MonoBehaviour
         Vector3 hit = ray.GetPoint(dist);
         Vector3 v = hit - transform.position;
         v.y = 0f;
-
         if (v.sqrMagnitude < 0.0001f) return lastFacing;
 
         return SnapDirTo8(v);
@@ -216,5 +287,22 @@ public class PlayerMovement : MonoBehaviour
             case 6:  return new Vector3( 0,0,-1);
             default: return new Vector3( 1,0,-1).normalized;
         }
+    }
+
+    private static int YawIndex8(Vector3 dir)
+    {
+        if (dir == Vector3.zero) return 0;
+        float ang = Mathf.Atan2(dir.z, dir.x) * Mathf.Rad2Deg;
+        if (ang < 0f) ang += 360f;
+        return Mathf.RoundToInt(ang / 45f) & 7; // 0..7
+    }
+
+    // returns signed step count in [-4..+4] from a -> b (right positive)
+    private static int DeltaYawSteps(int fromIdx, int toIdx)
+    {
+        int delta = (toIdx - fromIdx) % 8;
+        if (delta > 4)  delta -= 8;
+        if (delta < -4) delta += 8;
+        return delta;
     }
 }

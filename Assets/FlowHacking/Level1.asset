@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad0f8657505d9444ab696f8f97ace8cc, type: 3}
+  m_Name: Level1
+  m_EditorClassIdentifier: 
+  width: 5
+  height: 5
+  pairs:
+  - name: Red
+    color: {r: 0.8018868, g: 0, b: 0, a: 1}
+    a: {x: 2, y: 0}
+    b: {x: 1, y: 2}
+  - name: Green
+    color: {r: 0, g: 0.8, b: 0.28453597, a: 1}
+    a: {x: 3, y: 0}
+    b: {x: 4, y: 4}
+  - name: Blue
+    color: {r: 0, g: 0.36965808, b: 0.8, a: 1}
+    a: {x: 0, y: 0}
+    b: {x: 0, y: 2}
+  - name: Orange
+    color: {r: 0.8, g: 0.48774034, b: 0, a: 1}
+    a: {x: 3, y: 1}
+    b: {x: 1, y: 3}
+  - name: Yellow
+    color: {r: 0.79911166, g: 0.8773585, b: 0.0041384934, a: 1}
+    a: {x: 0, y: 3}
+    b: {x: 3, y: 2}

@@ -28,7 +28,7 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
 
     [Header("Status UI")]
     public string slowStatusTag = "Slow";
-    public Sprite slowStatusIcon; // <-- assign your snail/snowflake/etc icon here
+    public Sprite slowStatusIcon;
 
     [Header("Charges")]
     public int maxCharges = 2;
@@ -36,6 +36,11 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
 
     [Header("UI")]
     public Sprite icon;
+
+    [Header("Animation")]
+    [SerializeField] private Animator animator;          // auto-found in Awake if left null
+    [SerializeField] private string bombTrigger = "Bomb";
+    [SerializeField] private float eventFailSafeSeconds = 1.0f;
 
     private PlayerAbilities ctx;
     private AutoAttackAbility autoAttack;
@@ -49,12 +54,18 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     private int currentCharges;
     private float nextChargeReadyTime = 0f;
 
+    // pending throw (armed at click; executed by animation event)
+    private struct PendingThrow { public bool armed; public Vector3 target; public float timeoutAt; }
+    private PendingThrow pending;
+
     public AbilityClassRestriction AllowedFor => AbilityClassRestriction.Nerd;
 
     void Awake()
     {
         ctx = GetComponent<PlayerAbilities>();
         autoAttack = GetComponent<AutoAttackAbility>();
+        if (!animator) animator = GetComponentInChildren<Animator>(true);
+
         currentCharges = Mathf.Max(1, maxCharges);
         if (currentCharges < maxCharges)
             nextChargeReadyTime = Time.time + Mathf.Max(0.01f, rechargeSeconds);
@@ -65,6 +76,7 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         if (!IsLearned) return;
 
         TickRecharge();
+        FailSafeIfEventMissed();
 
         if (!isAiming)
         {
@@ -85,14 +97,44 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
 
         if (Input.GetMouseButtonDown(0))
         {
-            Vector3 target = aimCenter;
-            EndAim(true);
+            if (currentCharges <= 0) return;
 
-            if (currentCharges > 0)
-            {
-                SpendCharge();
-                StartCoroutine(ThrowBombAndSpawnField(target));
-            }
+            // Spend immediately to feel responsive
+            SpendCharge();
+
+            // Arm pending throw for the animation event
+            pending.armed    = true;
+            pending.target   = aimCenter;
+            pending.timeoutAt= Time.time + eventFailSafeSeconds;
+
+            // Leave auto-attack suppressed until release; clear markers and exit aim
+            foreach (var m in markers) if (m) Destroy(m); markers.Clear();
+            isAiming = false;
+
+            // Trigger the Bomb animation
+            if (animator && !string.IsNullOrEmpty(bombTrigger))
+                animator.SetTrigger(bombTrigger);
+        }
+    }
+
+    // ---- Animation Event (called via NerdAnimRelay on the Animator object) ----
+    public void AnimEvent_ReleaseBomb()
+    {
+        if (!pending.armed) return;
+
+        // Allow auto-attack again at the moment we actually throw
+        if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = false;
+
+        StartCoroutine(ThrowBombAndSpawnField(pending.target));
+        pending.armed = false;
+    }
+
+    void FailSafeIfEventMissed()
+    {
+        if (pending.armed && Time.time >= pending.timeoutAt)
+        {
+            Debug.LogWarning("BombAbility: Bomb animation event missed—firing fail-safe.");
+            AnimEvent_ReleaseBomb();
         }
     }
 
@@ -163,8 +205,8 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         // Dynamically create the field and pass the icon/tag
         var go = new GameObject("BombAoEField");
         var field = go.AddComponent<BombAoEField>();
-        field.slowStatusTag = slowStatusTag;      // <-- pass tag
-        field.slowStatusIcon = slowStatusIcon;    // <-- pass icon
+        field.slowStatusTag = slowStatusTag;
+        field.slowStatusIcon = slowStatusIcon;
         field.Init(
             ctx: ctx,
             center: targetCenter,
@@ -185,7 +227,6 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         foreach (var m in markers) if (m) Destroy(m);
         markers.Clear();
 
-        // Sample ONE ground Y at the center, then use it for the whole preview
         float gy;
         if (!ctx.TryGetGroundHeight(center, out gy, strict: true)) gy = center.y;
 
@@ -196,7 +237,7 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
 
             var m = Instantiate(ctx.tileMarkerPrefab, pos, Quaternion.identity);
             if (!m.TryGetComponent<TileMarker>(out var tm)) tm = m.AddComponent<TileMarker>();
-            tm.Init(999f, ctx.tileSize); // aiming preview; destroyed on EndAim
+            tm.Init(999f, ctx.tileSize); // aiming preview; destroyed when we exit aim
             markers.Add(m);
         }
     }
