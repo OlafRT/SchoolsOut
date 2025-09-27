@@ -121,12 +121,20 @@ public class HackingStation : MonoBehaviour
         if (fuseboxDoorHinge) fuseboxDoorClosedRot = fuseboxDoorHinge.localRotation;
         if (worldDoorHinge)   worldDoorClosedRot   = worldDoorHinge.localRotation;
 
-        if (flowBoard) flowBoard.onSolved.AddListener(HandleSolved);
+        if (flowBoard)
+        {
+            flowBoard.onSolved.AddListener(HandleSolved);
+            flowBoard.onTimeExpired.AddListener(HandleTimeExpired); // NEW
+        }
     }
 
     void OnDestroy()
     {
-        if (flowBoard) flowBoard.onSolved.RemoveListener(HandleSolved);
+        if (flowBoard)
+        {
+            flowBoard.onSolved.RemoveListener(HandleSolved);
+            flowBoard.onTimeExpired.RemoveListener(HandleTimeExpired); // NEW
+        }
         if (_currentJockStation == this) _currentJockStation = null;
     }
 
@@ -433,6 +441,42 @@ public class HackingStation : MonoBehaviour
 
         jockBusy = false;
         _currentJockStation = null;
+        FinalizeEndCommon();
+    }
+
+    private void HandleTimeExpired()
+    {
+        // Timer ran out while the Nerd puzzle was active (or just finished).
+        // 1) Permanently disable further use of this station
+        stationDestroyed = true;
+        locked = true;
+
+        // 2) Show the same shock particles the Jock gets (no audio per your request)
+        if (shockFX) shockFX.SetActive(true);
+
+        // 3) Stop input & hide the puzzle UI if it’s still up
+        if (puzzleRoot) puzzleRoot.SetActive(false);
+        nerdCancelArmed = false;
+
+        // 4) Hide prompt and block the trigger if you use that toggle
+        if (promptUI) promptUI.SetActive(false);
+        if (disableTriggerAfterLock && triggerCol) triggerCol.enabled = false;
+
+        // 5) Cleanly return the camera to the player and close the fusebox door
+        //    (and re-enable the things you disabled via On Hack Start through onHackEnd)
+        StartCoroutine(TimeExpiredExitRoutine());
+    }
+
+    private System.Collections.IEnumerator TimeExpiredExitRoutine()
+    {
+        // Move camera back
+        yield return MoveCameraToPlayer();
+
+        // Close fusebox door (quietly)
+        if (fuseboxDoorHinge)
+            yield return RotateLocal(fuseboxDoorHinge, fuseboxDoorHinge.localRotation, fuseboxDoorClosedRot, 0.4f);
+
+        // Re-enable any disabled player scripts, fire On Hack End, and clear flags
         FinalizeEndCommon();
     }
 
