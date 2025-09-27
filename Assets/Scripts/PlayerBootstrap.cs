@@ -11,6 +11,12 @@ public class PlayerBootstrap : MonoBehaviour
     [SerializeField] private GameObject nerdModelChild;
     [SerializeField] private GameObject jockModelChild;
 
+    private GameObject activeModelInstance;
+    private Animator activeAnimator;
+
+    public GameObject ActiveModel => activeModelInstance;
+    public Animator ActiveAnimator => activeAnimator;
+
     [Tooltip("Optional alternative: spawn one of these prefabs instead of using child objects.")]
     [SerializeField] private GameObject nerdModelPrefab;
     [SerializeField] private GameObject jockModelPrefab;
@@ -63,7 +69,6 @@ public class PlayerBootstrap : MonoBehaviour
     {
         GameObject active = null, inactive = null;
 
-        // Prefer existing child models if assigned
         if (nerdModelChild || jockModelChild)
         {
             active   = (pick == GameSession.ClassType.Nerd) ? nerdModelChild : jockModelChild;
@@ -71,21 +76,26 @@ public class PlayerBootstrap : MonoBehaviour
 
             if (inactive) inactive.SetActive(false);
             if (active)   active.SetActive(true);
+
+            activeModelInstance = active;
+            activeAnimator = active ? active.GetComponentInChildren<Animator>(true) : null;
         }
-        // Otherwise, instantiate prefabs if provided
         else if (nerdModelPrefab || jockModelPrefab)
         {
             var prefab = (pick == GameSession.ClassType.Nerd) ? nerdModelPrefab : jockModelPrefab;
             if (prefab)
             {
-                // optionally clear any previous children
                 for (int i = modelParent.childCount - 1; i >= 0; i--)
                     Destroy(modelParent.GetChild(i).gameObject);
 
                 var instance = Instantiate(prefab, modelParent);
                 instance.name = prefab.name;
+
+                activeModelInstance = instance;
+                activeAnimator = instance.GetComponentInChildren<Animator>(true);
             }
         }
-        // else: nothing to swap—assume your base player is already the correct model
+
     }
+
 }

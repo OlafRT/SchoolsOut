@@ -18,6 +18,16 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     public GameObject bombPrefab;
     public GameObject explosionVfxPrefab;
 
+    [Header("Impact SFX")]                       // <<< NEW
+    [SerializeField] private AudioClip impactSfx;
+    [SerializeField, Range(0f, 2f)] private float impactVolume = 1f;
+    [SerializeField, Range(0.25f, 2f)] private float impactPitch = 1f;
+
+    [Header("Impact Shake")]
+    [SerializeField] private bool  shakeOnImpact   = true;
+    [SerializeField] private float shakeDuration   = 0.12f;
+    [SerializeField] private float shakeAmplitude  = 0.35f;
+
     [Header("Lingering AoE")]
     public int bombRadiusTiles = 1;
     public float lingerDuration = 3f;
@@ -103,9 +113,9 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
             SpendCharge();
 
             // Arm pending throw for the animation event
-            pending.armed    = true;
-            pending.target   = aimCenter;
-            pending.timeoutAt= Time.time + eventFailSafeSeconds;
+            pending.armed     = true;
+            pending.target    = aimCenter;
+            pending.timeoutAt = Time.time + eventFailSafeSeconds;
 
             // Leave auto-attack suppressed until release; clear markers and exit aim
             foreach (var m in markers) if (m) Destroy(m); markers.Clear();
@@ -192,7 +202,17 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
             yield return null;
         }
 
-        if (explosionVfxPrefab) Instantiate(explosionVfxPrefab, targetCenter + Vector3.up * 0.02f, Quaternion.identity);
+        // Impact: VFX + SFX
+        if (explosionVfxPrefab)
+            Instantiate(explosionVfxPrefab, targetCenter + Vector3.up * 0.02f, Quaternion.identity);
+
+        // sound
+        PlayOneShotAt(targetCenter, impactSfx, impactVolume, impactPitch);
+
+        // screen shake
+        if (shakeOnImpact)
+            CameraShaker.Instance?.Shake(shakeDuration, shakeAmplitude);
+
         Destroy(bomb);
 
         if (initialImpactDamage > 0)
@@ -275,4 +295,21 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     // ---- IChargeableAbility ----
     public int CurrentCharges => currentCharges;
     public int MaxCharges => Mathf.Max(1, maxCharges);
+
+    // ---- simple 3D one-shot helper (like Warp) ----
+    void PlayOneShotAt(Vector3 pos, AudioClip clip, float volume, float pitch)
+    {
+        if (!clip) return;
+        var go = new GameObject("OneShotAudio_BombImpact");
+        go.transform.position = pos;
+        var a = go.AddComponent<AudioSource>();
+        a.clip = clip;
+        a.volume = Mathf.Clamp01(volume);
+        a.pitch = Mathf.Clamp(pitch, 0.25f, 2f);
+        a.spatialBlend = 1f; // 3D
+        a.rolloffMode = AudioRolloffMode.Linear;
+        a.maxDistance = 30f;
+        a.Play();
+        Destroy(go, clip.length / Mathf.Max(0.01f, a.pitch) + 0.1f);
+    }
 }

@@ -38,9 +38,11 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     [Tooltip("Sawtooth offset per step in tiles (0 = straight).")]
     public float sawtoothOffsetTiles = 0.15f;
 
-    [Header("Animation (optional)")]
-    public string castTrigger = "CastStart";
-    public string releaseTrigger = "CastRelease";
+    [Header("Animation")]
+    [Tooltip("Trigger to start the cast animation immediately.")]
+    public string chainShockTrigger = "ChainShock";
+    [Tooltip("How long we’ll wait for the animation event after cast finishes before auto-firing anyway.")]
+    public float animEventFailSafeSeconds = 0.5f;
 
     [Header("UI")]
     public CastBarUI castBar;
@@ -68,6 +70,13 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     private float cdUntil;
     private bool critShakeDoneThisCast; // ensure we shake only once per cast
 
+    // Event sync
+    private bool castReady;        // cast bar finished
+    private bool eventReady;       // animation event arrived
+    private bool hasFired;         // already fired this cast
+    private float eventTimeoutAt;  // when to auto-fire if event never arrives
+    private Collider cachedInitialTarget;
+
     public AbilityClassRestriction AllowedFor => AbilityClassRestriction.Nerd;
 
     void Awake()
@@ -94,8 +103,16 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     IEnumerator CastRoutine(Collider initialTarget)
     {
         isCasting = true;
+        hasFired = false;
+        castReady = false;
+        eventReady = false;
+        cachedInitialTarget = initialTarget;
+
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = true;
-        if (anim && !string.IsNullOrEmpty(castTrigger)) anim.SetTrigger(castTrigger);
+
+        // Start the animation immediately (as requested)
+        if (anim && !string.IsNullOrEmpty(chainShockTrigger)) anim.SetTrigger(chainShockTrigger);
+
         if (castBar) castBar.Show(abilityName, castTime);
 
         Vector3 startTile = ctx.Snap(transform.position);
@@ -115,17 +132,48 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
             yield return null;
         }
 
-        // revalidate target
-        if (!initialTarget || !initialTarget.gameObject.activeInHierarchy)
+        // Cast time complete; now wait for the animation event (or fail-safe)
+        castReady = true;
+        eventTimeoutAt = Time.time + Mathf.Max(0.01f, animEventFailSafeSeconds);
+
+        // If the event already arrived during cast, release now
+        if (eventReady)
         {
-            initialTarget = FindNearestTarget();
-            if (!initialTarget) { FinishCastNoFire(); yield break; }
+            ReleaseIfNeeded();
+            yield break;
         }
 
-        if (anim && !string.IsNullOrEmpty(releaseTrigger)) anim.SetTrigger(releaseTrigger);
-        FireChain(initialTarget);
+        // Otherwise wait a short time for the event, then fail-safe
+        while (!eventReady && Time.time < eventTimeoutAt)
+            yield return null;
 
-        cdUntil = Time.time + Mathf.Max(0.01f, cooldownSeconds);
+        ReleaseIfNeeded(); // fires if not already
+    }
+
+    // Called by the NerdAnimRelay (animation event)
+    public void AnimEvent_ChainShockRelease()
+    {
+        if (!isCasting) return; // ignore if we got cancelled
+        eventReady = true;
+        if (castReady) ReleaseIfNeeded();
+    }
+
+    void ReleaseIfNeeded()
+    {
+        if (hasFired) return;
+
+        // revalidate / reacquire target at release
+        var target = cachedInitialTarget;
+        if (!target || !target.gameObject.activeInHierarchy)
+            target = FindNearestTarget();
+
+        if (target)
+        {
+            FireChain(target);
+            cdUntil = Time.time + Mathf.Max(0.01f, cooldownSeconds);
+        }
+
+        hasFired = true;
         FinishCastNoFire();
     }
 
@@ -134,6 +182,9 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         if (castBar) castBar.Hide();
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = false;
         isCasting = false;
+        castReady = eventReady = false;
+        hasFired = false;
+        cachedInitialTarget = null;
     }
 
     void FinishCastNoFire()
@@ -141,10 +192,11 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
         if (castBar) castBar.Hide();
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = false;
         isCasting = false;
+        castReady = eventReady = false;
+        cachedInitialTarget = null;
     }
 
-    // ---------- Chain logic ----------
-
+    // ---------- Chain logic (unchanged) ----------
     void FireChain(Collider firstHit)
     {
         critShakeDoneThisCast = false;
@@ -247,17 +299,17 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
     {
         if (!c) return;
 
-        bool didCrit = false; // make compiler happy + capture crit
+        bool didCrit = false; // capture crit
         int final = ctx.stats
             ? ctx.stats.ComputeDamage(baseDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
             : baseDamage;
 
         Vector3 tileCenter = ctx.Snap(c.bounds.center);
 
-        // Pass 'didCrit' so combat text shows crit styling (big/orange) instead of a normal hit
+        // Pass 'didCrit' so combat text shows crit styling
         ctx.DamageTileScaled(tileCenter, ctx.tileSize * 0.45f, final, PlayerStats.AbilitySchool.Nerd, didCrit);
 
-        // Crit-only spice: louder/low-pitch zap + (only once per cast) camera shake
+        // Crit-only spice
         if (didCrit && castHitSfx)
         {
             PlayOneShotAt(
@@ -321,7 +373,6 @@ public class ChainShockAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbil
 
             if (jitter > 0f)
             {
-                // midpoint offset perpendicular to segment for a 'jaggy' feel
                 Vector3 mid = (cur + next) * 0.5f;
                 Vector3 seg = (next - cur).normalized;
                 Vector3 perp = new Vector3(-seg.z, 0f, seg.x);

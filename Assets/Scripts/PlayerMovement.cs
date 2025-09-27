@@ -69,9 +69,32 @@ public class PlayerMovement : MonoBehaviour
         if (auraMultipliers.ContainsKey(source)) auraMultipliers.Remove(source);
     }
 
+    // --- NEW: Resolve animator from PlayerBootstrap if not assigned in the inspector ---
+    private void ResolveAnimator()
+    {
+        if (animator) return;
+
+        var bootstrap = GetComponent<PlayerBootstrap>();
+        if (bootstrap && bootstrap.ActiveAnimator)
+        {
+            animator = bootstrap.ActiveAnimator;
+            return;
+        }
+
+        // Fallback: find any animator under this player hierarchy.
+        animator = GetComponentInChildren<Animator>(true);
+    }
+
+    // Optional external setter if you hot-swap models at runtime.
+    public void SetAnimator(Animator a) => animator = a;
+
     void Start()
     {
         if (!cameraForAim) cameraForAim = Camera.main;
+
+        // Ensure animator targets the active class model.
+        ResolveAnimator();
+
         transform.position = RoundToNearestTile(transform.position);
         targetPosition = transform.position;
 
@@ -92,7 +115,7 @@ public class PlayerMovement : MonoBehaviour
                 bool standingStill = !isMoving;
 
                 // If we are idle and yaw steps changed, fire 45° turn triggers
-                if (standingStill && newIdx != lastYawIndex)
+                if (standingStill && newIdx != lastYawIndex && animator)
                 {
                     // how many 45° steps? positive = right, negative = left
                     int delta = DeltaYawSteps(lastYawIndex, newIdx);

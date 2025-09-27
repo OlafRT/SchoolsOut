@@ -15,6 +15,15 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     public float warpVfxDuration = 1.5f;
     public GameObject warpVfxPrefab;
 
+    [Header("Animation")]
+    [SerializeField] private Animator animator;        // auto-found in Awake if left null
+    [SerializeField] private string warpTrigger = "Warp";
+
+    [Header("Audio")]
+    [SerializeField] private AudioClip warpSfx;        // <- add your warp sound here
+    [SerializeField, Range(0f, 2f)] private float warpSfxVolume = 1f;
+    [SerializeField, Range(0.25f, 2f)] private float warpSfxPitch = 1f;
+
     [Header("Charges")]
     public int maxCharges = 2;
     public float rechargeSeconds = 10f;
@@ -37,6 +46,8 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         currentCharges = Mathf.Max(1, maxCharges);
         if (currentCharges < maxCharges)
             nextChargeReadyTime = Time.time + Mathf.Max(0.01f, rechargeSeconds);
+
+        if (!animator) animator = GetComponentInChildren<Animator>(true);
     }
 
     void Update()
@@ -96,7 +107,7 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
             lastFree = candidate;
         }
 
-        // If we didn’t actually move, don’t waste a charge (nice-to-have)
+        // If we didn’t actually move, don’t waste a charge
         if (lastFree == startTile)
         {
             currentCharges = Mathf.Min(maxCharges, currentCharges + 1);
@@ -110,12 +121,23 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         var mover = GetComponent<PlayerMovement>();
         if (mover != null) mover.RebaseTo(lastFree, withCooldown: false);
 
-        // VFX
+        // Determine arrival FX position (try to align to ground height)
+        Vector3 fxPos = lastFree;
+        if (ctx.TryGetGroundHeight(lastFree, out float gy)) fxPos.y = gy;
+
+        // 3) Arrival VFX
         if (warpVfxPrefab)
         {
-            var fx = Instantiate(warpVfxPrefab, lastFree, Quaternion.identity);
+            var fx = Instantiate(warpVfxPrefab, fxPos, Quaternion.identity);
             if (warpVfxDuration > 0f) Destroy(fx, warpVfxDuration);
         }
+
+        // 4) Arrival SFX
+        PlayOneShotAt(fxPos, warpSfx, warpSfxVolume, warpSfxPitch);
+
+        // 5) Play "Warp" animation trigger
+        if (animator && !string.IsNullOrEmpty(warpTrigger))
+            animator.SetTrigger(warpTrigger);
     }
 
     // ---- IAbilityUI ----
@@ -129,4 +151,21 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     // ---- IChargeableAbility ----
     public int CurrentCharges => currentCharges;
     public int MaxCharges => Mathf.Max(1, maxCharges);
+
+    // ---- simple 3D one-shot helper ----
+    void PlayOneShotAt(Vector3 pos, AudioClip clip, float volume, float pitch)
+    {
+        if (!clip) return;
+        var go = new GameObject("OneShotAudio_Warp");
+        go.transform.position = pos;
+        var a = go.AddComponent<AudioSource>();
+        a.clip = clip;
+        a.volume = Mathf.Clamp01(volume);
+        a.pitch = Mathf.Clamp(pitch, 0.25f, 2f);
+        a.spatialBlend = 1f; // 3D
+        a.rolloffMode = AudioRolloffMode.Linear;
+        a.maxDistance = 30f;
+        a.Play();
+        Destroy(go, clip.length / Mathf.Max(0.01f, a.pitch) + 0.1f);
+    }
 }

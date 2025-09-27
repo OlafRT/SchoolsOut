@@ -7,35 +7,34 @@ using Cinemachine;
 #endif
 
 [RequireComponent(typeof(Collider))]
-public class PuzzleStation : MonoBehaviour
+public class HackingStation : MonoBehaviour
 {
     [Header("Player")]
     [SerializeField] private Transform player;
     [SerializeField] private MonoBehaviour[] disableWhileHacking;
 
-    [Header("UI")]
-    [SerializeField] private GameObject promptUI;
+    [Header("UI (shared prompt)")]
+    [SerializeField] private GameObject promptUI;          // same prompt for both classes (e.g. "Press E")
     [SerializeField] private KeyCode interactKey = KeyCode.E;
 
-    [Header("Puzzle")]
+    [Header("Puzzle (Nerd only)")]
     [SerializeField] private GameObject puzzleRoot;
     [SerializeField] private FlowBoard flowBoard;
-    [SerializeField] private bool resetPuzzleOnEnter = true; // rebuild level when entering puzzle
+    [SerializeField] private bool resetPuzzleOnEnter = true;
 
-    [Header("Fusebox Door (opens when you start hacking)")]
+    [Header("Fusebox Door (opens on attempt)")]
     [SerializeField] private Transform fuseboxDoorHinge;
     [SerializeField] private Vector3 fuseboxDoorOpenLocalEuler = new Vector3(0, -90, 0);
     [SerializeField] private float fuseboxOpenSeconds = 0.6f;
 
-    [Header("World Door (opens after solving)")]
+    [Header("World Door (opens after solving - Nerd)")]
     [SerializeField] private Transform worldDoorHinge;
     [SerializeField] private Vector3 worldDoorOpenLocalEuler = new Vector3(0, 90, 0);
     [SerializeField] private float worldDoorOpenSeconds = 0.8f;
 
     [Header("Camera - choose one mode")]
     [SerializeField] private bool useCinemachine = false;
-
-    [SerializeField] private Camera mainCamera;          // manual mode camera
+    [SerializeField] private Camera mainCamera;
     [SerializeField] private Transform puzzleCamPose;
     [SerializeField] private Transform playerCamPose;
     [SerializeField] private float camMoveSeconds = 0.7f;
@@ -51,24 +50,50 @@ public class PuzzleStation : MonoBehaviour
     [SerializeField] private AudioSource sfx;
     [SerializeField] private AudioClip doorOpenClip;
     [SerializeField] private AudioClip doorCloseClip;
+    [SerializeField] private AudioClip smashImpactClip;
+    [SerializeField] private AudioClip shockClip;
+    [SerializeField] private AudioClip thudClip;
 
     [Header("Behavior")]
-    [SerializeField] private bool allowCancelWithInteractKey = true;   // press E again to exit
-    [SerializeField] private KeyCode cancelKey = KeyCode.E;            // can change to Escape, etc.
-    [SerializeField] private bool lockAfterSolved = true;              // prevent re-use after success
-    [SerializeField] private bool disableTriggerAfterLock = true;      // disable collider AFTER exit finishes
+    [SerializeField] private bool allowCancelWithInteractKey = true; // Nerd only
+    [SerializeField] private KeyCode cancelKey = KeyCode.E;          // Nerd only
+    [SerializeField] private bool lockAfterSolved = true;            // Nerd only
+    [SerializeField] private bool disableTriggerAfterLock = true;    // Nerd only
+
+    [Header("Jock Attempt UI")]
+    [Tooltip("UI shown to Jock when he 'attempts' to hack (your messy image).")]
+    [SerializeField] private GameObject jockAttemptUI;
+    [SerializeField] private KeyCode jockSmashKey = KeyCode.F;       // press to smash from the fake UI
+
+    [Header("Jock Smash Flow")]
+    [SerializeField] private Animator jockAnimator;                  // Jock model animator
+    [SerializeField] private string jockSmashTrigger = "Smash";
+    [SerializeField] private string jockShockTrigger = "Shock";
+    [SerializeField] private string jockFallTrigger  = "Fall";
+    [SerializeField] private GameObject shockFX;                     // sparks on the box (inactive by default)
 
     [Header("Events")]
     public UnityEvent onHackStart;
     public UnityEvent onHackEnd;
     public UnityEvent onSolvedDoorOpening;
+    public UnityEvent onJockSmashStarted;
+    public UnityEvent onJockShocked;
+    public UnityEvent onJockFell;
 
     // ----- runtime -----
     private bool playerInside;
-    private bool hacking;
-    private bool exiting;
+    private bool hacking;     // Nerd puzzle active
+    private bool exiting;     // Nerd puzzle exiting
     private bool solved;
-    private bool locked;
+    private bool locked;      // after nerd solves (or after jock smashes)
+
+    private bool jockUIOpen;  // Jock fake-hack UI is shown
+    private bool jockBusy;    // Jock smash sequence is running
+    private bool nerdCancelArmed = false;
+
+    // NEW: becomes true after Jock smashes; station is unusable thereafter
+    private bool stationDestroyed = false;
+
     private Quaternion fuseboxDoorClosedRot;
     private Quaternion worldDoorClosedRot;
     private Collider triggerCol;
@@ -78,14 +103,20 @@ public class PuzzleStation : MonoBehaviour
     private Quaternion camOrigRot;
     private Transform camOrigParent;
 
+    // static relay target for JockAnimRelay
+    private static HackingStation _currentJockStation;
+
     void Awake()
     {
         triggerCol = GetComponent<Collider>();
         triggerCol.isTrigger = true;
 
         if (!mainCamera) mainCamera = Camera.main;
-        if (puzzleRoot) puzzleRoot.SetActive(false);
-        if (promptUI) promptUI.SetActive(false);
+
+        if (puzzleRoot)    puzzleRoot.SetActive(false);
+        if (promptUI)      promptUI.SetActive(false);
+        if (jockAttemptUI) jockAttemptUI.SetActive(false);
+        if (shockFX)       shockFX.SetActive(false);
 
         if (fuseboxDoorHinge) fuseboxDoorClosedRot = fuseboxDoorHinge.localRotation;
         if (worldDoorHinge)   worldDoorClosedRot   = worldDoorHinge.localRotation;
@@ -96,15 +127,16 @@ public class PuzzleStation : MonoBehaviour
     void OnDestroy()
     {
         if (flowBoard) flowBoard.onSolved.RemoveListener(HandleSolved);
+        if (_currentJockStation == this) _currentJockStation = null;
     }
 
-    // ----- trigger -----
+    // ----- triggers -----
     void OnTriggerEnter(Collider other)
     {
         if (IsPlayer(other))
         {
             playerInside = true;
-            if (!hacking && !locked && promptUI) promptUI.SetActive(true);
+            if (!locked && !stationDestroyed && promptUI) promptUI.SetActive(true);
         }
     }
 
@@ -113,70 +145,123 @@ public class PuzzleStation : MonoBehaviour
         if (IsPlayer(other))
         {
             playerInside = false;
-            if (promptUI) promptUI.SetActive(false);
+            if (promptUI)      promptUI.SetActive(false);
+            if (jockUIOpen)    ForceCloseJockUI(); // safety if they walk away
         }
     }
 
     bool IsPlayer(Collider c)
     {
-        return !player || c.transform == player || c.CompareTag("Player");
+        if (player) return c.transform == player;
+        return c.CompareTag("Player");
     }
 
     void Update()
     {
-        // Start hacking
-        if (playerInside && !hacking && !locked && Input.GetKeyDown(interactKey))
+        if (!playerInside || locked || stationDestroyed) return;
+
+        // Jock fake UI input handling
+        if (jockUIOpen)
         {
-            StartCoroutine(BeginHackRoutine());
-            return;
+            if (Input.GetKeyDown(interactKey))
+            {
+                StartCoroutine(JockExitAttemptRoutine());
+                return;
+            }
+
+            if (Input.GetKeyDown(jockSmashKey) && !jockBusy)
+            {
+                StartCoroutine(JockSmashRoutineFromUI());
+                return;
+            }
+
+            return; // while jock UI is up, ignore other inputs
         }
 
-        // Cancel/exit while hacking
-        if (hacking && !exiting && allowCancelWithInteractKey && Input.GetKeyDown(cancelKey))
+        // Start flows when pressing E at the prompt
+        if (Input.GetKeyDown(interactKey))
         {
-            StartCoroutine(AbortRoutine());
+            if (IsNerd())
+            {
+                if (!hacking && !exiting)
+                    StartCoroutine(NerdBeginHackRoutine());
+            }
+            else
+            {
+                if (!jockBusy)
+                    StartCoroutine(JockBeginAttemptRoutine()); // open fake UI instead of puzzle
+            }
+        }
+
+        // Nerd cancel (only after we armed it)
+        if (hacking && !exiting && allowCancelWithInteractKey && nerdCancelArmed && Input.GetKeyDown(cancelKey))
+        {
+            StartCoroutine(NerdAbortRoutine());
         }
     }
 
-    // ----- main sequences -----
-    IEnumerator BeginHackRoutine()
+    // ----- class helpers -----
+    private bool IsNerd()
+    {
+        var sess = GameSession.Instance;
+        if (sess != null)
+            return sess.SelectedClass == GameSession.ClassType.Nerd;
+
+        Transform p = player ? player : FindPlayerRoot();
+        if (!p) return false;
+        var stats = p.GetComponent<PlayerStats>();
+        if (stats) return stats.playerClass == PlayerStats.PlayerClass.Nerd;
+        return false;
+    }
+
+    private Transform FindPlayerRoot()
+    {
+        if (player) return player;
+        var go = GameObject.FindGameObjectWithTag("Player");
+        return go ? go.transform : null;
+    }
+
+    // =======================
+    // NERD FLOW
+    // =======================
+    IEnumerator NerdBeginHackRoutine()
     {
         hacking = true;
         solved = false;
         exiting = false;
-        if (promptUI) promptUI.SetActive(false);
+        nerdCancelArmed = false;
 
-        // disable player control
+        if (promptUI) promptUI.SetActive(false);
         foreach (var b in disableWhileHacking) if (b) b.enabled = false;
 
-        // open fusebox + camera in
-        if (fuseboxDoorHinge) StartCoroutine(RotateLocal(fuseboxDoorHinge, fuseboxDoorClosedRot, Quaternion.Euler(fuseboxDoorOpenLocalEuler), fuseboxOpenSeconds));
+        if (fuseboxDoorHinge)
+            StartCoroutine(RotateLocal(fuseboxDoorHinge, fuseboxDoorClosedRot, Quaternion.Euler(fuseboxDoorOpenLocalEuler), fuseboxOpenSeconds));
         if (doorOpenClip && sfx) sfx.PlayOneShot(doorOpenClip);
+
         onHackStart?.Invoke();
 
-        // camera to puzzle
+        // move camera to puzzle (same helper used by Jock attempt)
         yield return MoveCameraToPuzzle();
 
-        // show puzzle
         if (puzzleRoot) puzzleRoot.SetActive(true);
-
-        // rebuild puzzle on reset
         if (resetPuzzleOnEnter && flowBoard) flowBoard.BuildBoard();
+        nerdCancelArmed = true;
     }
 
     void HandleSolved()
     {
         if (!hacking || exiting) return;
         solved = true;
-        if (lockAfterSolved) locked = true;   // lock immediately (we’ll optionally disable collider after exit)
-        StartCoroutine(ExitAfterSolvedRoutine());
+        if (lockAfterSolved) locked = true;
+        StartCoroutine(NerdExitAfterSolvedRoutine());
     }
 
-    IEnumerator ExitAfterSolvedRoutine()
+    IEnumerator NerdExitAfterSolvedRoutine()
     {
         exiting = true;
-
         if (puzzleRoot) puzzleRoot.SetActive(false);
+
+        nerdCancelArmed = false;
 
         onSolvedDoorOpening?.Invoke();
         if (worldDoorHinge)
@@ -190,32 +275,165 @@ public class PuzzleStation : MonoBehaviour
             yield return RotateLocal(fuseboxDoorHinge, fuseboxDoorHinge.localRotation, fuseboxDoorClosedRot, 0.5f);
         }
 
-        FinalizeHackEnd(solvedExit: true);
+        FinalizeEndCommon();
+        if (locked && disableTriggerAfterLock && triggerCol) triggerCol.enabled = false;
     }
 
-    public void AbortHack()
-    {
-        if (!hacking || exiting) return;
-        StartCoroutine(AbortRoutine());
-    }
-
-    IEnumerator AbortRoutine()
+    IEnumerator NerdAbortRoutine()
     {
         exiting = true;
-
         if (puzzleRoot) puzzleRoot.SetActive(false);
+        nerdCancelArmed = false;
 
-        // back to player cam
         yield return MoveCameraToPlayer();
 
-        // close fusebox since we didn’t solve
         if (fuseboxDoorHinge)
         {
             if (doorCloseClip && sfx) sfx.PlayOneShot(doorCloseClip);
             yield return RotateLocal(fuseboxDoorHinge, fuseboxDoorHinge.localRotation, fuseboxDoorClosedRot, 0.4f);
         }
 
-        FinalizeHackEnd(solvedExit: false);
+        hacking = false;
+        FinalizeEndCommon();
+    }
+
+    // =======================
+    // JOCK FLOW – ATTEMPT -> FAKE UI
+    // =======================
+    IEnumerator JockBeginAttemptRoutine()
+    {
+        if (promptUI) promptUI.SetActive(false);
+        foreach (var b in disableWhileHacking) if (b) b.enabled = false;
+
+        // Door open + SFX (same as Nerd)
+        if (fuseboxDoorHinge)
+            StartCoroutine(RotateLocal(fuseboxDoorHinge, fuseboxDoorClosedRot,
+                                    Quaternion.Euler(fuseboxDoorOpenLocalEuler), fuseboxOpenSeconds));
+        if (doorOpenClip && sfx) sfx.PlayOneShot(doorOpenClip);
+
+        // 🔧 NEW: fire the same event Nerd uses so your CameraFollow gets disabled
+        onHackStart?.Invoke();
+
+        // Move to the SAME puzzle cam pose as Nerd
+        yield return MoveCameraToPuzzle();
+
+        // Show the fake Jock hacking UI
+        jockUIOpen = true;
+        if (jockAttemptUI) jockAttemptUI.SetActive(true);
+    }
+
+    IEnumerator JockExitAttemptRoutine()
+    {
+        // Hide fake UI and back out
+        jockUIOpen = false;
+        if (jockAttemptUI) jockAttemptUI.SetActive(false);
+
+        yield return MoveCameraToPlayer();
+
+        if (fuseboxDoorHinge)
+        {
+            if (doorCloseClip && sfx) sfx.PlayOneShot(doorCloseClip);
+            yield return RotateLocal(fuseboxDoorHinge, fuseboxDoorHinge.localRotation, fuseboxDoorClosedRot, 0.4f);
+        }
+
+        FinalizeEndCommon();
+    }
+
+    IEnumerator JockSmashRoutineFromUI()
+    {
+        jockBusy = true;
+        _currentJockStation = this;
+
+        // Hide fake UI
+        jockUIOpen = false;
+        if (jockAttemptUI) jockAttemptUI.SetActive(false);
+
+        // ### NEW: move camera BACK TO PLAYER before we start the smash,
+        // so the player sees the shock gag clearly.
+        yield return MoveCameraToPlayer();
+
+        // Station is now ruined: prevent any future attempts right away.
+        stationDestroyed = true;
+        locked = true; // reuse lock semantics to hide prompt & block interactions
+        if (promptUI) promptUI.SetActive(false);
+        if (disableTriggerAfterLock && triggerCol) triggerCol.enabled = false;
+
+        onJockSmashStarted?.Invoke();
+
+        // Start the smash animation (events will drive impact/shock/fall)
+        if (jockAnimator) jockAnimator.SetTrigger(jockSmashTrigger);
+
+        // We let the animation events finish the sequence; no immediate wrap-up here.
+        yield break;
+    }
+
+    private void ForceCloseJockUI()
+    {
+        jockUIOpen = false;
+        if (jockAttemptUI) jockAttemptUI.SetActive(false);
+        // Don’t move camera/door here; we only force-hide the UI on exit-safety.
+    }
+
+    // ======= Jock animation-event relays (called from JockAnimRelay on the Jock model) =======
+    public static void NotifyJockSmashImpact()
+    {
+        var st = _currentJockStation;
+        if (!st) return;
+        if (st.smashImpactClip && st.sfx) st.sfx.PlayOneShot(st.smashImpactClip);
+    }
+
+    public static void NotifyJockEnableShockFX()
+    {
+        var st = _currentJockStation;
+        if (!st) return;
+        if (st.shockFX) st.shockFX.SetActive(true);
+        if (st.shockClip && st.sfx) st.sfx.PlayOneShot(st.shockClip);
+        if (st.jockAnimator) st.jockAnimator.SetTrigger(st.jockShockTrigger);
+        st.onJockShocked?.Invoke();
+    }
+
+    public static void NotifyJockShock()
+    {
+        var st = _currentJockStation;
+        if (!st) return;
+        if (st.jockAnimator) st.jockAnimator.SetTrigger(st.jockShockTrigger);
+        st.onJockShocked?.Invoke();
+    }
+
+    public static void NotifyJockFall()
+    {
+        var st = _currentJockStation;
+        if (!st) return;
+        if (st.jockAnimator) st.jockAnimator.SetTrigger(st.jockFallTrigger);
+        if (st.thudClip && st.sfx) st.sfx.PlayOneShot(st.thudClip);
+        st.onJockFell?.Invoke();
+
+        // After the gag resolves, we do not re-open the station (it's destroyed).
+        st.StartCoroutine(st.JockWrapUpAfterFall());
+    }
+
+    public static void NotifyJockDisableShockFX()
+    {
+        var st = _currentJockStation;
+        if (!st) return;
+        if (st.shockFX) st.shockFX.SetActive(false);
+    }
+
+    private IEnumerator JockWrapUpAfterFall()
+    {
+        // Optional tiny pause to let the fall land
+        yield return new WaitForSeconds(0.35f);
+
+        // Camera is already at player. We just close the fusebox door if you want it shut.
+        if (fuseboxDoorHinge)
+        {
+            if (doorCloseClip && sfx) sfx.PlayOneShot(doorCloseClip);
+            yield return RotateLocal(fuseboxDoorHinge, fuseboxDoorHinge.localRotation, fuseboxDoorClosedRot, 0.4f);
+        }
+
+        jockBusy = false;
+        _currentJockStation = null;
+        FinalizeEndCommon();
     }
 
     // ----- camera helpers -----
@@ -224,18 +442,14 @@ public class PuzzleStation : MonoBehaviour
 #if CINEMACHINE
         if (useCinemachine && vcamPuzzle && vcamPlayer)
         {
-            vcamPuzzle.Priority = 11;
             vcamPlayer.Priority = 10;
-            yield return null; // let CM Brain blend
+            vcamPuzzle.Priority = 20;
+            yield return new WaitForSeconds(camMoveSeconds);
             yield break;
         }
 #endif
         if (!mainCamera || !puzzleCamPose) yield break;
-
-        camOrigParent = mainCamera.transform.parent;
-        camOrigPos    = mainCamera.transform.position;
-        camOrigRot    = mainCamera.transform.rotation;
-
+        CacheCamIfNeeded();
         yield return SmoothMove(mainCamera.transform, puzzleCamPose.position, puzzleCamPose.rotation, camMoveSeconds, camEase);
     }
 
@@ -245,77 +459,77 @@ public class PuzzleStation : MonoBehaviour
         if (useCinemachine && vcamPuzzle && vcamPlayer)
         {
             vcamPuzzle.Priority = 10;
-            vcamPlayer.Priority = 11;
-            yield return null;
+            vcamPlayer.Priority = 20;
+            yield return new WaitForSeconds(camMoveSeconds);
             yield break;
         }
 #endif
         if (!mainCamera) yield break;
 
-        Vector3 targetPos; Quaternion targetRot;
         if (playerCamPose)
-        {
-            targetPos = playerCamPose.position;
-            targetRot = playerCamPose.rotation;
-        }
+            yield return SmoothMove(mainCamera.transform, playerCamPose.position, playerCamPose.rotation, camMoveSeconds, camEase);
         else
-        {
-            targetPos = camOrigPos;
-            targetRot = camOrigRot;
-        }
+            yield return SmoothMove(mainCamera.transform, camOrigPos, camOrigRot, camMoveSeconds, camEase);
 
-        yield return SmoothMove(mainCamera.transform, targetPos, targetRot, camMoveSeconds, camEase);
-        if (camOrigParent) mainCamera.transform.SetParent(camOrigParent, true);
+        if (camOrigParent) mainCamera.transform.SetParent(camOrigParent);
+    }
+
+    void CacheCamIfNeeded()
+    {
+        if (!mainCamera) return;
+        camOrigParent = mainCamera.transform.parent;
+        camOrigPos    = mainCamera.transform.position;
+        camOrigRot    = mainCamera.transform.rotation;
+        mainCamera.transform.SetParent(null, true);
     }
 
     IEnumerator SmoothMove(Transform t, Vector3 toPos, Quaternion toRot, float secs, AnimationCurve curve)
     {
         Vector3 fromPos = t.position;
         Quaternion fromRot = t.rotation;
-        secs = Mathf.Max(0.0001f, secs);
-        float t0 = 0f;
+        float t0 = Time.time;
+        float dur = Mathf.Max(0.0001f, secs);
 
-        while (t0 < 1f)
+        while (true)
         {
-            t0 += Time.deltaTime / secs;
-            float k = curve.Evaluate(Mathf.Clamp01(t0));
-            t.position = Vector3.LerpUnclamped(fromPos, toPos, k);
-            t.rotation = Quaternion.SlerpUnclamped(fromRot, toRot, k);
+            float u = Mathf.Clamp01((Time.time - t0) / dur);
+            float w = curve != null ? curve.Evaluate(u) : u;
+            t.position = Vector3.LerpUnclamped(fromPos, toPos, w);
+            t.rotation = Quaternion.SlerpUnclamped(fromRot, toRot, w);
+            if (u >= 1f) break;
             yield return null;
         }
-        t.position = toPos;
-        t.rotation = toRot;
     }
 
     IEnumerator RotateLocal(Transform tr, Quaternion from, Quaternion to, float secs)
     {
-        secs = Mathf.Max(0.0001f, secs);
-        float t0 = 0f;
-        while (t0 < 1f)
+        if (!tr) yield break;
+        float t0 = Time.time;
+        float dur = Mathf.Max(0.0001f, secs);
+        while (true)
         {
-            t0 += Time.deltaTime / secs;
-            tr.localRotation = Quaternion.SlerpUnclamped(from, to, t0);
+            float u = Mathf.Clamp01((Time.time - t0) / dur);
+            tr.localRotation = Quaternion.SlerpUnclamped(from, to, u);
+            if (u >= 1f) break;
             yield return null;
         }
-        tr.localRotation = to;
     }
 
-    void FinalizeHackEnd(bool solvedExit)
+    // ----- shared teardown -----
+    private void FinalizeEndCommon()
     {
-        // re-enable controls
         foreach (var b in disableWhileHacking) if (b) b.enabled = true;
 
-        // fire the shared end event
         onHackEnd?.Invoke();
 
-        // lock station after a solve (we set locked=true when solved)
-        if (solvedExit && lockAfterSolved && disableTriggerAfterLock && triggerCol)
-            triggerCol.enabled = false;
+        // Hide prompt if solved/locked or station destroyed
+        if (promptUI) promptUI.SetActive(playerInside && !locked && !stationDestroyed);
 
-        // prompt visibility after exit
-        if (promptUI) promptUI.SetActive(playerInside && !locked);
-
+        // reset per-flow flags
         hacking = false;
         exiting = false;
+        jockUIOpen = false;
+        nerdCancelArmed = false;
+        // jockBusy is reset in JockWrapUpAfterFall()
     }
 }
