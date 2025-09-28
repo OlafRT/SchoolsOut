@@ -1,39 +1,31 @@
 using UnityEngine;
 
-/// <summary>
-/// Relay for Jock animation events during "smash the box" flow.
-/// Hook animation events to these public methods.
-/// </summary>
 public class JockAnimRelay : MonoBehaviour
 {
-    // Animation Events (call these from your Jock animation timeline)
-    // 1) When the weapon/fist hits the box
-    public void AnimEvent_JockSmashImpact()
+    [Header("Abilities")]
+    [SerializeField] private StrikeAbility strike;
+    [SerializeField] private AutoAttackAbility autoAttack;
+
+    void Awake()
     {
-        HackingStation.NotifyJockSmashImpact();
+        if (!strike)     strike     = GetComponentInParent<StrikeAbility>()     ?? FindObjectOfType<StrikeAbility>(true);
+        if (!autoAttack) autoAttack = GetComponentInParent<AutoAttackAbility>() ?? FindObjectOfType<AutoAttackAbility>(true);
     }
 
-    // 2) When electricity should start (spark FX on box)
-    public void AnimEvent_JockEnableShockFX()
-    {
-        HackingStation.NotifyJockEnableShockFX();
-    }
+    // ====== STRIKE ======
+    // Impact event (already used)
+    public void AnimEvent_FireStrike()         { if (strike) strike.AnimEvent_FireStrike(); }
+    // whoosh pre-impact
+    public void AnimEvent_StrikeWhoosh()       { if (strike) strike.AnimEvent_StrikeWhoosh(); }
 
-    // 3) When the Jock should enter "shocked" state (play shock anim trigger)
-    public void AnimEvent_JockShock()
-    {
-        HackingStation.NotifyJockShock();
-    }
+    // ====== JOCK AUTO ATTACK ======
+    public void AnimEvent_FireJockAutoAttack() { if (autoAttack) autoAttack.AnimEvent_FireJockAutoAttack(); }
+    public void AnimEvent_JockSwingWhoosh()    { if (autoAttack) autoAttack.AnimEvent_JockSwingWhoosh(); }
 
-    // 4) When the Jock should fall down (play fall anim trigger)
-    public void AnimEvent_JockFall()
-    {
-        HackingStation.NotifyJockFall();
-    }
-
-    // Optional: when to disable FX at the end
-    public void AnimEvent_JockDisableShockFX()
-    {
-        HackingStation.NotifyJockDisableShockFX();
-    }
+    // ====== existing fusebox events (unchanged) ======
+    public void AnimEvent_JockSmashImpact()    { HackingStation.NotifyJockSmashImpact(); }
+    public void AnimEvent_JockEnableShockFX()  { HackingStation.NotifyJockEnableShockFX(); }
+    public void AnimEvent_JockShock()          { HackingStation.NotifyJockShock(); }
+    public void AnimEvent_JockFall()           { HackingStation.NotifyJockFall(); }
+    public void AnimEvent_JockDisableShockFX() { HackingStation.NotifyJockDisableShockFX(); }
 }

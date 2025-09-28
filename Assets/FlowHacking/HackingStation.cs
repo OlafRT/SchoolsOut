@@ -253,11 +253,14 @@ public class HackingStation : MonoBehaviour
 
         if (puzzleRoot) puzzleRoot.SetActive(true);
         if (resetPuzzleOnEnter && flowBoard) flowBoard.BuildBoard();
+        if (flowBoard) flowBoard.ResetTimerAndStart();
+
         nerdCancelArmed = true;
     }
 
     void HandleSolved()
     {
+        if (flowBoard) flowBoard.StopTimerWithoutExpire();
         if (!hacking || exiting) return;
         solved = true;
         if (lockAfterSolved) locked = true;
@@ -289,6 +292,7 @@ public class HackingStation : MonoBehaviour
 
     IEnumerator NerdAbortRoutine()
     {
+        if (flowBoard) flowBoard.StopTimerWithoutExpire();
         exiting = true;
         if (puzzleRoot) puzzleRoot.SetActive(false);
         nerdCancelArmed = false;

@@ -59,12 +59,11 @@ public class FlowBoard : MonoBehaviour
     private RectOffset padding;
     private GridLayoutGroup.Corner startCorner;
 
-    // Timer
+    // ---------------- TIMER (patched) ----------------
     private float remainingTime;
-
-    // Error throttle
-    private float lastErrorAt;
-    private const float errorCooldown = 0.12f;
+    private bool  timerRunning = false;
+    private bool  timeExpiredFired = false;
+    private Coroutine timerCo;
 
     void Awake()
     {
@@ -76,7 +75,7 @@ public class FlowBoard : MonoBehaviour
     void Start()
     {
         BuildBoard();
-        StartTimerIfNeeded();
+        StartTimerIfNeeded(); // first-time entry when this object is enabled the first time
     }
 
     void Update()
@@ -377,7 +376,6 @@ public class FlowBoard : MonoBehaviour
 
     void NotifyPathChanged(int color)
     {
-        // While drawing, always send the live path for the active color.
         IReadOnlyList<Vector2Int> list = null;
         if (color == activeColor && path != null)
         {
@@ -421,19 +419,47 @@ public class FlowBoard : MonoBehaviour
         onSolved?.Invoke();
     }
 
+    // --- TIMER control ---
     void StartTimerIfNeeded()
     {
-        if (level.timeLimitSeconds <= 0f) { if (timerText) timerText.text = ""; return; }
+        if (level.timeLimitSeconds <= 0f)
+        {
+            remainingTime = 0f;
+            UpdateTimerUI();
+            return;
+        }
 
-        remainingTime = level.timeLimitSeconds;
+        ResetTimerAndStart();
+    }
+
+    public void ResetTimerAndStart()
+    {
+        // reset from current level limit
+        remainingTime = Mathf.Max(0f, level.timeLimitSeconds);
+        timeExpiredFired = false;
+        timerRunning = true;
+
+        // ensure any previous timer is stopped cleanly
+        if (timerCo != null) { StopCoroutine(timerCo); timerCo = null; }
+
         UpdateTimerUI();
-        StopAllCoroutines();
-        StartCoroutine(TimerRoutine());
+        timerCo = StartCoroutine(TimerRoutine());
+    }
+
+    public void StopTimerWithoutExpire()
+    {
+        timerRunning = false;
+        if (timerCo != null)
+        {
+            StopCoroutine(timerCo);
+            timerCo = null;
+        }
+        // UI stays as-is; caller decides what to show
     }
 
     System.Collections.IEnumerator TimerRoutine()
     {
-        while (!isSolved && remainingTime > 0f)
+        while (timerRunning && !isSolved && remainingTime > 0f)
         {
             remainingTime -= Time.deltaTime;
             if (remainingTime < 0f) remainingTime = 0f;
@@ -441,11 +467,16 @@ public class FlowBoard : MonoBehaviour
             yield return null;
         }
 
-        if (!isSolved && remainingTime <= 0f)
+        // stop & fire once on timeout (if still running and not solved)
+        if (timerRunning && !isSolved && remainingTime <= 0f && !timeExpiredFired)
         {
+            timerRunning = false;
+            timeExpiredFired = true;
             inputLocked = true;
             onTimeExpired?.Invoke();
         }
+
+        timerCo = null;
     }
 
     void UpdateTimerUI()
@@ -462,13 +493,17 @@ public class FlowBoard : MonoBehaviour
     public Vector3 GetCellWorldCenter(Vector2Int p) => cells[p.x, p.y].transform.position;
 
     // ============= MATH HIT-TEST =============
+    
+    // Error throttle
+    private float lastErrorAt;
+    private const float errorCooldown = 0.12f;
+
     bool TryGetCellFromMouse(Vector2 screenPos, out Vector2Int cellXY)
     {
         cellXY = default;
         if (!gridParent) return false;
 
         RectTransform rt = gridParent;
-        // Overlay: uiCam can be null; RectTransformUtility handles that
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, screenPos, uiCam, out var local))
             return false;
 
@@ -482,52 +517,48 @@ public class FlowBoard : MonoBehaviour
         {
             case GridLayoutGroup.Corner.UpperLeft:
             {
-                // top-left origin
                 float originX = r.xMin + padding.left;
                 float originY = r.yMax - padding.top;
                 float dx = local.x - originX;
                 float dy = originY - local.y;
                 if (dx < 0f || dy < 0f) return false;
                 col = Mathf.FloorToInt(dx / stepX);
-                row = Mathf.FloorToInt(dy / stepY);        // row 0 is top
+                row = Mathf.FloorToInt(dy / stepY);
                 break;
             }
             case GridLayoutGroup.Corner.LowerLeft:
             {
-                // bottom-left origin  ⟵ YOUR SETTING
                 float originX = r.xMin + padding.left;
                 float originY = r.yMin + padding.bottom;
                 float dx = local.x - originX;
                 float dy = local.y - originY;
                 if (dx < 0f || dy < 0f) return false;
                 col = Mathf.FloorToInt(dx / stepX);
-                row = Mathf.FloorToInt(dy / stepY);        // row 0 is bottom
+                row = Mathf.FloorToInt(dy / stepY);
                 break;
             }
             case GridLayoutGroup.Corner.UpperRight:
             {
-                // top-right origin
                 float originX = r.xMax - padding.right;
                 float originY = r.yMax - padding.top;
-                float dxR = originX - local.x;             // distance from right edge
+                float dxR = originX - local.x;
                 float dy  = originY - local.y;
                 if (dxR < 0f || dy < 0f) return false;
                 int fromRight = Mathf.FloorToInt(dxR / stepX);
-                col = (level.width - 1) - fromRight;       // convert to 0..width-1 from left
-                row = Mathf.FloorToInt(dy / stepY);        // row 0 is top
+                col = (level.width - 1) - fromRight;
+                row = Mathf.FloorToInt(dy / stepY);
                 break;
             }
             case GridLayoutGroup.Corner.LowerRight:
             {
-                // bottom-right origin
                 float originX = r.xMax - padding.right;
                 float originY = r.yMin + padding.bottom;
-                float dxR = originX - local.x;             // distance from right edge
+                float dxR = originX - local.x;
                 float dy  = local.y - originY;
                 if (dxR < 0f || dy < 0f) return false;
                 int fromRight = Mathf.FloorToInt(dxR / stepX);
-                col = (level.width - 1) - fromRight;       // convert to 0..width-1 from left
-                row = Mathf.FloorToInt(dy / stepY);        // row 0 is bottom
+                col = (level.width - 1) - fromRight;
+                row = Mathf.FloorToInt(dy / stepY);
                 break;
             }
         }

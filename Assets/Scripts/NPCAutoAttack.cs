@@ -32,13 +32,28 @@ public class NPCAutoAttack : MonoBehaviour
 
     [Header("Targeting / Layers")]
     [Tooltip("Layer that the player Body/Collider is on.")]
-    public LayerMask playerLayer = 0; // set this to your Player layer in the inspector
+    public LayerMask playerLayer = 0;
+
+    [Header("Impact Layers (for projectile hits)")]
+    [Tooltip("Static/environment walls the projectile can impact on (for VFX/SFX).")]
+    public LayerMask wallLayer = 0;
+    [Tooltip("Ground the projectile can impact on (for VFX/SFX).")]
+    public LayerMask groundLayer = 0;
 
     [Header("Grid")]
     public float tileSize = 1f;
 
     [Header("Ranged Projectile")]
-    public GameObject projectilePrefab;     // reuse your StraightProjectile-compatible prefab
+    public GameObject projectilePrefab;     // StraightProjectile-compatible prefab
+
+    [Header("Impact VFX (NPC projectile)")]
+    public GameObject impactVfx;            // optional; particle prefab
+    public AudioClip impactSfx;             // optional
+    public float vfxScale = 1f;
+    public float vfxLife = 2f;
+    public bool parentVfxToHit = false;
+    public bool vfxUseSweepRaycast = true;
+    public float vfxSweepRadius = 0.08f;
 
     // Refs
     NPCAI ai;
@@ -136,20 +151,60 @@ public class NPCAutoAttack : MonoBehaviour
         yield return new WaitForSeconds(Mathf.Max(0.05f, windupSeconds));
         ClearTelegraph();
 
-        if (!projectilePrefab) yield break;   // <-- FIXED
+        if (!projectilePrefab) yield break;
 
         Vector3 spawn = Snap(transform.position) + new Vector3(sx, 0, sz) * (tileSize * 0.5f);
         var go = Instantiate(projectilePrefab, spawn, Quaternion.LookRotation(dir8, Vector3.up));
+
+        // Make projectile robust vs. moving targets
+        var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.detectCollisions = true;
+
+        var sph = go.GetComponent<SphereCollider>() ?? go.AddComponent<SphereCollider>();
+        sph.isTrigger = false;
+        if (sph.radius < 0.08f) sph.radius = 0.08f;
+
+        // Init with NEW signature: impact (VFX) vs. damage layers
         var p = go.GetComponent<StraightProjectile>();
         if (!p) p = go.AddComponent<StraightProjectile>();
+
+        // Impacts can happen on player, walls, or ground
+        LayerMask impactLayers = playerLayer | wallLayer | groundLayer;
+        // Damage only applies to the player
+        LayerMask damageLayers = playerLayer;
 
         p.Init(
             direction: dir8,
             speed: projectileSpeed,
             maxDistance: weaponRangeTiles * tileSize,
-            targetLayer: playerLayer,          // hit the PLAYER
+            hitLayers: impactLayers,
+            damageLayers: damageLayers,
             damage: weaponDamage,
-            tileSize: tileSize
+            tileSize: tileSize,
+            wasCrit: false
+        );
+
+        // Optional: impact VFX/SFX for NPC shots (matches player behavior)
+        var vfx = go.GetComponent<ProjectileImpactVFX>();
+        if (!vfx) vfx = go.AddComponent<ProjectileImpactVFX>();
+
+        vfx.Configure(
+            vfxPrefab: impactVfx,
+            sfx: impactSfx,
+            scale: vfxScale,
+            life: vfxLife,
+            parent: parentVfxToHit,
+            layers: impactLayers
+        );
+
+        vfx.ConfigureSweep(
+            enable: vfxUseSweepRaycast,
+            layers: impactLayers,
+            radius: vfxSweepRadius,
+            destroyProjectileOnHit: false // StraightProjectile destroys itself
         );
     }
 

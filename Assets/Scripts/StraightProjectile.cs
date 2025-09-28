@@ -1,12 +1,16 @@
 using UnityEngine;
 
 [DisallowMultipleComponent]
+[RequireComponent(typeof(Rigidbody))]
 public class StraightProjectile : MonoBehaviour
 {
     Vector3 dir;
     float speed;
     float maxDistance;
-    LayerMask targetLayer;
+
+    LayerMask hitLayers;      // walls | ground | targets
+    LayerMask damageLayers;   // targets only
+
     int damage;
     float tileSize;
     bool wasCrit;
@@ -14,68 +18,98 @@ public class StraightProjectile : MonoBehaviour
     Vector3 startPos;
     float traveled;
 
+    Rigidbody rb;
+
     public void Init(
         Vector3 direction,
         float speed,
         float maxDistance,
-        LayerMask targetLayer,
+        LayerMask hitLayers,      // combined layers for impact detection
+        LayerMask damageLayers,   // layers that can receive damage/text
         int damage,
         float tileSize,
         bool wasCrit = false)
     {
-        this.dir = direction.normalized;
-        this.speed = Mathf.Max(0.01f, speed);
-        this.maxDistance = Mathf.Max(0.01f, maxDistance);
-        this.targetLayer = targetLayer;
-        this.damage = Mathf.Max(0, damage);
-        this.tileSize = Mathf.Max(0.01f, tileSize);
-        this.wasCrit = wasCrit;
+        this.dir          = direction.normalized;
+        this.speed        = Mathf.Max(0.01f, speed);
+        this.maxDistance  = Mathf.Max(0.01f, maxDistance);
+        this.hitLayers    = hitLayers;
+        this.damageLayers = damageLayers;
+        this.damage       = Mathf.Max(0, damage);
+        this.tileSize     = Mathf.Max(0.01f, tileSize);
+        this.wasCrit      = wasCrit;
 
         startPos = transform.position;
         traveled = 0f;
+
+        if (!rb) rb = GetComponent<Rigidbody>();
+        // Safety: make sure RB is set for kinematic MovePosition flow
+        rb.isKinematic = true;
+        rb.detectCollisions = true;
+        // Keep interpolation ON — it smooths MovePosition between physics ticks
+        if (rb.interpolation == RigidbodyInterpolation.None)
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
     }
 
-    void Update()
+    void Awake()
     {
-        float step = speed * Time.deltaTime;
+        rb = GetComponent<Rigidbody>();
+    }
+
+    // Move & collide from FixedUpdate so interpolation can do its job.
+    void FixedUpdate()
+    {
+        if (speed <= 0f) return;
+
+        float step = speed * Time.fixedDeltaTime;
         if (step <= 0f) return;
 
-        // Move
-        Vector3 next = transform.position + dir * step;
+        Vector3 from = rb.position;
+        float radius = Mathf.Max(0.01f, tileSize * 0.30f);
 
-        // Check hit along the step
-        float radius = tileSize * 0.3f;
-        if (Physics.SphereCast(transform.position, radius, dir, out var hit, step, targetLayer, QueryTriggerInteraction.Ignore))
+        // Sweep for any hit along this physics step (include triggers for moving targets)
+        if (Physics.SphereCast(from, radius, dir, out var hit, step, hitLayers, QueryTriggerInteraction.Collide))
         {
-            OnHit(hit.collider);
-            // place the projectile at the hit point before killing it (optional)
-            transform.position = hit.point - dir * 0.05f;
-            Destroy(gameObject);
+            ResolveHit(hit);
             return;
         }
 
-        transform.position = next;
-        traveled = Vector3.Distance(startPos, transform.position);
+        // No hit this tick—advance using RB so interpolation smooths visually
+        Vector3 to = from + dir * step;
+        rb.MovePosition(to);
+
+        traveled += step;
         if (traveled >= maxDistance)
         {
             Destroy(gameObject);
         }
     }
 
-    void OnHit(Collider col)
+    void ResolveHit(in RaycastHit hit)
     {
-        // Show number
-        if (CombatTextManager.Instance)
+        // 1) Spawn impact VFX/SFX right at the authoritatively detected point
+        var vfx = GetComponent<ProjectileImpactVFX>();
+        if (vfx) vfx.ForceImpactAt(hit.point, hit.transform); // one-shot inside component
+
+        // 2) Apply damage (+ numbers) only if target is damageable and on damageLayers
+        Collider col = hit.collider;
+        bool onDamageLayer = ((damageLayers.value & (1 << col.gameObject.layer)) != 0);
+
+        if (onDamageLayer && col.TryGetComponent<IDamageable>(out var dmgable))
         {
-            Vector3 pos = col.bounds.center;
-            pos.y = col.bounds.max.y; // head-ish
-            CombatTextManager.Instance.ShowDamage(pos, damage, wasCrit, col.transform);
+            dmgable.ApplyDamage(damage);
+
+            // Show damage number (at head-ish or exact hit point)
+            if (CombatTextManager.Instance)
+            {
+                Vector3 pos = col.bounds.max; // top of the capsule/renderer bounds
+                CombatTextManager.Instance.ShowDamage(pos, damage, wasCrit, col.transform);
+            }
         }
 
-        // Apply damage
-        if (col.TryGetComponent<IDamageable>(out var dmg))
-        {
-            dmg.ApplyDamage(damage);
-        }
+        // 3) Snap to the hit point (slightly inset) and destroy
+        Vector3 place = hit.point - dir * 0.05f;
+        rb.MovePosition(place);
+        Destroy(gameObject);
     }
 }

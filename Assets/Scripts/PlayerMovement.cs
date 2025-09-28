@@ -13,10 +13,16 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float tileSize = 1f;
     public LayerMask obstacleLayer;
 
+    [Header("Collision (anti-phasing)")]
+    [Tooltip("Horizontal radius used when testing movement. Increase if you can still squeeze through.")]
+    [SerializeField] private float collisionRadius = 0.35f;
+    [Tooltip("Small extra distance to keep from touching colliders (prevents grazing).")]
+    [SerializeField] private float skin = 0.01f;
+
     [Header("Animation")]
     public Animator animator;
 
-    // Animator parameter names (change to match your controller if needed)
+    // Animator parameter names
     [Header("Animation Parameters")]
     [SerializeField] private string p_IsMoving   = "IsMoving";
     [SerializeField] private string p_IsRunning  = "IsRunning";
@@ -69,7 +75,7 @@ public class PlayerMovement : MonoBehaviour
         if (auraMultipliers.ContainsKey(source)) auraMultipliers.Remove(source);
     }
 
-    // --- NEW: Resolve animator from PlayerBootstrap if not assigned in the inspector ---
+    // --- Resolve animator from PlayerBootstrap if not assigned in the inspector ---
     private void ResolveAnimator()
     {
         if (animator) return;
@@ -117,7 +123,6 @@ public class PlayerMovement : MonoBehaviour
                 // If we are idle and yaw steps changed, fire 45° turn triggers
                 if (standingStill && newIdx != lastYawIndex && animator)
                 {
-                    // how many 45° steps? positive = right, negative = left
                     int delta = DeltaYawSteps(lastYawIndex, newIdx);
                     if (delta > 0) for (int i = 0; i < delta; i++) animator.SetTrigger(p_TurnRight45);
                     if (delta < 0) for (int i = 0; i < -delta; i++) animator.SetTrigger(p_TurnLeft45);
@@ -131,7 +136,6 @@ public class PlayerMovement : MonoBehaviour
 
         if (!canMove)
         {
-            // Only freeze if you’ve disabled movement globally.
             UpdateAnimatorLocomotion(Vector3.zero, false);
             return;
         }
@@ -160,15 +164,58 @@ public class PlayerMovement : MonoBehaviour
         if (!isMoving && wish != Vector3.zero)
         {
             Vector3 snappedDir = SnapDirTo8(wish).normalized;
-            Vector3 moveDelta  = snappedDir * tileSize;
-            Vector3 desired    = RoundToNearestTile(transform.position + moveDelta);
-
-            if (!Physics.Raycast(transform.position, moveDelta, tileSize, obstacleLayer))
-                StartCoroutine(MoveToPosition(moveDelta, currentSpeed));
+            TryStartStep(snappedDir, currentSpeed);
         }
 
         // Update animator using either the active step direction (if moving) or current wish
         UpdateAnimatorLocomotion(wish, /*wishDirValid*/ wish != Vector3.zero, isRunning);
+    }
+
+    // ---------- NEW: robust step start with sphere casts and axis-split for diagonals ----------
+    private void TryStartStep(Vector3 snappedDir, float speed)
+    {
+        Vector3 moveDelta = snappedDir * tileSize;
+
+        // 1) try full intended move
+        if (IsStepClear(moveDelta))
+        {
+            StartCoroutine(MoveToPosition(moveDelta, speed));
+            return;
+        }
+
+        // 2) if diagonal, try sliding along X or Z separately (prevents diagonal phasing)
+        bool diagonal = Mathf.Abs(snappedDir.x) > 0f && Mathf.Abs(snappedDir.z) > 0f;
+        if (diagonal)
+        {
+            Vector3 dx = new Vector3(Mathf.Sign(snappedDir.x), 0f, 0f) * tileSize;
+            Vector3 dz = new Vector3(0f, 0f, Mathf.Sign(snappedDir.z)) * tileSize;
+
+            bool xClear = IsStepClear(dx);
+            bool zClear = IsStepClear(dz);
+
+            if (xClear && !zClear) { StartCoroutine(MoveToPosition(dx, speed)); return; }
+            if (!xClear && zClear) { StartCoroutine(MoveToPosition(dz, speed)); return; }
+
+            // If both clear we prefer the intended diag (already failed), else neither clear -> blocked.
+        }
+        // blocked – do nothing
+    }
+
+    // Checks path to target and the target cell itself using a sphere "body".
+    private bool IsStepClear(Vector3 delta)
+    {
+        Vector3 origin = transform.position + Vector3.up * 0.1f; // slight lift in case ground shares mask
+        Vector3 dir = delta.normalized;
+        float dist = delta.magnitude;
+
+        // sweep for anything along the path
+        bool blocked = Physics.SphereCast(origin, collisionRadius, dir, out _, dist - skin, obstacleLayer, QueryTriggerInteraction.Ignore);
+        if (blocked) return false;
+
+        // also ensure destination isn't already overlapping thin geometry
+        Vector3 dest = RoundToNearestTile(transform.position + delta);
+        bool overlapped = Physics.CheckSphere(dest + Vector3.up * 0.1f, collisionRadius - skin, obstacleLayer, QueryTriggerInteraction.Ignore);
+        return !overlapped;
     }
 
     private IEnumerator MoveToPosition(Vector3 direction, float speed)
@@ -187,16 +234,12 @@ public class PlayerMovement : MonoBehaviour
         transform.position = targetPosition;
         isMoving = false;
         lastPosition = targetPosition;
-
-        // after arriving, zero out locomotion params smoothly
-        // UpdateAnimatorLocomotion(Vector3.zero, false);
     }
 
     private void UpdateAnimatorLocomotion(Vector3 wishDirWorld, bool wishDirValid, bool isRunning = false)
     {
         if (!animator) return;
 
-        // Compute current effective move direction in WORLD during a step
         Vector3 stepDir = Vector3.zero;
         if (isMoving)
         {
@@ -204,10 +247,8 @@ public class PlayerMovement : MonoBehaviour
             if (v.magnitude > moveEpsilon) stepDir = v.normalized;
         }
 
-        // If not moving yet, use the user's desired direction
         Vector3 worldMove = stepDir != Vector3.zero ? stepDir : (wishDirValid ? SnapDirTo8(wishDirWorld).normalized : Vector3.zero);
 
-        // Project onto local forward/right to get directional intent
         float fwd = 0f, right = 0f, speed01 = 0f;
         bool anyMove = worldMove.sqrMagnitude > 0.0001f;
 
@@ -215,8 +256,6 @@ public class PlayerMovement : MonoBehaviour
         {
             fwd   = Mathf.Clamp(Vector3.Dot(worldMove, transform.forward), -1f, 1f);
             right = Mathf.Clamp(Vector3.Dot(worldMove, transform.right),   -1f, 1f);
-
-            // normalized speed (0..1): 1 when running, ~0.6 when walking (tweak as needed)
             speed01 = isRunning ? 1f : 0.6f;
         }
         else

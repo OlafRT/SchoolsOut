@@ -72,6 +72,14 @@ public class ProjectileImpactVFX : MonoBehaviour
         this.destroyProjectileOnHit = destroyProjectileOnHit;
     }
 
+    // ------------- NEW: called by StraightProjectile to guarantee FX at the authoritative hit -------------
+    public void ForceImpactAt(Vector3 pos, Transform hit)
+    {
+        if (fired) return;
+        Vector3 normal = (-transform.forward).normalized; // best-effort if no surface normal provided
+        SpawnImpact(pos, normal, hit);
+    }
+
     // ------------- Contacts -------------
     void OnTriggerEnter(Collider other)
     {
@@ -124,6 +132,8 @@ public class ProjectileImpactVFX : MonoBehaviour
 
         if (destroyProjectileOnHit)
             Destroy(gameObject);
+        else
+            enabled = false; // prevent any late double-fires
     }
 
     bool IsOwnCollider(Collider c)
