@@ -50,6 +50,30 @@ public class DestructibleWallV2 : MonoBehaviour
     [Tooltip("Ignore extra hits for this many seconds immediately after the first break, to prevent the same Strike from counting multiple times.")]
     public float armDelayAfterBreak = 0.05f;
 
+    // Camera shake
+    [Header("Camera Shake")]
+    public bool enableShake = true;
+    [Tooltip("First hit shake (duration, amplitude).")]
+    public float firstHitShakeDuration = 0.12f;
+    public float firstHitShakeAmplitude = 0.25f;
+    [Tooltip("Second hit shake (duration, amplitude).")]
+    public float secondHitShakeDuration = 0.18f;
+    public float secondHitShakeAmplitude = 0.5f;
+    [Tooltip("Any further hits before cleanup (duration, amplitude). Set to 0 to disable.")]
+    public float extraHitShakeDuration = 0.16f;
+    public float extraHitShakeAmplitude = 0.35f;
+
+    // Audio
+    [Header("Audio")]
+    [Tooltip("Played on every hit (1st, 2nd, …). Short stone rumble / impact.")]
+    public AudioClip hitRumbleSfx;
+    [Range(0f,1f)] public float hitRumbleVolume = 0.9f;
+    [Tooltip("Played once when the wall first crumbles and chunks are released.")]
+    public AudioClip collapseSfx;
+    [Range(0f,1f)] public float collapseVolume = 1f;
+    [Tooltip("How far the rumble can be heard.")]
+    public float sfxMaxDistance = 25f;
+
     // runtime
     private readonly List<Rigidbody> rbs = new List<Rigidbody>();
     private bool broken;
@@ -135,10 +159,12 @@ public class DestructibleWallV2 : MonoBehaviour
 
         if (!broken)
         {
-            hitsTaken++;          // count the first hit
-            BreakNow();           // crumbles immediately
+            hitsTaken++;                        // first hit
+            TriggerShakeForHit(hitsTaken);      // light shake
+            PlayHitRumble(hitsTaken);           // sound
+            BreakNow();                         // crumbles immediately
             nextAcceptTime = Time.time + Mathf.Max(0f, armDelayAfterBreak);
-            MaybeStartCleanup();  // only starts if hitsToStartCleanup == 1
+            MaybeStartCleanup();                // only starts if hitsToStartCleanup == 1
             return;
         }
 
@@ -146,8 +172,29 @@ public class DestructibleWallV2 : MonoBehaviour
         hitsTaken++;
         if (!cleanupStarted)
         {
+            TriggerShakeForHit(hitsTaken);      // stronger shake on 2nd, medium on further
+            PlayHitRumble(hitsTaken);           // sound
             BoostChunks(extraEjectPerHit, extraUpPerHit, extraTorquePerHit);
             MaybeStartCleanup();
+        }
+    }
+
+    private void TriggerShakeForHit(int hitIndex)
+    {
+        if (!enableShake || !CameraShaker.Instance) return;
+
+        if (hitIndex == 1)
+        {
+            CameraShaker.Instance.Shake(firstHitShakeDuration, firstHitShakeAmplitude);
+        }
+        else if (hitIndex == 2)
+        {
+            CameraShaker.Instance.Shake(secondHitShakeDuration, secondHitShakeAmplitude);
+        }
+        else
+        {
+            if (extraHitShakeDuration > 0f && extraHitShakeAmplitude > 0f)
+                CameraShaker.Instance.Shake(extraHitShakeDuration, extraHitShakeAmplitude);
         }
     }
 
@@ -181,6 +228,8 @@ public class DestructibleWallV2 : MonoBehaviour
 
         Vector3 n = GetEjectDir();
         Vector3 center = GetCenterFromDynamic();
+
+        if (collapseSfx) PlayClip3D(center, collapseSfx, collapseVolume, sfxMaxDistance);
 
         // Add DamageRelay to all chunk colliders and (optionally) align their layer with the proxy
         foreach (var col in dynamicBrick.GetComponentsInChildren<Collider>(true))
@@ -224,6 +273,34 @@ public class DestructibleWallV2 : MonoBehaviour
         if (destroyRootAfter > 0.01f) Destroy(gameObject, destroyRootAfter);
     }
 
+    // per-hit rumble with slight intensity bump on later hits
+    private void PlayHitRumble(int hitIndex)
+    {
+        if (!hitRumbleSfx) return;
+        float mult = (hitIndex <= 1) ? 1f : (hitIndex == 2 ? 1.2f : 1.1f);
+        PlayClip3D(GetCenterFromDynamic(), hitRumbleSfx, Mathf.Clamp01(hitRumbleVolume * mult), sfxMaxDistance);
+    }
+
+    // small helper to spawn a 3D one-shot AudioSource with pitch variance
+    private static void PlayClip3D(Vector3 pos, AudioClip clip, float volume, float maxDistance,
+                                   float pitchMin = 0.96f, float pitchMax = 1.04f,
+                                   float minDistance = 4f, float life = 3f)
+    {
+        if (!clip) return;
+        var go = new GameObject("OneShotAudio");
+        go.transform.position = pos;
+        var a = go.AddComponent<AudioSource>();
+        a.clip = clip;
+        a.volume = Mathf.Clamp01(volume);
+        a.pitch = Random.Range(pitchMin, pitchMax);
+        a.spatialBlend = 1f;
+        a.rolloffMode = AudioRolloffMode.Logarithmic;
+        a.minDistance = minDistance;
+        a.maxDistance = Mathf.Max(minDistance + 0.1f, maxDistance);
+        a.Play();
+        Object.Destroy(go, Mathf.Max(life, clip.length + 0.1f));
+    }
+
     private void BoostChunks(float extraEject, float extraUp, float extraTorque)
     {
         Vector3 n = GetEjectDir();
@@ -249,3 +326,4 @@ public class DestructibleWallV2 : MonoBehaviour
                (customEject.sqrMagnitude > 0.0001f ? customEject.normalized : transform.forward);
     }
 }
+
