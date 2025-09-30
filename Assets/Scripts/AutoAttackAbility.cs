@@ -31,9 +31,14 @@ public class AutoAttackAbility : MonoBehaviour
     [SerializeField] private bool vfxUseSweepRaycast = true;
     [SerializeField] private float vfxSweepRadius = 0.08f;
 
+    [Header("Telegraph (Nerd)")]
+    [Tooltip("While the attack is winding up, show a preview that follows your current aim.")]
+    [SerializeField] private bool telegraphNerdPreImpactPreview = true;
+
     [Header("Telegraph (Jock)")]
     [Tooltip("While the attack is winding up, show a preview that follows your current aim.")]
     [SerializeField] private bool telegraphJockPreImpactPreview = true;
+
     [Tooltip("How often to refresh the moving preview (seconds).")]
     [SerializeField] private float telegraphRefreshInterval = 0.05f;
 
@@ -61,11 +66,15 @@ public class AutoAttackAbility : MonoBehaviour
     private struct PendingRanged
     {
         public bool has;
+        // dir/step kept for back-compat but no longer used for impact; we recompute at event time.
         public Vector3 dir8;
         public int stepX, stepZ;
         public int finalDamage;
         public bool wasCrit;
         public float timeoutAt;
+
+        // preview helper
+        public float nextTelegraphAt;
     }
     private PendingRanged pendingRanged;
 
@@ -123,6 +132,18 @@ public class AutoAttackAbility : MonoBehaviour
             pendingMelee.nextTelegraphAt = Time.time + Mathf.Max(0.01f, telegraphRefreshInterval);
         }
 
+        // live preview telegraph for Nerd while pending
+        if (pendingRanged.has && telegraphNerdPreImpactPreview && Time.time >= pendingRanged.nextTelegraphAt)
+        {
+            var (sx, sz) = ctx.StepFromDir8(ctx.SnapDirTo8(transform.forward));
+            if (sx != 0 || sz != 0)
+            {
+                var pathNow = ctx.GetRangedPathTiles(sx, sz, weaponRangeTiles);
+                ctx.TelegraphOnce(pathNow);
+            }
+            pendingRanged.nextTelegraphAt = Time.time + Mathf.Max(0.01f, telegraphRefreshInterval);
+        }
+
         CheckFailSafes();
     }
 
@@ -154,22 +175,17 @@ public class AutoAttackAbility : MonoBehaviour
         // --- NERD (projectile with event) ---
         if (ctx.playerClass == PlayerAbilities.PlayerClass.Nerd)
         {
-            Vector3 dir8 = ctx.SnapDirTo8(transform.forward);
-            var (sx, sz) = ctx.StepFromDir8(dir8);
-            if (sx == 0 && sz == 0) return;
-
+            // compute damage now to lock in crit etc. for this throw
             bool didCrit = false;
             int final = ctx.stats
                 ? ctx.stats.ComputeDamage(weaponDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
                 : weaponDamage;
 
             pendingRanged.has         = true;
-            pendingRanged.dir8        = dir8;
-            pendingRanged.stepX       = sx;
-            pendingRanged.stepZ       = sz;
             pendingRanged.finalDamage = final;
             pendingRanged.wasCrit     = didCrit;
             pendingRanged.timeoutAt   = Time.time + eventFailSafeSeconds;
+            pendingRanged.nextTelegraphAt = 0f; // show preview ASAP if enabled
 
             var anim = ActiveAnimator;
             if (anim && !string.IsNullOrEmpty(nerdThrowTrigger)) anim.SetTrigger(nerdThrowTrigger);
@@ -181,20 +197,32 @@ public class AutoAttackAbility : MonoBehaviour
     //  Animation Event hooks
     // =======================
 
-    // Nerd ranged (projectile) — unchanged
+    // Nerd ranged (projectile) — recompute AT IMPACT so it matches where you ended up
     public void AnimEvent_FireAutoAttack()
     {
         if (!pendingRanged.has || ctx.playerClass != PlayerAbilities.PlayerClass.Nerd) return;
 
-        var path = ctx.GetRangedPathTiles(pendingRanged.stepX, pendingRanged.stepZ, weaponRangeTiles);
-        ctx.TelegraphOnce(path);
+        // Current facing/step at the exact event moment
+        Vector3 dir8 = ctx.SnapDirTo8(transform.forward);
+        var (sx, sz) = ctx.StepFromDir8(dir8);
+        if (sx == 0 && sz == 0)
+        {
+            // nothing to fire; clear pending to avoid spamming failsafe
+            pendingRanged.has = false;
+            return;
+        }
+
+        // Build the live path and (optionally) flash once if you disabled live preview
+        var pathNow = ctx.GetRangedPathTiles(sx, sz, weaponRangeTiles);
+        if (!telegraphNerdPreImpactPreview) ctx.TelegraphOnce(pathNow);
 
         if (ctx.projectilePrefab)
         {
+            // Spawn from current snapped position, half a tile forward
             Vector3 spawn = ctx.Snap(transform.position)
-                           + new Vector3(pendingRanged.stepX, 0, pendingRanged.stepZ) * (ctx.tileSize * 0.5f);
+                           + new Vector3(sx, 0, sz) * (ctx.tileSize * 0.5f);
 
-            var go = Instantiate(ctx.projectilePrefab, spawn, Quaternion.LookRotation(pendingRanged.dir8, Vector3.up));
+            var go = Instantiate(ctx.projectilePrefab, spawn, Quaternion.LookRotation(dir8, Vector3.up));
 
             var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
             rb.isKinematic = true;
@@ -211,7 +239,7 @@ public class AutoAttackAbility : MonoBehaviour
             LayerMask impactLayers = ctx.targetLayer | ctx.wallLayer | ctx.groundLayer;
 
             p.Init(
-                direction: pendingRanged.dir8,
+                direction: dir8,
                 speed: ctx.projectileSpeed,
                 maxDistance: weaponRangeTiles * ctx.tileSize,
                 hitLayers: impactLayers,
@@ -259,7 +287,6 @@ public class AutoAttackAbility : MonoBehaviour
                 if (col.TryGetComponent<IDamageable>(out _))
                 {
                     hitAny = true;
-                    // pick a reasonable point for VFX/SFX
                     firstHitPos = col.ClosestPoint(c);
                     goto DoneScan;
                 }
@@ -267,11 +294,9 @@ public class AutoAttackAbility : MonoBehaviour
         }
     DoneScan:
 
-        // Damage application
         foreach (var c in tilesNow)
             ctx.DamageTileScaled(c, r, pendingMelee.finalDamage, PlayerStats.AbilitySchool.Jock, false);
 
-        // Impact feedback only if we hit something
         if (hitAny)
         {
             if (jockImpactSfx)

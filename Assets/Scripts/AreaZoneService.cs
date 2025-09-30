@@ -7,25 +7,25 @@ public class AreaZoneService : MonoBehaviour
 {
     public static AreaZoneService Instance { get; private set; }
 
-    public event Action<string> OnZoneChanged;
+    public event Action<string> OnZoneChanged;         // existing
+    public event Action<ZoneVolume> OnZoneChangedZone; // NEW
 
     [Header("Player discovery")]
-    [Tooltip("Try to find player by tag 'Player' first; fallback to PlayerAbilities.")]
     public bool autoFindPlayer = true;
 
     Transform player;
-    readonly List<ZoneVolume> zones = new List<ZoneVolume>();
+    readonly List<ZoneVolume> zones = new();
     ZoneVolume current;
-    int seqCounter = 0; // increases whenever a zone is newly entered
+    int seqCounter = 0;
 
-    public string CurrentZoneName => current ? current.zoneName : string.Empty;
+    public string     CurrentZoneName => current ? current.zoneName : string.Empty;
+    public ZoneVolume CurrentZone     => current;
 
     void Awake()
     {
         if (Instance && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         DontDestroyOnLoad(gameObject);
-        // Pre-populate any zones that already exist
         zones.AddRange(FindObjectsOfType<ZoneVolume>(true));
     }
 
@@ -36,23 +36,21 @@ public class AreaZoneService : MonoBehaviour
 
         Vector3 pos = player.position;
 
-        // Track inside/outside + assign enter sequence numbers
         for (int i = 0; i < zones.Count; i++)
         {
             var z = zones[i];
-            bool nowInside = z && z.isActiveAndEnabled && z.Contains(pos);
+            if (!z) continue;
+            bool nowInside = z.isActiveAndEnabled && z.Contains(pos);
             if (nowInside && !z._inside) { z._inside = true; z._enterSeq = ++seqCounter; }
             else if (!nowInside && z._inside) { z._inside = false; }
         }
 
-        // Pick best zone
         ZoneVolume best = null;
         for (int i = 0; i < zones.Count; i++)
         {
             var z = zones[i];
             if (z == null || !z._inside) continue;
-            if (best == null ||
-                z.priority > best.priority ||
+            if (best == null || z.priority > best.priority ||
                (z.priority == best.priority && z._enterSeq > best._enterSeq))
             {
                 best = z;
@@ -63,18 +61,12 @@ public class AreaZoneService : MonoBehaviour
         {
             current = best;
             OnZoneChanged?.Invoke(CurrentZoneName);
+            OnZoneChangedZone?.Invoke(current);
         }
     }
 
-    public void Register(ZoneVolume z)
-    {
-        if (z && !zones.Contains(z)) zones.Add(z);
-    }
-    public void Unregister(ZoneVolume z)
-    {
-        zones.Remove(z);
-        if (current == z) { current = null; OnZoneChanged?.Invoke(CurrentZoneName); }
-    }
+    public void Register(ZoneVolume z)   { if (z && !zones.Contains(z)) zones.Add(z); }
+    public void Unregister(ZoneVolume z) { zones.Remove(z); if (current == z) { current = null; OnZoneChanged?.Invoke(CurrentZoneName); OnZoneChangedZone?.Invoke(null); } }
 
     Transform FindPlayer()
     {
@@ -84,3 +76,4 @@ public class AreaZoneService : MonoBehaviour
         return pa ? pa.transform : null;
     }
 }
+
