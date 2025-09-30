@@ -12,7 +12,6 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _EMISSION
   - _FADING_ON
   - _FLIPBOOKBLENDING_ON
   - _NORMALMAP
@@ -21,7 +20,7 @@ Material:
   m_InvalidKeywords:
   - _ALPHABLEND_ON
   - _REQUIRE_UV2
-  m_LightmapFlags: 0
+  m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 1
   m_CustomRenderQueue: 3000
@@ -121,10 +120,10 @@ Material:
     - _UVSec: 0
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 0, g: 0.5943396, b: 0.117881, a: 1}
+    - _BaseColor: {r: 0, g: 0.6320754, b: 0.07900943, a: 1}
     - _BaseColorAddSubDiff: {r: 0, g: 0, b: 0, a: 0}
     - _CameraFadeParams: {r: 0, g: Infinity, b: 0, a: 0}
-    - _Color: {r: 0, g: 0.5943396, b: 0.11788098, a: 1}
+    - _Color: {r: 0, g: 0.6320754, b: 0.07900939, a: 1}
     - _ColorAddSubDiff: {r: 0, g: 0, b: 0, a: 0}
     - _EmissionColor: {r: 0.033832215, g: 0.49056602, b: 0, a: 1}
     - _SoftParticleFadeParams: {r: 0, g: 10, b: 0, a: 0}
