@@ -12,21 +12,31 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
 
     [Header("Warp Settings")]
     public int warpDistanceTiles = 8;
+
+    [Header("VFX / SFX")]
+    [Tooltip("Effect spawned where you START warping from.")]
+    public GameObject warpFromVfxPrefab;
+    [Tooltip("Effect spawned where you ARRIVE.")]
+    public GameObject warpToVfxPrefab;
     public float warpVfxDuration = 1.5f;
-    public GameObject warpVfxPrefab;
+
+    [SerializeField] private AudioClip warpSfx;
+    [SerializeField, Range(0f, 2f)] private float warpSfxVolume = 1f;
+    [SerializeField, Range(0.25f, 2f)] private float warpSfxPitch = 1f;
 
     [Header("Animation")]
     [SerializeField] private Animator animator;        // auto-found in Awake if left null
     [SerializeField] private string warpTrigger = "Warp";
 
-    [Header("Audio")]
-    [SerializeField] private AudioClip warpSfx;        // <- add your warp sound here
-    [SerializeField, Range(0f, 2f)] private float warpSfxVolume = 1f;
-    [SerializeField, Range(0.25f, 2f)] private float warpSfxPitch = 1f;
-
     [Header("Charges")]
     public int maxCharges = 2;
     public float rechargeSeconds = 10f;
+
+    [Header("Collision / Blocking")]
+    [Tooltip("Layers that block warp path (usually your 'Wall' layer).")]
+    public LayerMask wallBlockerLayers;
+    [Tooltip("Also block destructible walls even if they are on Target layer (recommended ON).")]
+    public bool blockDestructibleWallsOnTargetLayer = true;
 
     [Header("UI")]
     public Sprite icon;
@@ -43,6 +53,11 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     {
         ctx = GetComponent<PlayerAbilities>();
         autoAttack = GetComponent<AutoAttackAbility>();
+
+        // If not set in inspector, fall back to the project's wall layer
+        if (wallBlockerLayers.value == 0 && ctx != null)
+            wallBlockerLayers = ctx.wallLayer;
+
         currentCharges = Mathf.Max(1, maxCharges);
         if (currentCharges < maxCharges)
             nextChargeReadyTime = Time.time + Mathf.Max(0.01f, rechargeSeconds);
@@ -90,52 +105,75 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         float   tileSize  = ctx.tileSize;
         Vector3 startTile = ctx.Snap(transform.position);
 
-        int wallMask = ctx.wallLayer.value;
+        // --- spawn ORIGIN VFX/SFX before moving ---
+        Vector3 fromFxPos = startTile;
+        if (ctx.TryGetGroundHeight(fromFxPos, out float gyFrom)) fromFxPos.y = gyFrom;
+        SpawnVfx(fromFxPos, warpFromVfxPrefab, warpVfxDuration);
+        PlayOneShotAt(fromFxPos, warpSfx, warpSfxVolume, warpSfxPitch);
 
-        // step forward up to N tiles; stop BEFORE first blocked tile
+        // Step forward up to N tiles; stop BEFORE first blocked tile
         Vector3 lastFree = startTile;
         for (int step = 0; step < warpDistanceTiles; step++)
         {
             Vector3 candidate = lastFree + stepDir * tileSize;
 
+            // Box that approximates our capsule footprint
             Vector3 half = new Vector3(tileSize * 0.45f, 0.6f, tileSize * 0.45f);
+
+            // 1) Regular wall blockers (e.g. "Wall" layer)
             bool blocked = Physics.CheckBox(
                 candidate + Vector3.up * half.y, half,
-                Quaternion.identity, wallMask, QueryTriggerInteraction.Ignore);
+                Quaternion.identity, wallBlockerLayers, QueryTriggerInteraction.Ignore);
+
+            // 2) Destructible wall objects that live on Target layer: block these too
+            if (!blocked && blockDestructibleWallsOnTargetLayer)
+            {
+                // Only query the Target layer to keep this cheap
+                int targetMask = ctx ? ctx.targetLayer.value : 0;
+                if (targetMask != 0)
+                {
+                    var cols = Physics.OverlapBox(
+                        candidate + Vector3.up * half.y, half,
+                        Quaternion.identity, targetMask, QueryTriggerInteraction.Ignore);
+
+                    for (int i = 0; i < cols.Length; i++)
+                    {
+                        // We block ONLY if this collider belongs to a destructible wall
+                        if (cols[i].GetComponentInParent<DestructibleWallV2>() != null)
+                        {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                }
+            }
 
             if (blocked) break;
             lastFree = candidate;
         }
 
-        // If we didn’t actually move, don’t waste a charge
+        // If we didn’t actually move, refund the charge and bail
         if (lastFree == startTile)
         {
             currentCharges = Mathf.Min(maxCharges, currentCharges + 1);
             return;
         }
 
-        // 1) Teleport the transform
+        // Teleport
         transform.position = lastFree;
 
-        // 2) Rebase movement WITHOUT cooldown so input continues smoothly
+        // Rebase movement WITHOUT cooldown so input continues smoothly
         var mover = GetComponent<PlayerMovement>();
         if (mover != null) mover.RebaseTo(lastFree, withCooldown: false);
 
-        // Determine arrival FX position (try to align to ground height)
-        Vector3 fxPos = lastFree;
-        if (ctx.TryGetGroundHeight(lastFree, out float gy)) fxPos.y = gy;
+        // --- spawn ARRIVAL VFX/SFX after moving ---
+        Vector3 toFxPos = lastFree;
+        if (ctx.TryGetGroundHeight(lastFree, out float gyTo)) toFxPos.y = gyTo;
+        SpawnVfx(toFxPos, warpToVfxPrefab ? warpToVfxPrefab : warpFromVfxPrefab, warpVfxDuration);
+        // (Optional) play arrival sound too; comment out if you only want it at the start
+        PlayOneShotAt(toFxPos, warpSfx, warpSfxVolume, warpSfxPitch);
 
-        // 3) Arrival VFX
-        if (warpVfxPrefab)
-        {
-            var fx = Instantiate(warpVfxPrefab, fxPos, Quaternion.identity);
-            if (warpVfxDuration > 0f) Destroy(fx, warpVfxDuration);
-        }
-
-        // 4) Arrival SFX
-        PlayOneShotAt(fxPos, warpSfx, warpSfxVolume, warpSfxPitch);
-
-        // 5) Play "Warp" animation trigger
+        // Play "Warp" animation trigger
         if (animator && !string.IsNullOrEmpty(warpTrigger))
             animator.SetTrigger(warpTrigger);
     }
@@ -152,7 +190,14 @@ public class WarpAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     public int CurrentCharges => currentCharges;
     public int MaxCharges => Mathf.Max(1, maxCharges);
 
-    // ---- simple 3D one-shot helper ----
+    // ---- helpers ----
+    void SpawnVfx(Vector3 pos, GameObject prefab, float life)
+    {
+        if (!prefab) return;
+        var fx = Instantiate(prefab, pos, Quaternion.identity);
+        if (life > 0f) Destroy(fx, life);
+    }
+
     void PlayOneShotAt(Vector3 pos, AudioClip clip, float volume, float pitch)
     {
         if (!clip) return;

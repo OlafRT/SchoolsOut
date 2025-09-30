@@ -274,12 +274,17 @@ public class HackingStation : MonoBehaviour
 
         nerdCancelArmed = false;
 
+        // Fire event and start opening the world door, but DO NOT wait for it.
         onSolvedDoorOpening?.Invoke();
         if (worldDoorHinge)
-            yield return RotateLocal(worldDoorHinge, worldDoorClosedRot, Quaternion.Euler(worldDoorOpenLocalEuler), worldDoorOpenSeconds);
+            StartCoroutine(RotateLocal(worldDoorHinge, worldDoorClosedRot,
+                                    Quaternion.Euler(worldDoorOpenLocalEuler),
+                                    worldDoorOpenSeconds)); // ← fire-and-forget
 
+        // Immediately return camera to the player so they can SEE the door opening.
         yield return MoveCameraToPlayer();
 
+        // Close the fusebox door after we’re back at the player.
         if (fuseboxDoorHinge)
         {
             if (doorCloseClip && sfx) sfx.PlayOneShot(doorCloseClip);
