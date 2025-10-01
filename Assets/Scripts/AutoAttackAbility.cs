@@ -56,6 +56,53 @@ public class AutoAttackAbility : MonoBehaviour
     [SerializeField] private float jockImpactVfxLife = 1.5f;
     [SerializeField] private float jockImpactVfxScale = 1f;
 
+    [System.Serializable]
+    public class EmissiveSlot
+    {
+        public Renderer renderer;
+        [Tooltip("Material index on the renderer (0-based).")]
+        public int materialIndex = 0;
+
+        // runtime
+        [System.NonSerialized] private MaterialPropertyBlock _block;
+
+        public void EnsureBlock()
+        {
+            if (_block == null) _block = new MaterialPropertyBlock();
+        }
+
+        public void ApplyEmission(Color emissionColor)
+        {
+            if (!renderer) return;
+            EnsureBlock();
+            _block.SetColor("_EmissionColor", emissionColor);
+            renderer.SetPropertyBlock(_block, materialIndex);
+            // Optional: if your pipeline requires the keyword to light up, uncomment:
+            // var mats = renderer.materials; // instantiates per-renderer
+            // if (mats != null && materialIndex >= 0 && materialIndex < mats.Length)
+            // {
+            //     if (emissionColor.maxColorComponent > 0f) mats[materialIndex].EnableKeyword("_EMISSION");
+            //     else mats[materialIndex].DisableKeyword("_EMISSION");
+            // }
+        }
+
+        public void DisableEmission()
+        {
+            ApplyEmission(Color.black);
+        }
+    }
+
+    [Header("Nerd Auto-Attack Emissive Pulse")]
+    [SerializeField] private bool enableNerdEmissivePulse = true;
+    [SerializeField] private EmissiveSlot[] nerdEmissiveSlots;   // assign the weapon renderer twice with index 0 and 1
+    [SerializeField] private Color nerdEmissionColor = Color.cyan;
+    [Tooltip("Max HDR intensity multiplier for the emission color.")]
+    [SerializeField] [Range(0f, 8f)] private float nerdEmissionMax = 2.0f;
+    [Tooltip("Seconds per full brighten->dim cycle.")]
+    [SerializeField] [Range(0.1f, 5f)] private float nerdEmissionPeriod = 1.0f;
+    [Tooltip("Optional phase offset so multiple materials don't peak at the exact same time.")]
+    [SerializeField] [Range(0f, 1f)] private float nerdEmissionPhaseOffset = 0f;
+
     private PlayerAbilities ctx;
     private float attackTimer;
 
@@ -109,7 +156,10 @@ public class AutoAttackAbility : MonoBehaviour
     void Update()
     {
         if (Input.GetKeyDown(toggleAutoAttackKey))
+        {
             AutoAttackEnabled = !AutoAttackEnabled;
+            if (!AutoAttackEnabled) NerdEmission_ForceOffImmediate();
+        }
 
         if (!AutoAttackEnabled || IsSuppressedByOtherAbilities)
         {
@@ -144,11 +194,49 @@ public class AutoAttackAbility : MonoBehaviour
             pendingRanged.nextTelegraphAt = Time.time + Mathf.Max(0.01f, telegraphRefreshInterval);
         }
 
+        NerdEmission_Update();
         CheckFailSafes();
     }
 
     Animator ActiveAnimator =>
         ctx && ctx.playerClass == PlayerAbilities.PlayerClass.Jock ? jockAnimator : nerdAnimator;
+
+    void NerdEmission_Update()
+    {
+        if (!enableNerdEmissivePulse || nerdEmissiveSlots == null || nerdEmissiveSlots.Length == 0)
+            return;
+
+        bool shouldPulse = AutoAttackEnabled
+                        && !IsSuppressedByOtherAbilities
+                        && ctx
+                        && ctx.playerClass == PlayerAbilities.PlayerClass.Nerd;
+
+        if (!shouldPulse)
+        {
+            for (int i = 0; i < nerdEmissiveSlots.Length; i++)
+                nerdEmissiveSlots[i]?.DisableEmission();
+            return;
+        }
+
+        // Pulse 0..1 with a sine, then scale by max intensity
+        float t = nerdEmissionPeriod <= 0.0001f ? 1f
+                : (Time.time / Mathf.Max(0.0001f, nerdEmissionPeriod) + nerdEmissionPhaseOffset);
+        float pulse01 = 0.5f * (1f + Mathf.Sin(t * Mathf.PI * 2f));
+        float intensity = pulse01 * Mathf.Max(0f, nerdEmissionMax);
+
+        // Use HDR emission color (URP/HDRP happy), gamma pipeline also fine
+        Color emi = nerdEmissionColor * intensity;
+
+        for (int i = 0; i < nerdEmissiveSlots.Length; i++)
+            nerdEmissiveSlots[i]?.ApplyEmission(emi);
+    }
+
+    void NerdEmission_ForceOffImmediate()
+    {
+        if (nerdEmissiveSlots == null) return;
+        for (int i = 0; i < nerdEmissiveSlots.Length; i++)
+            nerdEmissiveSlots[i]?.DisableEmission();
+    }
 
     void DoAutoAttack()
     {
