@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: cce4cc3dbe6219a4fa2cf33d233ae485
+guid: d9d64b95727513e45b3a2584b86add90
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -7,8 +7,13 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: EyesAndHair
-    second: {fileID: 2100000, guid: e52c09dcd0dbacd4499a538567224c59, type: 2}
+      name: Leaves1
+    second: {fileID: 2100000, guid: d6e50f61c9cf0184cb1b414376f7387c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Stem1
+    second: {fileID: 2100000, guid: 6372c1deda9a6f84db740968455adf2f, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -40,7 +45,7 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 1
+    globalScale: 50
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -95,7 +100,7 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
-    globalScale: 1
+    globalScale: 0.5
     rootMotionBoneName: 
     hasTranslationDoF: 0
     hasExtraRoot: 0

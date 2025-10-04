@@ -7709,6 +7709,8 @@ MonoBehaviour:
   - {fileID: 2138708807}
   - {fileID: 2092718676}
   - {fileID: 6981689454476478775}
+  - {fileID: 1635896740419582332}
+  - {fileID: 4506935093213015926}
   glowColor: {r: 0, g: 1, b: 0.016897917, a: 1}
   glowIntensity: 2.5
   hdrpMode: 1
@@ -8859,7 +8861,7 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: cce4cc3dbe6219a4fa2cf33d233ae485,
         type: 3}
       propertyPath: m_Layer
-      value: 10
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -10999,15 +11001,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 787124602}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.09517735, y: 0.07224435, z: -0.05373511, w: 0.99138016}
-  m_LocalPosition: {x: 0.00831, y: 0.00297, z: 0.00972}
+  m_LocalRotation: {x: -0.03733925, y: -0.07016597, z: -0.15805578, w: 0.98422605}
+  m_LocalPosition: {x: 0.0105, y: -0.00269, z: 0.01691}
   m_LocalScale: {x: 1.7513, y: 1.7513, z: 1.7513}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1889684077}
   - {fileID: 1157581315}
   m_Father: {fileID: 8763254785108453329}
-  m_LocalEulerAnglesHint: {x: -10.425, y: 8.978, z: -7.026}
+  m_LocalEulerAnglesHint: {x: -5.491, y: -7.29, z: -17.896}
 --- !u!1 &793406715
 GameObject:
   m_ObjectHideFlags: 0
@@ -16706,7 +16708,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: c892c42f6decab944a5ce208cd8caaf1, type: 2}
+  - {fileID: 2100000, guid: 8954bb86ad2695f4cb3a713ce2817deb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -38783,7 +38785,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3470065031934111689}
   serializedVersion: 2
-  m_LocalRotation: {x: 6.617445e-24, y: -0.5529727, z: 2.3161057e-23, w: 0.83319944}
+  m_LocalRotation: {x: 3.3087225e-23, y: -0.43079755, z: 1.6543612e-23, w: 0.9024486}
   m_LocalPosition: {x: -0.013883488, y: 0.04004558, z: 0.012217045}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -38793,7 +38795,7 @@ Transform:
   - {fileID: 2434810711313769180}
   - {fileID: 787124603}
   m_Father: {fileID: 2255609461105549710}
-  m_LocalEulerAnglesHint: {x: 0, y: -67.142, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -51.036, z: 0}
 --- !u!1 &8812119570181072834
 GameObject:
   m_ObjectHideFlags: 0

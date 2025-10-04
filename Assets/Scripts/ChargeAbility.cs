@@ -12,22 +12,28 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
 
     [Header("Charge")]
     public int   chargeDistanceTiles       = 10;
-    public float chargeSpeedTilesPerSecond = 16f;   // tiles per second (center-to-center)
+    public float chargeSpeedTilesPerSecond = 16f;
     public float chargeStunSeconds         = 2f;
-    public float stopYOffsetClamp          = 0f;    // keep Y locked; leave at 0
+    public float stopYOffsetClamp          = 0f;
 
     [Header("Hit Detection")]
-    [Tooltip("Radius (world units) to detect a target on the next tile.")]
     public float nextTileHitRadius = 0.45f;
 
-    [Header("Impact FX (plays only if we collide with wall/obstacle/NPC)")]
+    [Header("Impact FX")]
     public GameObject impactVfxPrefab;
     public float      impactVfxLifetime = 1.2f;
     public AudioClip  impactSfx;
     [Range(0f, 1f)] public float impactSfxVolume = 0.9f;
-    [Tooltip("Camera shake amplitude and duration on impact.")]
     public float cameraShakeAmplitude = 0.25f;
     public float cameraShakeDuration  = 0.12f;
+
+    [Header("Animation (via Relay)")]
+    [SerializeField] private JockAnimRelay animRelay;
+    [Tooltip("If no relay assigned, we’ll try to set these directly on a found Animator:")]
+    [SerializeField] private Animator fallbackAnimator;
+    [SerializeField] private string chargingBool = "Charging";
+    [SerializeField] private string chargeSpeedParam = "ChargeSpeed";
+    [SerializeField] private float  chargeSpeedAnimMult = 1f;
 
     [Header("Status UI")]
     public string  stunStatusTag = "Stunned";
@@ -37,28 +43,30 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
     public Sprite icon;
     public float  cooldownSeconds = 0f;
 
-    // ---- runtime
     private PlayerAbilities   ctx;
     private AutoAttackAbility autoAttack;
     private float             nextReadyTime = 0f;
 
-    public  bool IsCharging { get; private set; }
-    public  AbilityClassRestriction AllowedFor => AbilityClassRestriction.Jock; // if you use class restriction
+    public bool IsCharging { get; private set; }
+    public AbilityClassRestriction AllowedFor => AbilityClassRestriction.Jock;
 
     void Awake()
     {
         ctx = GetComponent<PlayerAbilities>();
         autoAttack = GetComponent<AutoAttackAbility>();
+
+        if (!animRelay) animRelay = GetComponentInChildren<JockAnimRelay>(true);
+        if (!fallbackAnimator) fallbackAnimator = GetComponentInChildren<Animator>(true);
     }
 
     void Update()
     {
         if (!IsLearned) return;
 
-        // while charging, keep AA suppressed; don't allow steering
         if (IsCharging)
         {
             if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = true;
+            PushAnimSpeedParam();
             return;
         }
 
@@ -75,7 +83,9 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
         IsCharging = true;
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = true;
 
-        // Lock player-movement during charge
+        SetChargingAnim(true);
+        PushAnimSpeedParam();
+
         if (ctx.movement)
         {
             ctx.movement.StopAllCoroutines();
@@ -83,7 +93,6 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
             ctx.movement.canMove = false;
         }
 
-        // Determine 8-way direction once and lock it
         Vector3 dir8 = ctx.SnapDirTo8(transform.forward);
         var (sx, sz) = ctx.StepFromDir8(dir8);
         if (sx == 0 && sz == 0) { EndCharge(); yield break; }
@@ -91,47 +100,40 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
         Vector3 stepDir = new Vector3(sx, 0f, sz).normalized;
         transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
 
-        // Keep Y strictly fixed to the start
         float startY = transform.position.y;
         Vector3 FixY(Vector3 p) { p.y = startY + stopYOffsetClamp; return p; }
 
-        // Tile-by-tile march
         Vector3 currentTile = ctx.Snap(transform.position);
         float tileSize = Mathf.Max(0.01f, ctx.tileSize);
         float moveSpeed = Mathf.Max(0.01f, chargeSpeedTilesPerSecond) * tileSize;
         float radius    = Mathf.Max(0.05f, nextTileHitRadius);
 
-        // Convenience masks (walls + targets)
         int wallMask   = ctx.wallLayer.value;
         int targetMask = ctx.targetLayer.value;
 
-        // Helper: is that tile blocked by WALLS? (targets are handled separately)
         bool IsWallBlocked(Vector3 tileCenter)
         {
             Vector3 half = new Vector3(tileSize * 0.45f, 0.6f, tileSize * 0.45f);
             return Physics.CheckBox(tileCenter + Vector3.up * half.y, half, Quaternion.identity, wallMask, QueryTriggerInteraction.Ignore);
         }
 
-        bool didImpact = false;     // ← we only play FX if true
+        bool didImpact = false;
         Vector3 impactPoint = currentTile;
 
-        // Move up to N tiles
         int maxSteps = Mathf.Max(0, chargeDistanceTiles);
         for (int step = 0; step < maxSteps; step++)
         {
-            transform.rotation = Quaternion.LookRotation(dir8, Vector3.up); // defeat RMB steering
+            transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
 
             Vector3 nextTile = currentTile + stepDir * tileSize;
 
-            // If the next tile is a WALL → stop here (impact)
             if (IsWallBlocked(nextTile))
             {
                 didImpact = true;
-                impactPoint = FixY(nextTile); // the blocked tile we slammed into
+                impactPoint = FixY(nextTile);
                 break;
             }
 
-            // If the next tile contains a TARGET → stop here (impact) and we'll stun them after the loop
             var hits = Physics.OverlapSphere(nextTile + Vector3.up * 0.4f, radius, targetMask, QueryTriggerInteraction.Ignore);
             if (hits != null && hits.Length > 0)
             {
@@ -140,27 +142,25 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
                 break;
             }
 
-            // Otherwise, move to the next tile center at charge speed
             Vector3 start = transform.position;
             Vector3 end   = FixY(nextTile);
             float dist    = Vector3.Distance(start, end);
-            float t       = 0f;
             float dur     = Mathf.Max(0.01f, dist / moveSpeed);
+            float t       = 0f;
 
             while (t < 1f)
             {
-                transform.rotation = Quaternion.LookRotation(dir8, Vector3.up); // keep locked
+                transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
                 t += Time.deltaTime / dur;
                 transform.position = Vector3.Lerp(start, end, t);
                 yield return null;
             }
             transform.position = end;
 
-            // Arrived → advance current tile
             currentTile = nextTile;
         }
 
-        // After we stop, if the *tile in front* has targets, stun them.
+        // Stun targets one tile ahead
         {
             Vector3 tileAhead = currentTile + stepDir * tileSize;
             var hits = Physics.OverlapSphere(tileAhead + Vector3.up * 0.4f, radius, targetMask, QueryTriggerInteraction.Ignore);
@@ -169,7 +169,6 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
                 foreach (var col in hits)
                 {
                     if (!col) continue;
-
                     var host = col.GetComponentInParent<NPCStatusHost>();
                     if (host && stunStatusIcon) host.AddOrRefreshAura(stunStatusTag, this, stunStatusIcon);
 
@@ -194,10 +193,8 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
             }
         }
 
-        // Snap to final tile center (keeps Y)
         transform.position = FixY(currentTile);
 
-        // Play impact FX/SFX/camera shake only if we collided with something
         if (didImpact)
         {
             if (impactVfxPrefab)
@@ -206,7 +203,6 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
                 if (impactVfxLifetime > 0f) Destroy(vfx, impactVfxLifetime);
             }
             if (impactSfx) AudioSource.PlayClipAtPoint(impactSfx, impactPoint, impactSfxVolume);
-
             CameraShaker.Instance?.Shake(cameraShakeDuration, cameraShakeAmplitude);
         }
 
@@ -222,6 +218,8 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
 
     void EndCharge()
     {
+        SetChargingAnim(false);
+
         if (ctx.movement)
         {
             ctx.movement.ResetMovementState(transform.position);
@@ -229,6 +227,27 @@ public class ChargeAbility : MonoBehaviour, IAbilityUI
         }
         IsCharging = false;
         if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = false;
+    }
+
+    // ---- Animator/Relay helpers ----
+    void SetChargingAnim(bool on)
+    {
+        if (animRelay) { animRelay.SetCharging(on); return; }
+
+        if (fallbackAnimator && !string.IsNullOrEmpty(chargingBool))
+        {
+            fallbackAnimator.SetBool(chargingBool, on);
+            if (!on && !string.IsNullOrEmpty(chargeSpeedParam))
+                fallbackAnimator.SetFloat(chargeSpeedParam, 0f);
+        }
+    }
+
+    void PushAnimSpeedParam()
+    {
+        float norm = chargeSpeedTilesPerSecond / 16f * chargeSpeedAnimMult;
+        if (animRelay) { animRelay.SetChargeSpeed(norm); return; }
+        if (fallbackAnimator && !string.IsNullOrEmpty(chargeSpeedParam))
+            fallbackAnimator.SetFloat(chargeSpeedParam, norm);
     }
 
     // ---- IAbilityUI ----
