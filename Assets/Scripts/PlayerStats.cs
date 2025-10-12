@@ -114,6 +114,11 @@ public class PlayerStats : MonoBehaviour
         OnStatsChanged?.Invoke();
     }
 
+    public void RaiseStatsChanged()
+    {
+        OnStatsChanged?.Invoke();
+    }
+
     void SpawnLevelUpEffect()
     {
         if (levelUpEffectPrefab)
