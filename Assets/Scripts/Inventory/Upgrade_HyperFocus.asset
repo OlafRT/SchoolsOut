@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 151ada05b66841b89c6f627d2d2a3bf0
   baseName: Hyper Focus
-  icon: {fileID: 21300000, guid: bb1c61e62a701e344913b34593f0983b, type: 3}
+  icon: {fileID: 21300000, guid: 05092b70b7f0986489a049ef72e56325, type: 3}
   rarity: 2
   itemType: 3
   isEquippable: 1

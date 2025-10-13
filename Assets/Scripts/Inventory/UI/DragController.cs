@@ -9,21 +9,26 @@ public class DragController : MonoBehaviour
     public EquipmentManager equipMgr;
     public Inventory inventory;
     public ItemTooltipUI tooltip;
-    public DestroyConfirmPanel destroyConfirm;   // <-- NEW
+    public DestroyConfirmPanel destroyConfirm;
 
     [Header("Ghost Icon")]
     public Image ghostIcon;
     [Range(0f, 1f)] public float ghostAlpha = 0.8f;
 
-    public enum Source { None, Bag, Equip }
+    // Added Loot source
+    public enum Source { None, Bag, Equip, Loot }
     public bool IsDragging => _dragActive;
 
     public Source from = Source.None;
     public int fromBagIndex = -1;
     public EquipSlot fromEquipSlot;
 
+    // Loot tracking
+    public LootUI activeLootUI;
+    public int fromLootIndex = -1;
+
     bool _dragActive;
-    bool _handledDrop; // <-- set true if we dropped on a valid target
+    bool _handledDrop;
 
     void Awake()
     {
@@ -40,6 +45,8 @@ public class DragController : MonoBehaviour
             go.SetActive(false);
         }
     }
+
+    // -------- Begin Drag (Bag / Equip / Loot) --------
 
     public void BeginDragFromBag(int bagIndex, Sprite icon)
     {
@@ -59,14 +66,23 @@ public class DragController : MonoBehaviour
         StartGhost(icon);
     }
 
+    public void BeginDragFromLoot(int lootIndex, Sprite icon, LootUI ownerUI)
+    {
+        if (icon == null || ownerUI == null) return;
+        from = Source.Loot;
+        fromLootIndex = lootIndex;
+        activeLootUI = ownerUI;
+        StartGhost(icon);
+    }
+
     void StartGhost(Sprite icon)
     {
         _dragActive = true;
         _handledDrop = false;
-        if (tooltip) tooltip.Hide();
+        tooltip?.Hide();
 
         ghostIcon.sprite = icon;
-        ghostIcon.color = new Color(1,1,1,ghostAlpha);
+        ghostIcon.color = new Color(1, 1, 1, ghostAlpha);
         ghostIcon.gameObject.SetActive(true);
         ghostIcon.transform.SetAsLastSibling();
         ghostIcon.transform.position = Input.mousePosition;
@@ -79,25 +95,48 @@ public class DragController : MonoBehaviour
         if (_dragActive && ghostIcon) ghostIcon.transform.position = eventData.position;
     }
 
+    // -------- End Drag helpers --------
+
+    public void EndDragFromLoot()
+    {
+        if (!_dragActive) return;
+        // If not dropped on a valid target, just cancel (do NOT destroy corpse loot)
+        CancelDrag();
+    }
+
     public void CancelDrag()
     {
         _dragActive = false;
-        from = Source.None; fromBagIndex = -1; fromEquipSlot = default;
+        from = Source.None;
+        fromBagIndex = -1;
+        fromEquipSlot = default;
+        fromLootIndex = -1;
+        activeLootUI = null;
+
         if (ghostIcon) ghostIcon.gameObject.SetActive(false);
         equipMgr?.RestoreCursor();
     }
 
-    // ----- Drop operations (called by ItemSlotUI targets) -----
+    // -------- Drop targets (called by ItemSlotUI / LootSlotUI) --------
 
     public void DropOnBag(int toIndex)
     {
         if (!_dragActive) return;
         _handledDrop = true;
 
-        if (from == Source.Bag)
-            inventory.Move(fromBagIndex, toIndex);
-        else if (from == Source.Equip)
-            equipMgr.TryUnequipToInventory(fromEquipSlot);
+        switch (from)
+        {
+            case Source.Bag:
+                inventory.Move(fromBagIndex, toIndex);
+                break;
+            case Source.Equip:
+                equipMgr.TryUnequipToInventory(fromEquipSlot);
+                break;
+            case Source.Loot:
+                if (activeLootUI != null)
+                    activeLootUI.TakeItem(fromLootIndex);
+                break;
+        }
 
         CancelDrag();
     }
@@ -108,7 +147,9 @@ public class DragController : MonoBehaviour
         _handledDrop = true;
 
         if (from == Source.Bag)
+        {
             equipMgr.TryEquipFromInventory(fromBagIndex);
+        }
         else if (from == Source.Equip)
         {
             var eq = equipMgr.equipment;
@@ -134,11 +175,18 @@ public class DragController : MonoBehaviour
                 }
             }
         }
+        else if (from == Source.Loot)
+        {
+            // Just take to inventory; equip via click path if you want
+            if (activeLootUI != null)
+                activeLootUI.TakeItem(fromLootIndex);
+        }
 
         CancelDrag();
     }
 
-    // ----- Called by ItemSlotUI.OnEndDrag -----
+    // -------- Called by ItemSlotUI.OnEndDrag (for bag/equip) --------
+
     public void EndDragPotentiallyDestroy()
     {
         if (!_dragActive) return;
@@ -163,7 +211,7 @@ public class DragController : MonoBehaviour
                 destroyConfirm.Show(
                     $"Do you want to destroy {name}?",
                     // YES:
-                    () => { inventory.RemoveAt(idx, 1); /* OnInventoryChanged will refresh UI */ },
+                    () => { inventory.RemoveAt(idx, 1); },
                     // NO:
                     () => { /* no-op; item stays */ }
                 );
