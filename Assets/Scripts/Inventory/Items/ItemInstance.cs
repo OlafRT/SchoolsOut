@@ -4,31 +4,50 @@ using UnityEngine;
 [Serializable]
 public class ItemInstance {
     public ItemTemplate template;
-    [Range(1,30)] public int itemLevel = 1; // drives stat budget
+
+    // optional override for unique items / quest rewards
+    public string customName;
+
+    [Range(1,30)] public int itemLevel = 1;        // drives stat budget
     [Min(1)] public int requiredLevel = 1;
-    public Rarity rarity; // rolled per instance (overrides template visual)
-    public AffixType affix;
+    public Rarity rarity;                          // rolled per instance
+    public AffixType affix;                        // AffixType.None = no suffix
 
     // Rolled bonuses (your game stats)
-    public int bonusMuscles;   // "Athlete"
-    public int bonusIQ;        // "Scholar"
-    public int bonusCrit;      // percentage points (7 => +7%)
-    public int bonusToughness; // always-on toughness per your rule
+    public int bonusMuscles;    // +Muscle
+    public int bonusIQ;         // +IQ
+    public int bonusCrit;       // +Crit %
+    public int bonusToughness;  // +Toughness (flat)
 
     // Economy
-    public int value; // stored in whole dollars; UI prints with '$'
+    public int value; // sell value in dollars
 
-    public string DisplayName =>
-    (template == null)
-        ? "(Unknown Item)"
-        : (string.IsNullOrEmpty(AffixSuffix) ? template.baseName : $"{template.baseName} {AffixSuffix}");
+    // What name should we show in UI / tooltip?
+    public string DisplayName {
+        get {
+            // 1. If designer forced a name (customName), use that.
+            if (!string.IsNullOrEmpty(customName))
+                return customName;
+
+            // 2. Otherwise use baseName (+ suffix if there IS a suffix)
+            if (template == null)
+                return "(Unknown Item)";
+
+            if (string.IsNullOrEmpty(AffixSuffix))
+                return template.baseName;
+
+            return $"{template.baseName} {AffixSuffix}";
+        }
+    }
+
+    // The suffix part, based on affix
     public string AffixSuffix => affix switch {
-        AffixType.Athlete => "of the Athlete",
-        AffixType.Scholar => "of the Scholar",
-        AffixType.Lucky => "of the Lucky",
-        AffixType.Power => "of Power",
-        AffixType.Cognition => "of Cognition",
-        _ => string.Empty
+        AffixType.Athlete    => "of the Athlete",
+        AffixType.Scholar    => "of the Scholar",
+        AffixType.Lucky      => "of the Lucky",
+        AffixType.Power      => "of Power",
+        AffixType.Cognition  => "of Cognition",
+        _ => string.Empty    // AffixType.None, etc.
     };
 
     public Sprite Icon => template != null ? template.icon : null;

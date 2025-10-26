@@ -17,6 +17,7 @@ public class LootSlotUI : MonoBehaviour,
     [Header("Refs")]
     public ItemTooltipUI tooltip;
     public LootUI owner;
+    public EquipmentManager cursorOwner;
 
     // what this slot currently represents
     bool _active;
@@ -96,6 +97,7 @@ public class LootSlotUI : MonoBehaviour,
     {
         owner = parent;
         tooltip = parent.tooltip;
+        cursorOwner = parent.cursorOwner;
 
         _active = true;
         _isMoney = true;
@@ -124,6 +126,7 @@ public class LootSlotUI : MonoBehaviour,
     {
         owner = parent;
         tooltip = parent.tooltip;
+        cursorOwner = parent.cursorOwner;
 
         _active = true;
         _isMoney = false;
@@ -151,6 +154,11 @@ public class LootSlotUI : MonoBehaviour,
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (!_active) return;
+        // tell cursor system "I am hovering loot"
+        if (cursorOwner != null)
+        {
+            cursorOwner.SetHoverCursor();
+        }
         if (_isMoney) return; // no tooltip for just money
 
         if (_itemCached != null && tooltip != null)
@@ -161,6 +169,11 @@ public class LootSlotUI : MonoBehaviour,
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        // restore normal cursor
+        if (cursorOwner != null)
+        {
+            cursorOwner.RestoreCursor();
+        }
         tooltip?.Hide();
     }
 

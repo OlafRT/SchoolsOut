@@ -6,4 +6,12 @@ public enum EquipSlot { Head, Neck, RingLeft, RingRight, Weapon, Trinket, Upgrad
 // Added Poor (Grey) to match WoW tiers exactly
 public enum Rarity { Poor, Common, Uncommon, Rare, Epic, Legendary }
 
-public enum AffixType { Athlete, Scholar, Lucky, Power, Cognition }
+public enum AffixType
+{
+    None,
+    Athlete,
+    Scholar,
+    Lucky,
+    Power,
+    Cognition
+}

@@ -15,9 +15,20 @@ MonoBehaviour:
   id: a19ff8a132474f2cbabb43849723cd06
   baseName: Snot Launcher
   icon: {fileID: 21300000, guid: 849514acf04d9a746b77a7d774b07e5d, type: 3}
-  rarity: 1
+  rarity: 2
   itemType: 2
   isEquippable: 1
   equipSlot: 4
-  allowedAffixes: 0100000004000000
+  allowedAffixes: 0200000005000000
   description: Eugene's most disgusting invention.
+  isStaticItem: 1
+  overrideName: Snot Launcher v1
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 1
+  fixedCrit: 1
+  fixedToughness: 1
+  fixedValue: 5
+  forcedAffix: 0

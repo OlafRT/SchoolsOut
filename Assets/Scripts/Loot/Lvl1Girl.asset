@@ -17,4 +17,4 @@ MonoBehaviour:
   itemDropChance: 0.6
   dollarsPerLevel: 3
   moneyRandomFactor: {x: 0.5, y: 1.5}
-  ilvlVariance: 1
+  ilvlVariance: 2

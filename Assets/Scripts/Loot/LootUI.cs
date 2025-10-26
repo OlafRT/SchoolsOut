@@ -13,6 +13,7 @@ public class LootUI : MonoBehaviour
     public DragController dragController;  // scene object -> we'll auto-find if null
     public ItemTooltipUI tooltip;          // scene object -> we'll auto-find if null
     public Sprite moneyIcon;               // assign in prefab (sprite asset)
+    public EquipmentManager cursorOwner;
 
     [Header("Behaviour")]
     public float autoCloseDistance = 4f;
@@ -27,6 +28,12 @@ public class LootUI : MonoBehaviour
     public void Bind(CorpseLoot owner)
     {
         corpse = owner;
+
+        // pull cursor owner from the corpse if we don't already have one
+        if (cursorOwner == null)
+        {
+            cursorOwner = owner.cursorOwner;
+        }
 
         // If these weren't assigned in prefab (scene refs), grab them now
         if (dragController == null)
@@ -46,12 +53,13 @@ public class LootUI : MonoBehaviour
             if (p) player = p.transform;
         }
 
-        // make sure each slot knows its owner + tooltip
+        // make sure each slot knows its owner + tooltip + cursor
         foreach (var s in slotUIs)
         {
             if (!s) continue;
             s.owner = this;
             s.tooltip = tooltip;
+            s.cursorOwner = cursorOwner;
         }
 
         Refresh();
@@ -188,11 +196,20 @@ public class LootUI : MonoBehaviour
         if (_closing) return;
         _closing = true;
 
-        // VERY IMPORTANT: hide tooltip so it doesn't stick forever
+        // hide tooltip so it doesn't get stuck
         if (tooltip != null)
         {
             tooltip.Hide();
         }
+
+        // restore cursor in case we were hovering a loot slot
+        if (cursorOwner != null)
+        {
+            cursorOwner.RestoreCursor();
+        }
+
+        // also clear any custom cursor we set from the corpse hover path
+        Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
 
         Destroy(gameObject);
     }

@@ -19,5 +19,16 @@ MonoBehaviour:
   itemType: 1
   isEquippable: 0
   equipSlot: 0
-  allowedAffixes: 0000000001000000020000000300000004000000
-  description: 
+  allowedAffixes: 00000000
+  description: Seems to be mint flavored.
+  isStaticItem: 1
+  overrideName: Pack of Gum
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 0
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 1
+  forcedAffix: 0

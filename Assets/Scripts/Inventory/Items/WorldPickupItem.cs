@@ -25,7 +25,7 @@ public class WorldPickupItem : MonoBehaviour
         // Roll the instance we’re going to give
         if (template != null)
         {
-            rolledInstance = AffixRoller.Roll(template, itemLevel);
+            rolledInstance = AffixRoller.CreateFromTemplate(template, itemLevel);
         }
 
         // Ensure we have a trigger collider so the player can walk into it

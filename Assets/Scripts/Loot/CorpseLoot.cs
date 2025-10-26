@@ -49,8 +49,11 @@ public class CorpseLoot : MonoBehaviour,
         // Auto-despawn if timer expired OR empty
         if (Time.time >= _dieTime || IsEmpty)
         {
-            // make sure loot window closes cleanly (also hides tooltip)
+            // close loot UI (which also hides tooltip & restores cursor from slot hover)
             if (_openUI) _openUI.Close();
+
+            // also restore cursor in case player was still hovering the corpse itself
+            ForceRestoreCursor();
 
             Destroy(gameObject);
         }
@@ -186,6 +189,21 @@ public class CorpseLoot : MonoBehaviour,
     public void OnLootAllTaken()
     {
         if (_openUI) _openUI.Close();
+
+        ForceRestoreCursor();
+
         Destroy(gameObject);
+    }
+
+    void ForceRestoreCursor()
+    {
+        // if we had changed the cursor to lootCursor, clear it
+        Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+
+        // and ask EquipmentManager to go back to normal cursor
+        if (cursorOwner != null)
+        {
+            cursorOwner.RestoreCursor();
+        }
     }
 }

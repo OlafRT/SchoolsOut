@@ -15,9 +15,20 @@ MonoBehaviour:
   id: a19ff8a132474f2cbabb43849723cd06
   baseName: Wizard Hat
   icon: {fileID: 21300000, guid: 1edffe1ab6a0ca54d994228cf59d2e90, type: 3}
-  rarity: 1
+  rarity: 2
   itemType: 2
   isEquippable: 1
   equipSlot: 0
-  allowedAffixes: 0000000001000000020000000300000004000000
+  allowedAffixes: 0500000001000000020000000300000004000000
   description: Seems this belonged to a D&D fan.
+  isStaticItem: 0
+  overrideName: 
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 0
+  forcedAffix: 0
