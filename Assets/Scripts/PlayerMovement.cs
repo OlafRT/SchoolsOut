@@ -159,6 +159,10 @@ public class PlayerMovement : MonoBehaviour
         // Sprint + aura slow
         bool isRunning = hasRunningShoes && Input.GetKey(KeyCode.LeftShift);
         float currentSpeed = moveSpeed * (isRunning ? sprintMultiplier : 1f) * EffectiveSpeedMultiplier;
+        // Update camera sprint FOV only if actually moving AND running
+        var camFollow = Camera.main ? Camera.main.GetComponent<CameraFollow>() : null;
+        if (camFollow)
+            camFollow.SetSprinting(isRunning && isMoving);
 
         // Try to start a step if we have intent
         if (!isMoving && wish != Vector3.zero)

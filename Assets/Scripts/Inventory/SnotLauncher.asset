@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: SnotLauncher
+  m_EditorClassIdentifier: 
+  id: a19ff8a132474f2cbabb43849723cd06
+  baseName: Snot Launcher
+  icon: {fileID: 21300000, guid: 849514acf04d9a746b77a7d774b07e5d, type: 3}
+  rarity: 1
+  itemType: 2
+  isEquippable: 1
+  equipSlot: 4
+  allowedAffixes: 0100000004000000
+  description: Eugene's most disgusting invention.

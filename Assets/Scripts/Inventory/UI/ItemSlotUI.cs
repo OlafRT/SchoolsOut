@@ -129,28 +129,39 @@ public class ItemSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     {
         if (!tooltip) return;
 
-        // find the item in this slot (bag or equipment)
+        // figure out what item lives in THIS slot
         ItemInstance item = null;
-        if (inventoryIndex >= 0) {
+        if (inventoryIndex >= 0)
+        {
             var s = inventory?.Slots?[inventoryIndex];
-            if (s != null && !s.IsEmpty && s.item?.template != null) item = s.item;
-        } else {
+            if (s != null && !s.IsEmpty && s.item?.template != null)
+                item = s.item;
+        }
+        else
+        {
             var eqItem = equipment?.Get(equipSlot);
-            if (eqItem != null && eqItem.template != null) item = eqItem;
+            if (eqItem != null && eqItem.template != null)
+                item = eqItem;
         }
 
-        // only if there is an item: show tooltip & set hand cursor
-        if (item != null) {
-            equipMgr?.SetHoverCursor();   // <- hand cursor
-            tooltip.Show(item);
+        // only do fancy stuff if we actually have an item
+        if (item != null)
+        {
+            // change cursor to "hand"/hover
+            equipMgr?.SetHoverCursor();
+
+            // IMPORTANT: pass the RectTransform anchor now
+            tooltip.Show(item, transform as RectTransform);
         }
     }
 
-
     public void OnPointerExit(PointerEventData eventData)
     {
+        // hide tooltip no matter what
         tooltip?.Hide();
-        equipMgr?.RestoreCursor();        // always restore on exit
+
+        // restore cursor
+        equipMgr?.RestoreCursor();
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -160,32 +171,50 @@ public class ItemSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     void OnClick()
     {
-    bool ok = true;
-    if (inventoryIndex>=0){
-        var s = inventory.Slots[inventoryIndex];
-        if (!s.IsEmpty && s.item?.template?.isEquippable==true){
-            ok = equipMgr.TryEquipFromInventory(inventoryIndex);
+        bool ok = true;
+
+        if (inventoryIndex >= 0)
+        {
+            // clicked a BAG slot
+            var s = inventory.Slots[inventoryIndex];
+            if (!s.IsEmpty && s.item?.template?.isEquippable == true)
+            {
+                ok = equipMgr.TryEquipFromInventory(inventoryIndex);
+            }
         }
-    } else {
-        ok = equipMgr.TryUnequipToInventory(equipSlot);
-    }
-    if (!ok) StartCoroutine(Flash(Color.red));
-    Refresh();
+        else
+        {
+            // clicked an EQUIPPED slot
+            ok = equipMgr.TryUnequipToInventory(equipSlot);
+        }
+
+        if (!ok)
+            StartCoroutine(Flash(Color.red));
+
+        Refresh();
     }
 
     public void OnBeginDrag(PointerEventData e)
     {
-    if (drag == null) return;
-    if (inventoryIndex >= 0){
-        var s = inventory?.Slots?[inventoryIndex];
-        if (s != null && !s.IsEmpty && s.item?.Icon != null)
-            drag.BeginDragFromBag(inventoryIndex, s.item.Icon);
-    } else {
-        var itm = equipment?.Get(equipSlot);
-        if (itm != null && itm.Icon != null)
-            drag.BeginDragFromEquip(equipSlot, itm.Icon);
-    }
-    if (drag.IsDragging) tooltip?.Hide();
+        if (drag == null) return;
+
+        if (inventoryIndex >= 0)
+        {
+            // dragging from BAG
+            var s = inventory?.Slots?[inventoryIndex];
+            if (s != null && !s.IsEmpty && s.item?.Icon != null)
+                drag.BeginDragFromBag(inventoryIndex, s.item.Icon);
+        }
+        else
+        {
+            // dragging from EQUIPPED slot
+            var itm = equipment?.Get(equipSlot);
+            if (itm != null && itm.Icon != null)
+                drag.BeginDragFromEquip(equipSlot, itm.Icon);
+        }
+
+        if (drag.IsDragging)
+            tooltip?.Hide();
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -212,12 +241,27 @@ public class ItemSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     IEnumerator Flash(Color c)
     {
-    var img = icon; if (!img) yield break;
-    Color start = img.color; float t=0;
-    while (t<0.25f){ t+=Time.unscaledDeltaTime; img.color = Color.Lerp(start, c, t/0.25f); yield return null; }
-    t=0; while (t<0.35f){ t+=Time.unscaledDeltaTime; img.color = Color.Lerp(c, start, t/0.35f); yield return null; }
-    img.color = start;
+        var img = icon;
+        if (!img) yield break;
+
+        Color start = img.color;
+        float t = 0f;
+
+        while (t < 0.25f)
+        {
+            t += Time.unscaledDeltaTime;
+            img.color = Color.Lerp(start, c, t / 0.25f);
+            yield return null;
+        }
+
+        t = 0f;
+        while (t < 0.35f)
+        {
+            t += Time.unscaledDeltaTime;
+            img.color = Color.Lerp(c, start, t / 0.35f);
+            yield return null;
+        }
+
+        img.color = start;
     }
-
-
 }

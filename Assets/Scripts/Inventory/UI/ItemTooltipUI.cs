@@ -38,31 +38,52 @@ public class ItemTooltipUI : MonoBehaviour
         if (_visible) MoveToMouse();
     }
 
-    public void Show(ItemInstance item, RectTransform _ = null)
+    public void Show(ItemInstance item, RectTransform anchor)
     {
         if (item == null) return;
 
-        panel.gameObject.SetActive(true);
         _visible = true;
-        panel.SetAsLastSibling();
 
-        // Fill
+        // Move the WHOLE tooltip object to the top of the canvas draw order
+        // so it renders above LootWindow(Clone), Backpack, etc.
+        transform.SetAsLastSibling();
+
+        panel.gameObject.SetActive(true);
+
+        // Title / rarity
         var rarity = item.rarity;
-        titleText.text  = item.DisplayName + " (" + rarity + ")";
+        titleText.text = item.DisplayName + " (" + rarity + ")";
         titleText.color = RarityColors.Get(rarity);
 
-        string stats = "";
-        if (item.bonusMuscles   != 0) stats += $"+{item.bonusMuscles} Muscles\n";
-        if (item.bonusIQ        != 0) stats += $"+{item.bonusIQ} IQ\n";
-        if (item.bonusCrit      != 0) stats += $"+{item.bonusCrit}% Crit\n";
+        // Stats block
+        string stats = string.Empty;
+        if (item.bonusMuscles != 0)   stats += $"+{item.bonusMuscles} Muscles\n";
+        if (item.bonusIQ != 0)        stats += $"+{item.bonusIQ} IQ\n";
+        if (item.bonusCrit != 0)      stats += $"+{item.bonusCrit}% Crit\n";
         if (item.bonusToughness != 0) stats += $"+{item.bonusToughness} Toughness\n";
         statsText.text = stats.TrimEnd();
 
-        descText.text = item.template?.description ?? "";
+        // Flavor / description
+        descText.text = item.template?.description ?? string.Empty;
+
+        // Meta info
         metaText.text = $"iLvl {item.itemLevel}  •  Req {item.requiredLevel}  •  Value ${item.value}";
 
-        LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
-        MoveToMouse();
+        // Initial placement near the hovered slot (so it "pops" in a sensible place)
+        if (anchor)
+        {
+            Vector3[] corners = new Vector3[4];
+            anchor.GetWorldCorners(corners);
+
+            // top-right of slot
+            Vector3 pos = corners[2];
+
+            // little offset so it’s not directly under the mouse
+            pos.x += 16f;
+            pos.y -= 16f;
+
+            panel.position = pos;
+        }
     }
 
     public void Hide()

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 [DisallowMultipleComponent]
@@ -11,6 +12,14 @@ public class AutoAttackAbility : MonoBehaviour
     public float weaponAttackInterval = 2.5f;
     public int weaponDamage = 10;
     public int weaponRangeTiles = 6;          // used by Nerd (projectile)
+
+    [Header("Requirements")]
+    [Tooltip("We check this to see if the player actually has a weapon equipped.")]
+    public EquipmentState equipment;
+    [Tooltip("Toast shown if player tries to attack with no weapon equipped.")]
+    public ScreenToast toastIfNoWeapon;
+    [Tooltip("Message to show if they try R without a weapon.")]
+    public string needWeaponMessage = "I must have a weapon equipped to do that.";
 
     #region Animation
     [Header("Animation (set both explicitly)")]
@@ -32,26 +41,19 @@ public class AutoAttackAbility : MonoBehaviour
     [SerializeField] private float vfxSweepRadius = 0.08f;
 
     [Header("Telegraph (Nerd)")]
-    [Tooltip("While the attack is winding up, show a preview that follows your current aim.")]
     [SerializeField] private bool telegraphNerdPreImpactPreview = true;
 
     [Header("Telegraph (Jock)")]
-    [Tooltip("While the attack is winding up, show a preview that follows your current aim.")]
     [SerializeField] private bool telegraphJockPreImpactPreview = true;
-
-    [Tooltip("How often to refresh the moving preview (seconds).")]
     [SerializeField] private float telegraphRefreshInterval = 0.05f;
 
     [Header("Jock Melee Audio/VFX")]
-    [Tooltip("Whoosh played during the swing (animation event).")]
     [SerializeField] private AudioClip jockSwingWhooshSfx;
     [Range(0f, 1f)] [SerializeField] private float jockWhooshVolume = 1f;
 
-    [Tooltip("Impact SFX played only if the swing actually hits something.")]
     [SerializeField] private AudioClip jockImpactSfx;
     [Range(0f, 1f)] [SerializeField] private float jockImpactVolume = 1f;
 
-    [Tooltip("Optional impact VFX spawned at the first hit point (only on hit).")]
     [SerializeField] private GameObject jockImpactVfx;
     [SerializeField] private float jockImpactVfxLife = 1.5f;
     [SerializeField] private float jockImpactVfxScale = 1f;
@@ -60,7 +62,6 @@ public class AutoAttackAbility : MonoBehaviour
     public class EmissiveSlot
     {
         public Renderer renderer;
-        [Tooltip("Material index on the renderer (0-based).")]
         public int materialIndex = 0;
 
         // runtime
@@ -77,13 +78,6 @@ public class AutoAttackAbility : MonoBehaviour
             EnsureBlock();
             _block.SetColor("_EmissionColor", emissionColor);
             renderer.SetPropertyBlock(_block, materialIndex);
-            // Optional: if your pipeline requires the keyword to light up, uncomment:
-            // var mats = renderer.materials; // instantiates per-renderer
-            // if (mats != null && materialIndex >= 0 && materialIndex < mats.Length)
-            // {
-            //     if (emissionColor.maxColorComponent > 0f) mats[materialIndex].EnableKeyword("_EMISSION");
-            //     else mats[materialIndex].DisableKeyword("_EMISSION");
-            // }
         }
 
         public void DisableEmission()
@@ -94,13 +88,10 @@ public class AutoAttackAbility : MonoBehaviour
 
     [Header("Nerd Auto-Attack Emissive Pulse")]
     [SerializeField] private bool enableNerdEmissivePulse = true;
-    [SerializeField] private EmissiveSlot[] nerdEmissiveSlots;   // assign the weapon renderer twice with index 0 and 1
+    [SerializeField] private EmissiveSlot[] nerdEmissiveSlots;
     [SerializeField] private Color nerdEmissionColor = Color.cyan;
-    [Tooltip("Max HDR intensity multiplier for the emission color.")]
     [SerializeField] [Range(0f, 8f)] private float nerdEmissionMax = 2.0f;
-    [Tooltip("Seconds per full brighten->dim cycle.")]
     [SerializeField] [Range(0.1f, 5f)] private float nerdEmissionPeriod = 1.0f;
-    [Tooltip("Optional phase offset so multiple materials don't peak at the exact same time.")]
     [SerializeField] [Range(0f, 1f)] private float nerdEmissionPhaseOffset = 0f;
 
     private PlayerAbilities ctx;
@@ -113,14 +104,11 @@ public class AutoAttackAbility : MonoBehaviour
     private struct PendingRanged
     {
         public bool has;
-        // dir/step kept for back-compat but no longer used for impact; we recompute at event time.
         public Vector3 dir8;
         public int stepX, stepZ;
         public int finalDamage;
         public bool wasCrit;
         public float timeoutAt;
-
-        // preview helper
         public float nextTelegraphAt;
     }
     private PendingRanged pendingRanged;
@@ -131,8 +119,6 @@ public class AutoAttackAbility : MonoBehaviour
         public bool has;
         public int finalDamage;
         public float timeoutAt;
-
-        // preview helper
         public float nextTelegraphAt;
     }
     private PendingMelee pendingMelee;
@@ -141,32 +127,66 @@ public class AutoAttackAbility : MonoBehaviour
     {
         ctx = GetComponent<PlayerAbilities>();
 
+        // Try to auto-find animators if not wired
         if (!nerdAnimator || !jockAnimator)
         {
             var anims = GetComponentsInChildren<Animator>(true);
             foreach (var a in anims)
             {
                 var n = a.gameObject.name.ToLowerInvariant();
-                if (!nerdAnimator && (n.Contains("nerd") || n.Contains("mage") || n.Contains("ranged"))) nerdAnimator = a;
-                else if (!jockAnimator && (n.Contains("jock") || n.Contains("melee") || n.Contains("warrior"))) jockAnimator = a;
+                if (!nerdAnimator && (n.Contains("nerd") || n.Contains("mage") || n.Contains("ranged")))
+                    nerdAnimator = a;
+                else if (!jockAnimator && (n.Contains("jock") || n.Contains("melee") || n.Contains("warrior")))
+                    jockAnimator = a;
             }
         }
     }
 
     void Update()
     {
+        // 1. Handle R key (toggle auto attack on/off)
         if (Input.GetKeyDown(toggleAutoAttackKey))
         {
-            AutoAttackEnabled = !AutoAttackEnabled;
-            if (!AutoAttackEnabled) NerdEmission_ForceOffImmediate();
+            if (AutoAttackEnabled)
+            {
+                // turning it off is always allowed
+                AutoAttackEnabled = false;
+                NerdEmission_ForceOffImmediate();
+            }
+            else
+            {
+                // trying to turn it ON -> must have weapon
+                if (HasWeaponEquipped())
+                {
+                    AutoAttackEnabled = true;
+                }
+                else
+                {
+                    AutoAttackEnabled = false;
+                    NerdEmission_ForceOffImmediate();
+                    if (toastIfNoWeapon)
+                        toastIfNoWeapon.Show(needWeaponMessage, Color.red);
+                }
+            }
         }
 
+        // 2. If it's on but we lost our weapon (unequipped mid combat), shut it off
+        if (AutoAttackEnabled && !HasWeaponEquipped())
+        {
+            AutoAttackEnabled = false;
+            NerdEmission_ForceOffImmediate();
+            if (toastIfNoWeapon)
+                toastIfNoWeapon.Show(needWeaponMessage, Color.red);
+        }
+
+        // 3. If we're not allowed to attack, just keep failsafes cleaned up
         if (!AutoAttackEnabled || IsSuppressedByOtherAbilities)
         {
             CheckFailSafes();
             return;
         }
 
+        // 4. Attack pacing
         attackTimer -= Time.deltaTime;
         if (attackTimer <= 0f)
         {
@@ -174,15 +194,14 @@ public class AutoAttackAbility : MonoBehaviour
             DoAutoAttack();
         }
 
-        // live preview telegraph for Jock while pending
+        // 5. Telegraph previews (live aiming during wind-up)
         if (pendingMelee.has && telegraphJockPreImpactPreview && Time.time >= pendingMelee.nextTelegraphAt)
         {
             var tilesNow = BuildMeleeTilesFromCurrent();
-            ctx.TelegraphOnce(tilesNow); // short lifetime/fade assumed
+            ctx.TelegraphOnce(tilesNow);
             pendingMelee.nextTelegraphAt = Time.time + Mathf.Max(0.01f, telegraphRefreshInterval);
         }
 
-        // live preview telegraph for Nerd while pending
         if (pendingRanged.has && telegraphNerdPreImpactPreview && Time.time >= pendingRanged.nextTelegraphAt)
         {
             var (sx, sz) = ctx.StepFromDir8(ctx.SnapDirTo8(transform.forward));
@@ -196,6 +215,14 @@ public class AutoAttackAbility : MonoBehaviour
 
         NerdEmission_Update();
         CheckFailSafes();
+    }
+
+    bool HasWeaponEquipped()
+    {
+        // Weapon slot must NOT be null
+        if (!equipment) return false;
+        var w = equipment.Get(EquipSlot.Weapon);
+        return (w != null && w.template != null);
     }
 
     Animator ActiveAnimator =>
@@ -218,13 +245,11 @@ public class AutoAttackAbility : MonoBehaviour
             return;
         }
 
-        // Pulse 0..1 with a sine, then scale by max intensity
         float t = nerdEmissionPeriod <= 0.0001f ? 1f
                 : (Time.time / Mathf.Max(0.0001f, nerdEmissionPeriod) + nerdEmissionPhaseOffset);
         float pulse01 = 0.5f * (1f + Mathf.Sin(t * Mathf.PI * 2f));
         float intensity = pulse01 * Mathf.Max(0f, nerdEmissionMax);
 
-        // Use HDR emission color (URP/HDRP happy), gamma pipeline also fine
         Color emi = nerdEmissionColor * intensity;
 
         for (int i = 0; i < nerdEmissiveSlots.Length; i++)
@@ -242,7 +267,17 @@ public class AutoAttackAbility : MonoBehaviour
     {
         if (!ctx) return;
 
-        // --- JOCK (melee with event) ---
+        // Extra safety: if somehow we got here without a weapon, abort
+        if (!HasWeaponEquipped())
+        {
+            AutoAttackEnabled = false;
+            NerdEmission_ForceOffImmediate();
+            if (toastIfNoWeapon)
+                toastIfNoWeapon.Show(needWeaponMessage, Color.red);
+            return;
+        }
+
+        // --- JOCK melee ---
         if (ctx.playerClass == PlayerAbilities.PlayerClass.Jock)
         {
             int final = ctx.stats
@@ -252,18 +287,17 @@ public class AutoAttackAbility : MonoBehaviour
             pendingMelee.has         = true;
             pendingMelee.finalDamage = final;
             pendingMelee.timeoutAt   = Time.time + eventFailSafeSeconds;
-            pendingMelee.nextTelegraphAt = 0f; // show preview ASAP if enabled
+            pendingMelee.nextTelegraphAt = 0f;
 
             var anim = ActiveAnimator;
             if (anim && !string.IsNullOrEmpty(jockAutoTrigger)) anim.SetTrigger(jockAutoTrigger);
-            else AnimEvent_FireJockAutoAttack(); // fallback if animator missing
+            else AnimEvent_FireJockAutoAttack();
             return;
         }
 
-        // --- NERD (projectile with event) ---
+        // --- NERD ranged ---
         if (ctx.playerClass == PlayerAbilities.PlayerClass.Nerd)
         {
-            // compute damage now to lock in crit etc. for this throw
             bool didCrit = false;
             int final = ctx.stats
                 ? ctx.stats.ComputeDamage(weaponDamage, PlayerStats.AbilitySchool.Nerd, true, out didCrit)
@@ -273,40 +307,35 @@ public class AutoAttackAbility : MonoBehaviour
             pendingRanged.finalDamage = final;
             pendingRanged.wasCrit     = didCrit;
             pendingRanged.timeoutAt   = Time.time + eventFailSafeSeconds;
-            pendingRanged.nextTelegraphAt = 0f; // show preview ASAP if enabled
+            pendingRanged.nextTelegraphAt = 0f;
 
             var anim = ActiveAnimator;
             if (anim && !string.IsNullOrEmpty(nerdThrowTrigger)) anim.SetTrigger(nerdThrowTrigger);
-            else AnimEvent_FireAutoAttack(); // fallback
+            else AnimEvent_FireAutoAttack();
         }
     }
 
     // =======================
-    //  Animation Event hooks
+    // Animation Event hooks
     // =======================
 
-    // Nerd ranged (projectile) — recompute AT IMPACT so it matches where you ended up
     public void AnimEvent_FireAutoAttack()
     {
         if (!pendingRanged.has || ctx.playerClass != PlayerAbilities.PlayerClass.Nerd) return;
 
-        // Current facing/step at the exact event moment
         Vector3 dir8 = ctx.SnapDirTo8(transform.forward);
         var (sx, sz) = ctx.StepFromDir8(dir8);
         if (sx == 0 && sz == 0)
         {
-            // nothing to fire; clear pending to avoid spamming failsafe
             pendingRanged.has = false;
             return;
         }
 
-        // Build the live path and (optionally) flash once if you disabled live preview
         var pathNow = ctx.GetRangedPathTiles(sx, sz, weaponRangeTiles);
         if (!telegraphNerdPreImpactPreview) ctx.TelegraphOnce(pathNow);
 
         if (ctx.projectilePrefab)
         {
-            // Spawn from current snapped position, half a tile forward
             Vector3 spawn = ctx.Snap(transform.position)
                            + new Vector3(sx, 0, sz) * (ctx.tileSize * 0.5f);
 
@@ -345,7 +374,6 @@ public class AutoAttackAbility : MonoBehaviour
         pendingRanged.has = false;
     }
 
-    // Jock whoosh (play from an earlier animation event, before the impact)
     public void AnimEvent_JockSwingWhoosh()
     {
         if (ctx.playerClass != PlayerAbilities.PlayerClass.Jock) return;
@@ -355,14 +383,12 @@ public class AutoAttackAbility : MonoBehaviour
         AudioSource.PlayClipAtPoint(jockSwingWhooshSfx, at, jockWhooshVolume);
     }
 
-    // Jock melee impact (recompute tiles AT IMPACT; play impact SFX/VFX only if we hit something)
     public void AnimEvent_FireJockAutoAttack()
     {
         if (!pendingMelee.has || ctx.playerClass != PlayerAbilities.PlayerClass.Jock) return;
 
         var tilesNow = BuildMeleeTilesFromCurrent();
 
-        // Detect if we actually hit something on target layer
         bool hitAny = false;
         Vector3 firstHitPos = Vector3.zero;
         float r = ctx.tileSize * 0.45f;
@@ -402,7 +428,7 @@ public class AutoAttackAbility : MonoBehaviour
     }
 
     // =======================
-    //  Helpers / failsafes
+    // Helpers / failsafes
     // =======================
 
     void CheckFailSafes()
@@ -411,7 +437,6 @@ public class AutoAttackAbility : MonoBehaviour
         if (pendingMelee.has  && Time.time >= pendingMelee.timeoutAt)  AnimEvent_FireJockAutoAttack();
     }
 
-    // Build the 3-tile fan based on CURRENT facing & position
     List<Vector3> BuildMeleeTilesFromCurrent()
     {
         Vector3 dir8 = ctx.SnapDirTo8(transform.forward);

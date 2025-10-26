@@ -43,11 +43,6 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("Smoothing for FOV change.")]
     public float fovLerpSpeed = 12f;
 
-    [Tooltip("Read sprint state from input here (Shift). If false, call SetSprinting() from your movement script.")]
-    public bool readSprintFromInput = true;
-    public KeyCode sprintKey = KeyCode.LeftShift;
-    public bool alsoRightShift = true;
-
     // Shaker (and other systems) can add to this safely.
     [HideInInspector] public Vector3 extraOffset = Vector3.zero;
 
@@ -93,12 +88,7 @@ public class CameraFollow : MonoBehaviour
         // --- FOV sprint kick ---
         if (cam)
         {
-            bool sprinting = sprintOverride;
-            if (readSprintFromInput)
-            {
-                sprinting = Input.GetKey(sprintKey) || (alsoRightShift && Input.GetKey(KeyCode.RightShift));
-            }
-            float targetFov = sprinting ? fovSprint : fovDefault;
+            float targetFov = sprintOverride ? fovSprint : fovDefault;
             float fovT = 1f - Mathf.Exp(-fovLerpSpeed * Time.deltaTime);
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, fovT);
         }

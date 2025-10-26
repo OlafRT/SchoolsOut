@@ -1,91 +1,199 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
+using System.Collections.Generic;
 
 public class LootUI : MonoBehaviour
 {
-    [Header("Layout")]
-    public Transform slotsRoot;       // parent for 4 slots (vertical)
-    public LootSlotUI slotPrefab;     // simple slot with icon + label
+    [Header("Slots (top to bottom)")]
+    // Assign these baked slot objects in prefab (top -> bottom)
+    public List<LootSlotUI> slotUIs = new List<LootSlotUI>();
 
     [Header("Refs")]
-    public Inventory playerInventory;
-    public PlayerWallet wallet;
-    public DragController dragController; // reuse for drag ghost
-    public ItemTooltipUI tooltip;
+    public Inventory playerInventory;      // can be assigned in prefab IF it's a ScriptableObject
+    public PlayerWallet wallet;            // also ScriptableObject, so prefab can reference it
+    public DragController dragController;  // scene object -> we'll auto-find if null
+    public ItemTooltipUI tooltip;          // scene object -> we'll auto-find if null
+    public Sprite moneyIcon;               // assign in prefab (sprite asset)
 
-    CorpseLoot _corpse;
+    [Header("Behaviour")]
+    public float autoCloseDistance = 4f;
 
-    public void Bind(CorpseLoot corpse)
+    Transform player;
+    CorpseLoot corpse;
+    bool _closing = false;
+
+    // --------------------------------------------------
+    // CorpseLoot calls this after spawning / on click
+    // --------------------------------------------------
+    public void Bind(CorpseLoot owner)
     {
-        _corpse = corpse;
-        Build();
+        corpse = owner;
+
+        // If these weren't assigned in prefab (scene refs), grab them now
+        if (dragController == null)
+        {
+            dragController = FindAnyObjectByType<DragController>();
+        }
+
+        if (tooltip == null)
+        {
+            tooltip = FindAnyObjectByType<ItemTooltipUI>();
+        }
+
+        // cache player transform once
+        if (player == null)
+        {
+            var p = GameObject.FindWithTag("Player");
+            if (p) player = p.transform;
+        }
+
+        // make sure each slot knows its owner + tooltip
+        foreach (var s in slotUIs)
+        {
+            if (!s) continue;
+            s.owner = this;
+            s.tooltip = tooltip;
+        }
+
         Refresh();
     }
 
-    void Build()
+    void Update()
     {
-        foreach (Transform c in slotsRoot) Destroy(c.gameObject);
-
-        // Slot 0 = money (if any)
-        var s0 = Instantiate(slotPrefab, slotsRoot);
-        s0.BindMoney(this, 0);
-
-        // Slots 1..3 items
-        for (int i = 1; i < 4; i++)
+        // autoclose if we wander away
+        if (!_closing && player && corpse)
         {
-            var s = Instantiate(slotPrefab, slotsRoot);
-            s.BindItem(this, i - 1);
+            float dist = Vector3.Distance(player.position, corpse.transform.position);
+            if (dist > autoCloseDistance)
+            {
+                Close();
+            }
         }
     }
 
+    // called by CorpseLoot after Bind, and also by itself later
     public void Refresh()
     {
-        int idx = 0;
-        // money first
-        var money = slotsRoot.GetChild(idx++).GetComponent<LootSlotUI>();
-        money.SetMoney(_corpse.dollars);
-
-        // items
-        for (int i = 0; i < 3; i++)
-        {
-            var ui = slotsRoot.GetChild(idx++).GetComponent<LootSlotUI>();
-            ItemInstance item = (i < _corpse.items.Count) ? _corpse.items[i] : null;
-            ui.SetItem(item);
-        }
-
-        if (_corpse.IsEmpty) _corpse.OnLootAllTaken();
+        RebuildSlots();
     }
 
+    // --------------------------------------------------
+    // Fill the baked slots (money first, then items)
+    // --------------------------------------------------
+    void RebuildSlots()
+    {
+        if (slotUIs == null || slotUIs.Count == 0) return;
+
+        // Hide everything first
+        foreach (var s in slotUIs)
+        {
+            if (s != null)
+                s.HideMe();
+        }
+
+        if (!corpse) return;
+
+        int writeIndex = 0;
+
+        // 1) money slot (if corpse still has dollars)
+        if (corpse.dollars > 0 && writeIndex < slotUIs.Count)
+        {
+            var slot = slotUIs[writeIndex];
+            if (slot != null)
+            {
+                slot.ShowMoney(this, corpse.dollars, moneyIcon);
+            }
+            writeIndex++;
+        }
+
+        // 2) item slots
+        for (int i = 0; i < corpse.items.Count && writeIndex < slotUIs.Count; i++)
+        {
+            var inst = corpse.items[i];
+            if (inst == null) continue;
+
+            var slot = slotUIs[writeIndex];
+            if (slot != null)
+            {
+                slot.ShowItem(this, i, inst);
+            }
+
+            writeIndex++;
+        }
+
+        // extra baked slots after writeIndex stay hidden
+    }
+
+    // --------------------------------------------------
+    // Player clicked an *item* slot
+    // --------------------------------------------------
+    public void TakeItem(int corpseIndex)
+    {
+        if (!corpse) return;
+
+        var itm = corpse.LootItem(corpseIndex); // remove from corpse list
+        if (itm != null)
+        {
+            playerInventory.Add(itm, 1);
+        }
+
+        AfterLootAttempt();
+    }
+
+    // --------------------------------------------------
+    // Player clicked the *money* slot
+    // --------------------------------------------------
     public void TakeMoney()
     {
-        if (_corpse.dollars <= 0) return;
-        wallet?.Add(_corpse.dollars);
-        _corpse.dollars = 0;
-        Refresh();
-    }
+        if (!corpse) return;
 
-    public bool TakeItem(int corpseItemIndex)
-    {
-        if (corpseItemIndex < 0 || corpseItemIndex >= _corpse.items.Count) return false;
-        var item = _corpse.items[corpseItemIndex];
-        if (playerInventory.Add(item, 1))
+        int amt = corpse.LootMoney(); // zeroes corpse.dollars
+        if (amt > 0)
         {
-            _corpse.items.RemoveAt(corpseItemIndex);
-            Refresh();
-            return true;
+            wallet.Add(amt);
         }
-        return false; // inventory full
+
+        AfterLootAttempt();
     }
 
-    public void Close() => gameObject.SetActive(false);
-
-    // Drag support from loot → bag
-    public void BeginDragFromLoot(int corpseItemIndex, UnityEngine.Sprite icon)
+    void AfterLootAttempt()
     {
-        if (corpseItemIndex < 0 || corpseItemIndex >= _corpse.items.Count) return;
-        if (!icon) return;
-        // we piggy-back DragController by adding a new source type
-        dragController.BeginDragFromLoot(corpseItemIndex, icon, this);
+        if (!corpse) return;
+
+        if (corpse.IsEmpty)
+        {
+            Close();
+            return;
+        }
+
+        RebuildSlots();
+    }
+
+    // Drag integration hook if you add drag-from-loot later
+    public void NotifyDragEnded()
+    {
+        if (!corpse) return;
+
+        if (corpse.IsEmpty)
+        {
+            Close();
+        }
+        else
+        {
+            RebuildSlots();
+        }
+    }
+
+    public void Close()
+    {
+        if (_closing) return;
+        _closing = true;
+
+        // VERY IMPORTANT: hide tooltip so it doesn't stick forever
+        if (tooltip != null)
+        {
+            tooltip.Hide();
+        }
+
+        Destroy(gameObject);
     }
 }

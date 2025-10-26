@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Lvl1Girl
   m_EditorClassIdentifier: 
   itemDatabase: {fileID: 11400000, guid: b98911f19b6a48844837b0412669849f, type: 2}
-  itemRolls: {x: 1, y: 3}
+  itemRolls: {x: 1, y: 2}
   itemDropChance: 0.6
   dollarsPerLevel: 3
   moneyRandomFactor: {x: 0.5, y: 1.5}

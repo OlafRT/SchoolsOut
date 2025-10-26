@@ -1,79 +1,183 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems;
 using TMPro;
+using UnityEngine.EventSystems;
 
-public class LootSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
+public class LootSlotUI : MonoBehaviour,
+    IPointerEnterHandler,
+    IPointerExitHandler,
+    IPointerClickHandler
 {
+    [Header("UI")]
     public Image icon;
-    public TMP_Text label;
+    public TMP_Text textLabel; // for money text or can stay empty for items
+    public Image glowRing;     // optional rarity glow
+    public ParticleSystem legendaryFx; // optional legendary VFX
 
-    LootUI _lootUI;
+    [Header("Refs")]
+    public ItemTooltipUI tooltip;
+    public LootUI owner;
+
+    // what this slot currently represents
+    bool _active;
     bool _isMoney;
-    int _corpseItemIndex = -1;
+    int _corpseIndex = -1;
+    ItemInstance _itemCached;
 
-    ItemInstance _item;
-
-    public void BindMoney(LootUI lootUI, int slotIndexZero) { _lootUI = lootUI; _isMoney = true; }
-    public void BindItem(LootUI lootUI, int corpseItemIndex) { _lootUI = lootUI; _corpseItemIndex = corpseItemIndex; _isMoney = false; }
-
-    public void SetMoney(int dollars)
+    void Awake()
     {
-        _item = null;
-        icon.enabled = true;
-        icon.sprite = null; // use a $ sprite if you have one
-        label.text = dollars > 0 ? $"$ {dollars:N0}" : "";
-        gameObject.SetActive(dollars > 0);
+        DisableFx();
+        HideMe();
     }
 
-    public void SetItem(ItemInstance item)
+    void DisableFx()
     {
-        _item = item;
-        if (item == null)
+        if (glowRing) glowRing.enabled = false;
+        if (legendaryFx)
         {
-            icon.enabled = false; label.text = ""; gameObject.SetActive(false);
-        }
-        else
-        {
-            icon.enabled = item.Icon != null;
-            icon.sprite = item.Icon;
-            label.text = item.DisplayName;
-            gameObject.SetActive(true);
+            legendaryFx.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            legendaryFx.gameObject.SetActive(false);
         }
     }
 
+    void ApplyFlourish(ItemInstance itm)
+    {
+        if (glowRing) glowRing.enabled = false;
+        if (legendaryFx)
+        {
+            legendaryFx.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            legendaryFx.gameObject.SetActive(false);
+        }
+
+        if (itm == null) return;
+
+        var r = itm.rarity;
+        if (r == Rarity.Epic)
+        {
+            if (glowRing)
+            {
+                glowRing.enabled = true;
+                glowRing.color = RarityFX.Glow(r);
+            }
+        }
+        else if (r == Rarity.Legendary)
+        {
+            if (glowRing)
+            {
+                glowRing.enabled = true;
+                glowRing.color = RarityFX.Glow(r);
+            }
+            if (legendaryFx)
+            {
+                var main = legendaryFx.main;
+                main.loop = true;
+                legendaryFx.gameObject.SetActive(true);
+                if (!legendaryFx.isPlaying) legendaryFx.Play();
+            }
+        }
+    }
+
+    // Call this to turn this slot OFF (no loot here)
+    public void HideMe()
+    {
+        _active = false;
+        _isMoney = false;
+        _corpseIndex = -1;
+        _itemCached = null;
+
+        if (icon) icon.enabled = false;
+        if (textLabel) textLabel.text = "";
+
+        gameObject.SetActive(false);
+    }
+
+    // Call this to make this slot represent MONEY
+    public void ShowMoney(LootUI parent, int dollarsAmount, Sprite moneySprite)
+    {
+        owner = parent;
+        tooltip = parent.tooltip;
+
+        _active = true;
+        _isMoney = true;
+        _corpseIndex = -1;
+        _itemCached = null;
+
+        gameObject.SetActive(true);
+
+        if (icon)
+        {
+            icon.enabled = true;
+            icon.sprite = moneySprite != null ? moneySprite : null;
+        }
+
+        if (textLabel)
+        {
+            // show "$ 12" etc.
+            textLabel.text = "$ " + dollarsAmount;
+        }
+
+        DisableFx(); // money doesn't get rarity glow
+    }
+
+    // Call this to make this slot represent an ITEM from corpse.items[index]
+    public void ShowItem(LootUI parent, int corpseIndex, ItemInstance inst)
+    {
+        owner = parent;
+        tooltip = parent.tooltip;
+
+        _active = true;
+        _isMoney = false;
+        _corpseIndex = corpseIndex;
+        _itemCached = inst;
+
+        gameObject.SetActive(true);
+
+        if (icon)
+        {
+            icon.enabled = true;
+            icon.sprite = inst != null ? inst.Icon : null;
+        }
+
+        if (textLabel)
+        {
+            // item row usually doesn't need text; clear it
+            textLabel.text = "";
+        }
+
+        ApplyFlourish(inst);
+    }
+
+    // ---------- hover ----------
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (_isMoney || _item == null || _lootUI.tooltip == null) return;
-        _lootUI.tooltip.Show(_item);
+        if (!_active) return;
+        if (_isMoney) return; // no tooltip for just money
+
+        if (_itemCached != null && tooltip != null)
+        {
+            tooltip.Show(_itemCached, transform as RectTransform);
+        }
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        _lootUI.tooltip?.Hide();
+        tooltip?.Hide();
     }
 
+    // ---------- click ----------
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (_isMoney) _lootUI.TakeMoney();
-        else if (_item != null) _lootUI.TakeItem(_corpseItemIndex);
-    }
+        if (!_active) return;
+        if (owner == null) return;
 
-    public void OnBeginDrag(PointerEventData eventData)
-    {
-        if (_isMoney || _item == null) return;
-        if (_item.Icon == null) return;
-        _lootUI.BeginDragFromLoot(_corpseItemIndex, _item.Icon);
-        _lootUI.tooltip?.Hide();
-    }
-
-    public void OnDrag(PointerEventData eventData)
-    {
-        if (_lootUI.dragController) _lootUI.dragController.UpdateGhost(eventData);
-    }
-
-    public void OnEndDrag(PointerEventData eventData)
-    {
-        if (_lootUI.dragController) _lootUI.dragController.EndDragFromLoot();
+        if (_isMoney)
+        {
+            owner.TakeMoney();
+        }
+        else
+        {
+            // loot that specific corpse index
+            owner.TakeItem(_corpseIndex);
+        }
     }
 }
