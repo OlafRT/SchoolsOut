@@ -10,25 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
-  m_Name: BaseballBat
+  m_Name: VacuumGun
   m_EditorClassIdentifier: 
   id: a19ff8a132474f2cbabb43849723cd06
-  baseName: Baseball Bat
-  icon: {fileID: 21300000, guid: d3b65813fb23c77498aecb6aec16f6cf, type: 3}
+  baseName: Back-Mounted Vacuum
+  icon: {fileID: 21300000, guid: 849514acf04d9a746b77a7d774b07e5d, type: 3}
   rarity: 2
   itemType: 2
   isEquippable: 1
   equipSlot: 4
-  allowedAffixes: 01000000040000000300000000000000
-  description: Standard baseball bat.
-  isStaticItem: 1
-  overrideName: Worn Baseball Bat
-  fixedItemLevel: 1
-  fixedRequiredLevel: 1
-  fixedRarity: 1
-  fixedMuscles: 1
-  fixedIQ: 0
-  fixedCrit: 1
-  fixedToughness: 1
-  fixedValue: 5
+  allowedAffixes: 020000000500000000000000030000000400000001000000
+  description: Made by Suckrolux, modified by Nerds.
+  isStaticItem: 0
+  overrideName: Back-Mounted Vacuum
+  fixedItemLevel: 10
+  fixedRequiredLevel: 10
+  fixedRarity: 3
+  fixedMuscles: 0
+  fixedIQ: 5
+  fixedCrit: 5
+  fixedToughness: 10
+  fixedValue: 50
   forcedAffix: 0

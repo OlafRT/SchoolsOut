@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
-  m_Name: BaseballBat
+  m_Name: CarKeyBlade
   m_EditorClassIdentifier: 
   id: a19ff8a132474f2cbabb43849723cd06
-  baseName: Baseball Bat
-  icon: {fileID: 21300000, guid: d3b65813fb23c77498aecb6aec16f6cf, type: 3}
+  baseName: Carkey Cutlass
+  icon: {fileID: 21300000, guid: 6cf50d49d1928964991ac2bafe422dd1, type: 3}
   rarity: 2
   itemType: 2
   isEquippable: 1
   equipSlot: 4
-  allowedAffixes: 01000000040000000300000000000000
-  description: Standard baseball bat.
-  isStaticItem: 1
-  overrideName: Worn Baseball Bat
+  allowedAffixes: 010000000400000003000000000000000200000005000000
+  description: How did this get so huge?
+  isStaticItem: 0
+  overrideName: 
   fixedItemLevel: 1
   fixedRequiredLevel: 1
   fixedRarity: 1

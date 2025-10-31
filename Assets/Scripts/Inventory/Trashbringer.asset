@@ -10,25 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
-  m_Name: BaseballBat
+  m_Name: Trashbringer
   m_EditorClassIdentifier: 
   id: a19ff8a132474f2cbabb43849723cd06
-  baseName: Baseball Bat
-  icon: {fileID: 21300000, guid: d3b65813fb23c77498aecb6aec16f6cf, type: 3}
-  rarity: 2
+  baseName: Trashbringer
+  icon: {fileID: 21300000, guid: 04060ad0a95b4904093be3c4c1118102, type: 3}
+  rarity: 5
   itemType: 2
   isEquippable: 1
   equipSlot: 4
-  allowedAffixes: 01000000040000000300000000000000
-  description: Standard baseball bat.
+  allowedAffixes: 010000000400000003000000
+  description: Blade of the Red eyed high dude.
   isStaticItem: 1
-  overrideName: Worn Baseball Bat
+  overrideName: Trashbringer
   fixedItemLevel: 1
   fixedRequiredLevel: 1
-  fixedRarity: 1
-  fixedMuscles: 1
+  fixedRarity: 5
+  fixedMuscles: 25
   fixedIQ: 0
-  fixedCrit: 1
-  fixedToughness: 1
-  fixedValue: 5
+  fixedCrit: 15
+  fixedToughness: 20
+  fixedValue: 150
   forcedAffix: 0
