@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c630c849c1ef7144f95fb338abccb4f1, type: 3}
+  m_Name: TeddyQuest
+  m_EditorClassIdentifier: 
+  questId: defeat_teddy_5
+  title: Teddy's Clones
+  description: There's 5 evil clones of Teddy running around! I need to put them
+    down!
+  giverNpcId: NPC_Teddy
+  turnInNpcId: NPC_Teddy
+  xpReward: 100
+  moneyReward: 1
+  objectives:
+  - type: 0
+    targetId: Evil Clone
+    requiredCount: 5

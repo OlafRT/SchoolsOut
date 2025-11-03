@@ -21,7 +21,6 @@ public class DialogueDetector : MonoBehaviour
 
     void Awake()
     {
-        // If mask not set in Inspector, default to a layer named "Dialogue"
         if (dialogueLayers.value == 0)
         {
             int dl = LayerMask.NameToLayer("Dialogue");
@@ -53,6 +52,12 @@ public class DialogueDetector : MonoBehaviour
             return;
         }
 
+        if (controller.IsLocked)
+        {
+            controller.ShowPrompt(false);
+            return;
+        }
+
         if (!player.canMove)
         {
             controller.ShowPrompt(false);
@@ -68,14 +73,13 @@ public class DialogueDetector : MonoBehaviour
         var hits = Physics.OverlapSphere(
             tileCenter + Vector3.up * 0.05f,
             detectRadius,
-            dialogueLayers.value == 0 ? ~0 : dialogueLayers, // fallback if unset
+            dialogueLayers.value == 0 ? ~0 : dialogueLayers,
             QueryTriggerInteraction.Collide
         );
 
         DialogueInteractable talk = null;
         foreach (var h in hits)
         {
-            // Only consider colliders actually on allowed layers (extra safety)
             if ((dialogueLayers.value != 0) &&
                 ((dialogueLayers.value & (1 << h.gameObject.layer)) == 0))
                 continue;
@@ -87,11 +91,12 @@ public class DialogueDetector : MonoBehaviour
 
         controller.ShowPrompt(talk != null);
 
+        // Start dialogue; QuestGiver/Reporter is handled later by DialogueController.End()
         if (talk && Input.GetKeyDown(KeyCode.Space))
             controller.Begin(talk);
     }
 
-    // --- helpers ---
+    // --- helpers (unchanged) ---
     static Vector3 RoundToTile(Vector3 p, float size = 1f)
         => new Vector3(Mathf.Round(p.x / size) * size, p.y, Mathf.Round(p.z / size) * size);
 

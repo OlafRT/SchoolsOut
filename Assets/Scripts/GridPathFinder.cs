@@ -29,6 +29,26 @@ public class GridPathfinder : MonoBehaviour
         return Physics.CheckBox(origin, checkHalfExtents, Quaternion.identity, obstacleLayer, QueryTriggerInteraction.Ignore);
     }
 
+    public bool IsTileBlocked(Vector3 worldCenter) => IsBlocked(worldCenter);
+
+    public bool IsEdgeBlocked(Vector3 fromWorld, Vector3 toWorld)
+    {
+        Vector3 a = Snap(fromWorld);
+        Vector3 b = Snap(toWorld);
+
+        // Mid-edge between A and B
+        Vector3 mid = (a + b) * 0.5f + Vector3.up * checkHalfExtents.y;
+
+        // Edge-aligned check box (slimmer along travel axis)
+        Vector3 half = checkHalfExtents;
+        if (Mathf.Abs(a.x - b.x) > Mathf.Abs(a.z - b.z))
+            half.z *= 0.35f; // moving horizontally → slim on Z
+        else if (Mathf.Abs(a.z - b.z) > 0f)
+            half.x *= 0.35f; // moving vertically → slim on X
+        // diagonal: keep default; the corner test below will gate it
+
+        return Physics.CheckBox(mid, half, Quaternion.identity, obstacleLayer, QueryTriggerInteraction.Ignore);
+    }
     public Vector3 Snap(Vector3 p)
     {
         return new Vector3(
@@ -42,18 +62,40 @@ public class GridPathfinder : MonoBehaviour
     IEnumerable<Vector3> Neighbors(Vector3 center)
     {
         float t = tileSize;
-        Vector3[] dirs =
+        Vector3 c = Snap(center);
+
+        // 4-way first
+        Vector3[] card =
         {
-            new Vector3( t,0, 0), new Vector3(-t,0, 0),
-            new Vector3( 0,0, t), new Vector3( 0,0,-t),
-            new Vector3( t,0, t), new Vector3(-t,0, t),
-            new Vector3( t,0,-t), new Vector3(-t,0,-t),
+            c + new Vector3( t,0, 0),
+            c + new Vector3(-t,0, 0),
+            c + new Vector3( 0,0, t),
+            c + new Vector3( 0,0,-t),
         };
 
-        foreach (var d in dirs)
+        foreach (var n in card)
+            if (!IsTileBlocked(n) && !IsEdgeBlocked(c, n))
+                yield return n;
+
+        // Diagonals — only if BOTH adjacent cardinals are free
+        (Vector3 diag, Vector3 sideA, Vector3 sideB)[] diags =
         {
-            Vector3 n = center + d;
-            if (!IsBlocked(n)) yield return n;
+            (c + new Vector3( t,0, t), c + new Vector3( t,0, 0), c + new Vector3( 0,0, t)),
+            (c + new Vector3(-t,0, t), c + new Vector3(-t,0, 0), c + new Vector3( 0,0, t)),
+            (c + new Vector3( t,0,-t), c + new Vector3( t,0, 0), c + new Vector3( 0,0,-t)),
+            (c + new Vector3(-t,0,-t), c + new Vector3(-t,0, 0), c + new Vector3( 0,0,-t)),
+        };
+
+        foreach (var d in diags)
+        {
+            if (IsTileBlocked(d.diag)) continue;
+            // corner rule: both orthogonals must be free AND their edges must be free
+            if (IsTileBlocked(d.sideA) || IsTileBlocked(d.sideB)) continue;
+            if (IsEdgeBlocked(c, d.sideA) || IsEdgeBlocked(c, d.sideB)) continue;
+            // final: also ensure diagonal edge itself has no thin wall
+            if (IsEdgeBlocked(c, d.diag)) continue;
+
+            yield return d.diag;
         }
     }
 

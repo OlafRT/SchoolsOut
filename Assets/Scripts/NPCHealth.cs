@@ -78,6 +78,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         isDead = true;
 
         AwardXP();
+        GetComponent<EnemyDeathReporter>()?.ReportDeath();
 
         // Stop AI completely (prevents new paths/wander/attacks)
         var ai = GetComponent<NPCAI>();

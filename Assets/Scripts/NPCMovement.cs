@@ -143,6 +143,13 @@ public class NPCMovement : MonoBehaviour
         if (NPCTileRegistry.IsBlocked(nextTile) || (pathfinder && pathfinder.IsBlocked(next)))
             return;
 
+        if (pathfinder && pathfinder.IsEdgeBlocked(transform.position, next))
+        {
+            // Edge is blocked (thin wall or door). Dump this path so AI re-paths next Update.
+            currentPath.Clear();
+            return;
+        }
+
         NPCTileRegistry.Reserve(nextTile);
         hasReservedDest = true;
         reservedDestTile = nextTile;
