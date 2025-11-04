@@ -18,6 +18,9 @@ public class QuestDefinition : ScriptableObject
     [Header("Rewards")]
     public int xpReward = 50;
     public int moneyReward = 0;
+    [Header("Item Reward (optional)")]
+    public ItemTemplate itemReward;   // drag a template
+    [Min(1)] public int itemAmount = 1;  // xN
 
     [Header("Objectives (AND)")]
     public List<ObjectiveSpec> objectives = new();

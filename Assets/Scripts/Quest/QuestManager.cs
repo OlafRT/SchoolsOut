@@ -60,6 +60,28 @@ public class QuestManager : MonoBehaviour
         // rewards
         if (playerStats) playerStats.AddXP(Mathf.Max(0, qi.def.xpReward));               // :contentReference[oaicite:0]{index=0}
         if (wallet) wallet.Add(Mathf.Max(0, qi.def.moneyReward));                        // :contentReference[oaicite:1]{index=1}
+        // item reward
+        if (inventory && qi.def.itemReward)
+        {
+            // Build a simple instance from the template.
+            var inst = new ItemInstance {
+                template       = qi.def.itemReward,
+                customName     = string.IsNullOrEmpty(qi.def.itemReward.overrideName) ? null : qi.def.itemReward.overrideName,
+                itemLevel      = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedItemLevel : 1,
+                requiredLevel  = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedRequiredLevel
+                                : ItemLevelRules.RequiredLevelForItemLevel(1),
+                rarity         = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedRarity : qi.def.itemReward.rarity,
+                affix          = qi.def.itemReward.isStaticItem ? qi.def.itemReward.forcedAffix : AffixType.None,
+                bonusMuscles   = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedMuscles : 0,
+                bonusIQ        = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedIQ : 0,
+                bonusCrit      = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedCrit : 0,
+                bonusToughness = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedToughness : 0,
+                value          = qi.def.itemReward.fixedValue
+            };
+            // Add N copies (your Inventory.Add adds one per call into empty slots). :contentReference[oaicite:2]{index=2}
+            for (int n = 0; n < Mathf.Max(1, qi.def.itemAmount); n++)
+                inventory.Add(inst, 1);
+        }
 
         completedIds.Add(qi.def.questId);
         active.Remove(qi);

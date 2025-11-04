@@ -16,6 +16,9 @@ public class QuestGiver : MonoBehaviour
     [Header("Offer UI")]
     public QuestOfferUI offerUI;         // drag the panel script here
 
+    [Header("Optional: Enable these when quest is accepted")]
+    public GameObject[] enableOnAccept;
+
     bool _lastActive, _lastReady, _lastCompleted;
 
     void Start(){ RefreshMarkers(); if (offerUI) offerUI.Hide(); }
@@ -68,8 +71,10 @@ public class QuestGiver : MonoBehaviour
     }
 
     public void OnAccepted(){
-        QuestManager.I.Accept(quest);
-        RefreshMarkers();
+    QuestManager.I.Accept(quest);
+    if (enableOnAccept != null)
+        foreach (var go in enableOnAccept) if (go) go.SetActive(true);
+    RefreshMarkers();
     }
     public void OnDeclined(){
         RefreshMarkers();

@@ -18,6 +18,11 @@ public class QuestOfferUI : MonoBehaviour
     public TMP_Text xpText;        // e.g. "XP: +150"
     public TMP_Text moneyText;     // e.g. "Money: +$20"
 
+    [Header("Item Reward (optional)")]
+    public GameObject itemRoot;   // a small container row/panel
+    public UnityEngine.UI.Image itemIcon;
+    public TMP_Text itemNameText;
+
     QuestDefinition current;
     QuestGiver giver;
     bool initialized = false;
@@ -69,6 +74,23 @@ public class QuestOfferUI : MonoBehaviour
             }
 
             if (rewardsRoot) rewardsRoot.SetActive(any);
+        }
+
+        // ----- Item reward preview -----
+        if (itemRoot) itemRoot.SetActive(false);
+        if (def != null && def.itemReward)
+        {
+            if (itemIcon)    itemIcon.sprite = def.itemReward.icon;
+            if (itemNameText)
+            {
+                // Name with amount (xN)
+                string baseName = string.IsNullOrEmpty(def.itemReward.overrideName)
+                    ? def.itemReward.baseName
+                    : def.itemReward.overrideName;
+                int amt = Mathf.Max(1, def.itemAmount);
+                itemNameText.text = amt > 1 ? $"{baseName}  x{amt}" : baseName;
+            }
+            if (itemRoot) itemRoot.SetActive(true);
         }
         // ---------------
 
