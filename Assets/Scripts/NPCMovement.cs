@@ -27,15 +27,23 @@ public class NPCMovement : MonoBehaviour
     Vector2Int reservedDestTile;
 
     // ---------- Speed modifiers ----------
+    [SerializeField] private float externalSpeedMult = 1f;   // set by AI (walk/run)
+
     struct SpeedMod { public float mult; public float until; }
-    readonly List<SpeedMod> speedMods = new();          // timed mods (existing)
-    readonly Dictionary<object, float> auraMods = new(); // auras keyed by source
+    readonly List<SpeedMod> speedMods = new();               // timed mods (slows/haste)
+    readonly Dictionary<object, float> auraMods = new();     // auras keyed by source
 
     public void ApplySlow(float percent, float seconds)
     {
         float mult = Mathf.Clamp01(1f - Mathf.Clamp01(percent));
         ApplySpeedMultiplier(mult, seconds);
     }
+
+    public void SetExternalSpeedMultiplier(float m)
+    {
+        externalSpeedMult = Mathf.Max(0.05f, m);
+    }
+    public float CurrentSpeedMultiplier() => externalSpeedMult;
 
     public void ApplySpeedMultiplier(float multiplier, float seconds)
     {
@@ -60,7 +68,8 @@ public class NPCMovement : MonoBehaviour
         auraMods.Remove(sourceKey);
     }
 
-    float CurrentSpeedMultiplier()
+    // Single source of truth
+    public float EffectiveSpeedMultiplier()
     {
         float now = Time.time;
 
@@ -68,12 +77,12 @@ public class NPCMovement : MonoBehaviour
         for (int i = speedMods.Count - 1; i >= 0; i--)
             if (speedMods[i].until <= now) speedMods.RemoveAt(i);
 
-        float m = 1f;
+        float m = externalSpeedMult;
 
-        // auras (persist until cleared)
+        // auras (persist)
         foreach (var kv in auraMods) m *= kv.Value;
 
-        // timed mods (e.g., temporary slows/haste)
+        // timed mods
         for (int i = 0; i < speedMods.Count; i++) m *= speedMods[i].mult;
 
         return Mathf.Clamp(m, 0.05f, 5f);
@@ -99,20 +108,126 @@ public class NPCMovement : MonoBehaviour
 
     public void ClearPath() => currentPath.Clear();
 
+    IEnumerator StepTo(Vector3 worldNext)
+    {
+        isStepping = true;
+
+        // We reserved this before calling StepTo()
+        // worldNext is already snapped by SetPath()
+
+        Vector3 start = transform.position;
+        Vector3 end   = Snap(worldNext);
+        Vector2Int destTile = WorldToTile(end);
+
+        // Face movement direction (8-dir snapped so visuals look consistent)
+        Vector3 dir = (end - start); dir.y = 0f;
+        if (dir.sqrMagnitude > 0.0001f)
+        {
+            Vector3 dir8 = SnapDirTo8(dir);
+            transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
+        }
+
+        // Temporarily take control from physics while stepping
+        Rigidbody rb = GetComponent<Rigidbody>();
+        bool hadRB = rb != null;
+        bool prevKinematic = false;
+        if (hadRB)
+        {
+            prevKinematic = rb.isKinematic;
+            rb.isKinematic = true;
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        // Step duration based on tilesPerSecond with your active multipliers
+        float distTiles = Vector2.Distance(
+            new Vector2(start.x, start.z),
+            new Vector2(end.x,   end.z)
+        ) / Mathf.Max(0.0001f, tileSize);
+
+        float t = 0f;
+        float secondsPerTile = 1f / Mathf.Max(0.01f, tilesPerSecond * EffectiveSpeedMultiplier());
+        float duration = Mathf.Max(0.01f, distTiles * secondsPerTile);
+
+        while (t < 1f)
+        {
+            t += Time.deltaTime / duration;
+            transform.position = Vector3.Lerp(start, end, Mathf.Clamp01(t));
+            yield return null;
+        }
+        transform.position = end;
+
+        if (hadRB) rb.isKinematic = prevKinematic;
+
+        // Release reservation & update occupancy
+        if (hasReservedDest)
+        {
+            NPCTileRegistry.Unreserve(reservedDestTile);
+            hasReservedDest = false;
+        }
+
+        // Move registry from currentTile -> destTile
+        NPCTileRegistry.Unregister(currentTile);
+        NPCTileRegistry.Register(destTile);
+        currentTile = destTile;
+
+        // Optional “step-y” feel
+        if (pauseBetweenSteps > 0f)
+            yield return new WaitForSeconds(pauseBetweenSteps);
+
+        isStepping = false;
+
+        // Continue along the queued path if any
+        // (TryStepNext will peek the next node and repeat)
+        TryStepNext();
+    }
+
     public void SetPath(List<Vector3> worldCenters)
     {
         if (isForcedMove) return;
 
+        // Reset any previous plan
         currentPath.Clear();
+
         if (worldCenters == null || worldCenters.Count == 0) return;
 
-        Vector3 selfSnap = Snap(transform.position);
+        // Snap our current position to the grid (center of the tile we occupy)
+        float t = pathfinder ? pathfinder.tileSize : 1f;
+        Vector3 here = new Vector3(
+            Mathf.Round(transform.position.x / t) * t,
+            transform.position.y,
+            Mathf.Round(transform.position.z / t) * t
+        );
+
+        // Build a snapped, de-duplicated version of the incoming path
+        // (keeps only center-to-center steps)
+        List<Vector3> snapped = new List<Vector3>(worldCenters.Count + 1);
+        Vector3 last = new Vector3(float.NaN, float.NaN, float.NaN);
         for (int i = 0; i < worldCenters.Count; i++)
         {
-            Vector3 step = Snap(worldCenters[i]);
-            if (i == 0 && step == selfSnap) continue;
-            currentPath.Enqueue(step);
+            Vector3 s = new Vector3(
+                Mathf.Round(worldCenters[i].x / t) * t,
+                here.y, // keep Y consistent
+                Mathf.Round(worldCenters[i].z / t) * t
+            );
+            if (!float.IsNaN(last.x) && (s - last).sqrMagnitude < 0.0001f) continue; // skip duplicates
+            snapped.Add(s);
+            last = s;
         }
+
+        // Ensure the path starts at our snapped tile.
+        // If the first node isn't our tile, prepend 'here' so the first edge is center->center.
+        if (snapped.Count == 0 || (snapped[0] - here).sqrMagnitude > 0.0001f)
+            snapped.Insert(0, here);
+
+        // If there's nowhere to go beyond our current tile, bail.
+        if (snapped.Count < 2) return;
+
+        // Enqueue steps starting AFTER our current tile
+        for (int i = 1; i < snapped.Count; i++)
+            currentPath.Enqueue(snapped[i]);
+
+        // Start moving toward the first step
         TryStepNext();
     }
 
@@ -133,75 +248,43 @@ public class NPCMovement : MonoBehaviour
             TryStepNext();
     }
 
-    void TryStepNext()
+    bool TryStepNext()
     {
-        if (isStepping || isForcedMove || currentPath.Count == 0) return;
+        if (currentPath == null || currentPath.Count == 0) return false;
 
-        Vector3 next = currentPath.Peek();
+        Vector3 next = currentPath.Peek(); // don't dequeue yet
+
+        // Snap our current position to the tile center for edge tests
+        float t = pathfinder ? pathfinder.tileSize : 1f;
+        Vector3 here = new Vector3(
+            Mathf.Round(transform.position.x / t) * t,
+            transform.position.y,
+            Mathf.Round(transform.position.z / t) * t
+        );
+
         Vector2Int nextTile = WorldToTile(next);
 
-        if (NPCTileRegistry.IsBlocked(nextTile) || (pathfinder && pathfinder.IsBlocked(next)))
-            return;
-
-        if (pathfinder && pathfinder.IsEdgeBlocked(transform.position, next))
+        // If next tile is blocked, clear so AI can replan immediately
+        if (pathfinder && pathfinder.IsBlocked(next))
         {
-            // Edge is blocked (thin wall or door). Dump this path so AI re-paths next Update.
             currentPath.Clear();
-            return;
+            return false;
         }
 
+        // Use SNAPPED 'here' for edge check (prevents corner false negatives)
+        if (pathfinder && pathfinder.IsEdgeBlocked(here, next))
+        {
+            currentPath.Clear();
+            return false;
+        }
+
+        // Reserve destination tile before moving
         NPCTileRegistry.Reserve(nextTile);
-        hasReservedDest = true;
+        hasReservedDest  = true;
         reservedDestTile = nextTile;
 
         StartCoroutine(StepTo(next));
-    }
-
-    IEnumerator StepTo(Vector3 end)
-    {
-        isStepping = true;
-
-        Vector3 start = transform.position;
-        end = Snap(end);
-        Vector2Int destTile = WorldToTile(end);
-
-        // face 8-way
-        Vector3 dir = (end - start); dir.y = 0f;
-        if (dir.sqrMagnitude > 0.0001f)
-        {
-            Vector3 dir8 = SnapDirTo8(dir);
-            transform.rotation = Quaternion.LookRotation(dir8, Vector3.up);
-        }
-
-        // progress-based step so speed changes apply mid-step
-        float progress = 0f;
-        while (progress < 1f)
-        {
-            float tps = Mathf.Max(0.01f, tilesPerSecond * CurrentSpeedMultiplier());
-            progress += Time.deltaTime * tps; // normalized tile progress
-            transform.position = Vector3.Lerp(start, end, Mathf.Clamp01(progress));
-            yield return null;
-        }
-        transform.position = end;
-
-        if (hasReservedDest && reservedDestTile == destTile)
-        {
-            NPCTileRegistry.CommitReservation(currentTile, destTile);
-            hasReservedDest = false;
-        }
-        else
-        {
-            NPCTileRegistry.Unregister(currentTile);
-            NPCTileRegistry.Register(destTile);
-        }
-        currentTile = destTile;
-
-        if (currentPath.Count > 0) currentPath.Dequeue();
-
-        if (pauseBetweenSteps > 0f) yield return new WaitForSeconds(pauseBetweenSteps);
-
-        isStepping = false;
-        TryStepNext();
+        return true;
     }
 
     // ---------------------------
@@ -278,7 +361,7 @@ public class NPCMovement : MonoBehaviour
         duration = Mathf.Max(0.01f, duration);
         while (t < 1f)
         {
-            float tps = Mathf.Max(0.01f, tilesPerSecond * CurrentSpeedMultiplier());
+            float tps = Mathf.Max(0.01f, tilesPerSecond * EffectiveSpeedMultiplier());
             t += Time.deltaTime / (1f / tps);
             transform.position = Vector3.Lerp(start, end, Mathf.Clamp01(t));
             yield return null;

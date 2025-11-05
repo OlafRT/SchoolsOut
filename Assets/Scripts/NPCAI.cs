@@ -5,7 +5,16 @@ using System.Collections.Generic;
 [DisallowMultipleComponent]
 public class NPCAI : MonoBehaviour, IStunnable
 {
+    #if UNITY_EDITOR
+    public bool debugAI = true;
+    #endif
     public enum Hostility { Friendly, Neutral, Hostile }
+    
+    [Header("Debug")]
+    public bool showDebug = true;
+    public Color gizmoLOSColorOK = Color.green;
+    public Color gizmoLOSColorBlocked = Color.red;
+    public bool debugChase = true;
 
     [Header("Faction / Class")]
     public NPCFaction faction = NPCFaction.Jock;
@@ -14,6 +23,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Header("Basics")]
     public Hostility startingHostility = Hostility.Neutral; // default when calm
     public float tileSize = 1f;
+    NPCAI.Hostility lastHostility;
 
     [Header("Auto Relations / Detection")]
     [Tooltip("If true, hostility can switch based on faction relations when enemies are visible.")]
@@ -42,6 +52,10 @@ public class NPCAI : MonoBehaviour, IStunnable
     public int aggroRangeTiles = 6;
     public LayerMask lineOfSightBlockers = ~0;
     public float losHeight = 0.8f;
+
+    [Header("Chase Speed")]
+    public float wanderSpeedMultiplier = 1f;    // idle/wander speed
+    public float chaseSpeedMultiplier  = 2f;    // run speed when hostile
 
     [Header("Combat")]
     public float meleeCooldown = 1.8f;
@@ -91,16 +105,17 @@ public class NPCAI : MonoBehaviour, IStunnable
     {
         if (!player) player = GameObject.FindGameObjectWithTag("Player");
         homeTile = Snap((home ? home.position : transform.position));
-        transform.position = homeTile;
+        //transform.position = homeTile;
 
         // Register starting tile
         Vector2Int myTile = new Vector2Int(
             Mathf.RoundToInt(homeTile.x / tileSize),
             Mathf.RoundToInt(homeTile.z / tileSize));
-        NPCTileRegistry.Register(myTile);
+        //NPCTileRegistry.Register(myTile);
 
         runtimeHostility = startingHostility;
         if (!attackTarget && player) attackTarget = player.transform;
+        lastHostility = runtimeHostility;
     }
 
     void Update()
@@ -125,20 +140,39 @@ public class NPCAI : MonoBehaviour, IStunnable
         // Determine hostility/target for this frame
         UpdateRuntimeHostilityAndTarget();
 
+        // Kill any wander the instant we become Hostile
+        if (runtimeHostility != lastHostility)
+        {
+            if (mover)
+            {
+                mover.SetExternalSpeedMultiplier(
+                    runtimeHostility == Hostility.Hostile ? chaseSpeedMultiplier : wanderSpeedMultiplier
+                );
+            }
+            if (runtimeHostility == Hostility.Hostile)
+            {
+                StopAllCoroutines();
+                wanderRunning = false;
+                // DO NOT clear the mover path here; DoHostile() will set it this frame.
+            }
+
+            lastHostility = runtimeHostility;
+        }
         switch (runtimeHostility)
         {
-            case Hostility.Friendly:
-                DoFriendly();
-                break;
-
-            case Hostility.Neutral:
-                DoWander();
-                break;
-
-            case Hostility.Hostile:
-                DoHostile();
-                break;
+            case Hostility.Friendly: DoFriendly(); break;
+            case Hostility.Neutral:  DoWander();   break;
+            case Hostility.Hostile:  DoHostile();  break;
         }
+
+        #if UNITY_EDITOR
+        if (debugAI && player)
+        {
+            bool los = HasLineOfSight(player.transform.position);
+            float distTiles = DistanceTiles(transform.position, Snap(player.transform.position));
+            UnityEngine.Debug.Log($"{name}  H={CurrentHostility}  LOS={los}  distTiles={distTiles:0.00}  moving={mover && mover.IsMoving}");
+        }
+        #endif
     }
 
     // ======================
@@ -231,9 +265,10 @@ public class NPCAI : MonoBehaviour, IStunnable
         }
 
         // Priority: Hostile > Friendly > Neutral
-        if (sawHostile) runtimeHostility = Hostility.Hostile;
+        // Priority: Hostile > Friendly > fallback to starting hostility
+        if (sawHostile)      runtimeHostility = Hostility.Hostile;
         else if (sawFriendly) runtimeHostility = Hostility.Friendly;
-        else runtimeHostility = Hostility.Neutral;
+        else                 runtimeHostility = startingHostility; // make the npc return to start hostility
 
         // Default target to player if hostile and nothing else picked
         if (runtimeHostility == Hostility.Hostile && !attackTarget && player) attackTarget = player.transform;
@@ -261,6 +296,10 @@ public class NPCAI : MonoBehaviour, IStunnable
     // Called by NPCHealth when damaged by the PLAYER
     public void OnDamagedByPlayer()
     {
+        StopAllCoroutines();
+        if (mover) mover.SetExternalSpeedMultiplier(chaseSpeedMultiplier);
+        wanderRunning = false;
+        if (mover) mover.ClearPath();
         if (!player) player = GameObject.FindGameObjectWithTag("Player");
         BecomeHostile(aggroLeashSeconds, player ? player.transform : null);
         AlertAlliesOnAggro(allyAssistRadiusTiles, player ? player.transform : null);
@@ -290,47 +329,90 @@ public class NPCAI : MonoBehaviour, IStunnable
 
     void DoHostile()
     {
-        Transform tgt = attackTarget ? attackTarget : (player ? player.transform : null);
-        if (!tgt) { DoWander(); return; }
+        if (!player || mover == null || pathfinder == null) return;
 
-        Vector3 tgtTile = Snap(tgt.position);
+        // --- Always log once per hostile tick so we can see what's happening indoors/outdoors
+        var here    = transform.position;
+        var tgtTile = Snap(player.transform.position);
+        float distT = DistanceTiles(here, tgtTile);
 
-        // Use a bigger chase range for NPC targets (assist cases)
-        int pursuitRange = (tgt != null && tgt != (player ? player.transform : null))
-            ? Mathf.Max(aggroRangeTiles, detectRadiusTiles)
-            : aggroRangeTiles;
+        // Loud, guaranteed log (not hidden behind any gate)
+        UnityEngine.Debug.Log($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={HasLineOfSight(player.transform.position)}");
 
-        bool withinRange = WithinTiles(transform.position, tgt.position, pursuitRange);
-        bool canSee      = HasLineOfSight(tgt.position);
+        // --- Try to attack if we're close enough by grid OR physical reach
+        bool closeByGrid    = distT <= 1.01f;
+        bool closeByPhysics = Vector2.Distance(
+            new Vector2(here.x, here.z),
+            new Vector2(player.transform.position.x, player.transform.position.z)
+        ) <= Mathf.Max(0.45f, 0.55f * tileSize);
 
-        if (DistanceTiles(transform.position, tgtTile) <= 1.01f)
+        if (closeByGrid || closeByPhysics)
         {
-            if (!isAttacking && Time.time >= nextMeleeReady)
-            {
-                isAttacking = true;
-                nextMeleeReady = Time.time + meleeCooldown;
-                TryHit(tgt);
-                isAttacking = false;
-            }
-            mover.ClearPath();
+            // melee cooldown is already enforced elsewhere in your code
+            TryHit(player.transform);
+            return;
         }
-        else
+
+        // If we already have a path and we're mid-step, let the mover finish it this frame.
+        if (mover.IsMoving) return;
+
+        // --- UNCONDITIONAL CHASE WHILE HOSTILE ---
+        // 1) Robust: full path to the player's tile; walk to last-1 so we stop adjacent.
+        bool foundFull = pathfinder.TryFindPath(here, tgtTile, 2000, out var full, true);
+        if (foundFull && full != null && full.Count >= 2)
         {
-            // Chase if within pursuit range; if LOS is blocked, still path toward last known tile
-            if (withinRange)
+            // Drop the final (player) tile and give the WHOLE remaining path to the mover
+            full.RemoveAt(full.Count - 1);
+            mover.SetPath(full);                 // <-- use the solved path, no re-path
+            return;
+        }
+
+        // 2) Greedy one-step: pick any legal neighbor that reduces distance
+        var neigh = pathfinder.OpenNeighbors(here);
+        if (neigh != null && neigh.Count > 0)
+        {
+            Vector3 best = here; float bestD = float.MaxValue;
+            foreach (var n in neigh)
             {
-                Vector3 targetTile = FindClosestAdjacentTile(tgtTile);
-                if (targetTile != Vector3.positiveInfinity) TryPathTo(targetTile);
+                float d = DistanceTiles(n, tgtTile);
+                if (d < bestD) { bestD = d; best = n; }
             }
-            else
+            if (best != here)
             {
-                if (!mover.IsMoving) ReturnHomeOrWander();
+                TryPathTo(best);
+                UnityEngine.Debug.Log($"{name} CHASE -> greedy step {best}");
+                return;
             }
         }
+
+        // 3) Last-ditch: axis step toward the player if legal
+        float dx = Mathf.Sign(tgtTile.x - here.x);
+        float dz = Mathf.Sign(tgtTile.z - here.z);
+        Vector3 candX = Snap(here + new Vector3(dx * tileSize, 0, 0));
+        Vector3 candZ = Snap(here + new Vector3(0, 0, dz * tileSize));
+
+        if (!pathfinder.IsBlocked(candX) && !pathfinder.IsEdgeBlocked(here, candX))
+        {
+            TryPathTo(candX);
+            UnityEngine.Debug.Log($"{name} CHASE -> axis X");
+            return;
+        }
+        if (!pathfinder.IsBlocked(candZ) && !pathfinder.IsEdgeBlocked(here, candZ))
+        {
+            TryPathTo(candZ);
+            UnityEngine.Debug.Log($"{name} CHASE -> axis Z");
+            return;
+        }
+
+        // If literally no legal step, clear so we can re-evaluate next tick
+        mover.ClearPath();
+        UnityEngine.Debug.Log($"{name} CHASE -> no legal step (cleared)");
     }
+
 
     void DoWander()
     {
+        if (mover) mover.SetExternalSpeedMultiplier(wanderSpeedMultiplier);
         if (mover.IsMoving || wanderRunning) return;
         StartCoroutine(WanderRoutine());
     }
@@ -341,6 +423,13 @@ public class NPCAI : MonoBehaviour, IStunnable
         float wait = Random.Range(idleTimeMin, idleTimeMax);
         float tEnd = Time.time + wait;
         while (Time.time < tEnd) { yield return null; }
+
+        // If we became hostile (or anything not calm) while waiting, abort
+        if (runtimeHostility != Hostility.Neutral && runtimeHostility != Hostility.Friendly)
+        {
+            wanderRunning = false;
+            yield break;
+        }
 
         var target = RandomReachableTileAround(homeTile, wanderRadiusTiles, 30);
         TryPathTo(target);
@@ -362,12 +451,22 @@ public class NPCAI : MonoBehaviour, IStunnable
     void TryHit(Transform tgt)
     {
         if (!tgt) return;
-        Vector3 tt = Snap(tgt.position);
-        if (DistanceTiles(transform.position, tt) <= 1.01f)
-        {
-            if (tgt.TryGetComponent<IDamageable>(out var dmg))
-                dmg.ApplyDamage(meleeDamage);
-        }
+
+        // distance gates (keep yours)
+        bool closeByGrid = DistanceTiles(transform.position, Snap(tgt.position)) <= 1.01f;
+        Vector2 me = new Vector2(transform.position.x, transform.position.z);
+        Vector2 him = new Vector2(tgt.position.x, tgt.position.z);
+        float reach = Mathf.Max(0.45f, 0.55f * tileSize);
+        bool closeByPhysics = Vector2.Distance(me, him) <= reach;
+
+        if (!(closeByGrid || closeByPhysics)) return;
+
+        // NEW: cooldown gate
+        if (Time.time < nextMeleeReady) return;
+        nextMeleeReady = Time.time + meleeCooldown;
+
+        if (tgt.TryGetComponent<IDamageable>(out var dmg))
+            dmg.ApplyDamage(meleeDamage);
     }
 
     // ======================
@@ -390,6 +489,8 @@ public class NPCAI : MonoBehaviour, IStunnable
 
     Vector3 FindClosestAdjacentTile(Vector3 centerTile)
     {
+        if (!pathfinder) return Vector3.positiveInfinity;
+
         Vector3[] dirs =
         {
             new Vector3( tileSize, 0, 0),
@@ -403,15 +504,21 @@ public class NPCAI : MonoBehaviour, IStunnable
         };
 
         Vector3 best = Vector3.positiveInfinity;
-        float bestDist = float.MaxValue;
+        float bestCost = float.MaxValue;
 
         foreach (var d in dirs)
         {
             Vector3 cand = centerTile + d;
-            if (pathfinder && !pathfinder.IsBlocked(cand))
+
+            // quick reject: solid wall or NPC sitting there
+            if (pathfinder.IsBlocked(cand)) continue;
+
+            // IMPORTANT: only accept candidates we can actually path to
+            if (pathfinder.TryFindPath(transform.position, cand, 2000, out var p) && p != null && p.Count > 0)
             {
-                float dist = DistanceTiles(transform.position, cand);
-                if (dist < bestDist) { bestDist = dist; best = cand; }
+                // prefer the cheapest/shortest path
+                float cost = p.Count;
+                if (cost < bestCost) { bestCost = cost; best = cand; }
             }
         }
         return best;
@@ -496,6 +603,45 @@ public class NPCAI : MonoBehaviour, IStunnable
             if (!pathfinder || !pathfinder.IsBlocked(t)) return t;
         }
         return center;
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        if (!showDebug || player == null) return;
+
+        // draw LOS ray at losHeight
+        Vector3 a = transform.position + Vector3.up * losHeight;
+        Vector3 b = player.transform.position + Vector3.up * losHeight;
+
+        bool losClear = !Physics.Linecast(a, b, lineOfSightBlockers, QueryTriggerInteraction.Ignore);
+        Gizmos.color = losClear ? gizmoLOSColorOK : gizmoLOSColorBlocked;
+        Gizmos.DrawLine(a, b);
+
+        // draw melee reach sphere we’ll use below
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(new Vector3(transform.position.x, 0, transform.position.z), Mathf.Max(0.45f, 0.55f * tileSize));
+
+        // tiny label that shows hostility
+
+        // Visualize adjacent candidates the AI tries
+        Vector3 pc = Snap(player.transform.position);
+        Vector3[] dirs = {
+            new Vector3( tileSize,0,0),  new Vector3(-tileSize,0,0),
+            new Vector3(0,0, tileSize),  new Vector3(0,0,-tileSize),
+            new Vector3( tileSize,0, tileSize),  new Vector3(-tileSize,0, tileSize),
+            new Vector3( tileSize,0,-tileSize),  new Vector3(-tileSize,0,-tileSize)
+        };
+        foreach (var d in dirs)
+        {
+            Vector3 cand = pc + d;
+            bool blocked = pathfinder.IsBlocked(cand);
+            Color c = blocked ? Color.red : Color.cyan;
+            Gizmos.color = c;
+            Gizmos.DrawWireCube(cand + Vector3.up * 0.05f, new Vector3(tileSize*0.9f, 0.01f, tileSize*0.9f));
+        }
+    #if UNITY_EDITOR
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 1.8f, $"H: {runtimeHostility}");
+    #endif
     }
 }
 

@@ -30,17 +30,34 @@ public class NameplateUI : MonoBehaviour
     public Transform statusRow;             // HorizontalLayoutGroup container
     public Image statusIconPrefab;          // disabled prefab child used as pool item
 
-    NPCHealth hp;
-    NPCStatusHost statusHost;
+    [Header("Hostility UI")]
+    public Image  moodIcon;                 // assign in prefab
+    public Sprite friendlyIcon;             // 🙂
+    public Sprite neutralIcon;              // 😐
+    public Sprite hostileIcon;              // 😡
+    public Color  friendlyName = new Color(0.25f, 1f, 0.25f);
+    public Color  neutralName  = new Color(1f, 0.9f, 0.2f);
+    public Color  hostileName  = new Color(1f, 0.3f, 0.3f);
+
+    [Header("Death UI")]
+    public Sprite deadIcon;                 // ☠ / 💀 / 😵‍💫 (your choice)
+    public Color  deadName   = Color.white;
+
+    NPCHealth      hp;
+    NPCStatusHost  statusHost;
+    NPCAI          ai;
 
     readonly List<Image> iconPool = new();
-    readonly Dictionary<string, int> currentShown = new(); // tag->count shown
+    readonly Dictionary<string, int> currentShown = new();
+
+    // caches to avoid redundant work
+    NPCAI.Hostility _lastHostility = (NPCAI.Hostility)(-1);
+    bool _lastDead = false;
 
     void Awake()
     {
         if (!cam) cam = Camera.main;
-        // Don’t touch worldOffset here — honor the prefab setting exactly.
-        BindTarget(target); // in case it was assigned in the prefab
+        BindTarget(target);
         RefreshAll();
     }
 
@@ -63,19 +80,17 @@ public class NameplateUI : MonoBehaviour
 
     void BindTarget(Transform t)
     {
-        // Unsubscribe old host
         if (statusHost) statusHost.OnStatusesChanged -= RefreshStatuses;
 
-        target = t;
-        hp = target ? target.GetComponent<NPCHealth>() : null;
+        target     = t;
+        hp         = target ? target.GetComponent<NPCHealth>()     : null;
         statusHost = target ? target.GetComponent<NPCStatusHost>() : null;
+        ai         = target ? target.GetComponent<NPCAI>()         : null;
 
         if (statusHost) statusHost.OnStatusesChanged += RefreshStatuses;
 
-        // Parent to target if requested
         if (parentToTarget && target)
         {
-            // Reparent with worldPositionStays=false so our localPosition becomes the new offset
             transform.SetParent(target, false);
             if (useLocalPositionWhenParented) transform.localPosition = worldOffset;
         }
@@ -85,22 +100,15 @@ public class NameplateUI : MonoBehaviour
     {
         if (!target)
         {
-            // If we somehow lost the target and aren’t parented, self-cleanup
             if (transform.parent == null) Destroy(gameObject);
             return;
         }
 
         // Positioning
         if (parentToTarget && transform.parent == target && useLocalPositionWhenParented)
-        {
-            // Keep the local offset exactly as set in the prefab/inspector
             transform.localPosition = worldOffset;
-        }
         else
-        {
-            // Fallback: position in world space relative to target
             transform.position = target.position + worldOffset;
-        }
 
         // Billboard
         if (billboard && cam)
@@ -111,7 +119,7 @@ public class NameplateUI : MonoBehaviour
                 transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
         }
 
-        // Distance-based scale (applies to localScale so it works parented too)
+        // Distance-based scale
         if (cam)
         {
             float d = Vector3.Distance(cam.transform.position, transform.position);
@@ -126,21 +134,84 @@ public class NameplateUI : MonoBehaviour
             float frac = Mathf.Approximately(hp.maxHP, 0f) ? 0f : Mathf.Clamp01(hp.currentHP / (float)hp.maxHP);
             healthFill.fillAmount = frac;
         }
+
+        // --- Death takes priority over hostility visuals ---
+        bool isDead = (hp && hp.currentHP <= 0);
+        if (isDead != _lastDead)
+        {
+            ApplyDeathVisuals(isDead);
+            _lastDead = isDead;
+        }
+        if (isDead) return; // keep dead look; don't override with hostility
+
+        // Hostility -> name color + mood icon
+        if (ai && nameText)
+        {
+            var h = ai.CurrentHostility;
+            if (h != _lastHostility) ApplyHostility(h);
+            _lastHostility = h;
+        }
     }
 
     void RefreshAll()
     {
         if (nameText && target) nameText.text = target.gameObject.name;
         RefreshStatuses();
+
+        // force a refresh of state-dependent visuals on (re)bind
+        _lastDead = !_lastDead;
+        _lastHostility = (NPCAI.Hostility)(-1);
+    }
+
+    void ApplyHostility(NPCAI.Hostility h)
+    {
+        switch (h)
+        {
+            case NPCAI.Hostility.Friendly:
+                if (nameText) nameText.color = friendlyName;
+                if (moodIcon) { moodIcon.sprite = friendlyIcon; moodIcon.enabled = (friendlyIcon != null); }
+                break;
+
+            case NPCAI.Hostility.Neutral:
+                if (nameText) nameText.color = neutralName;
+                if (moodIcon) { moodIcon.sprite = neutralIcon; moodIcon.enabled = (neutralIcon != null); }
+                break;
+
+            case NPCAI.Hostility.Hostile:
+            default:
+                if (nameText) nameText.color = hostileName;
+                if (moodIcon) { moodIcon.sprite = hostileIcon; moodIcon.enabled = (hostileIcon != null); }
+                break;
+        }
+    }
+
+    void ApplyDeathVisuals(bool dead)
+    {
+        if (!nameText) return;
+
+        if (dead)
+        {
+            nameText.color = deadName;
+            if (moodIcon)
+            {
+                moodIcon.sprite  = deadIcon;
+                moodIcon.enabled = (deadIcon != null);
+            }
+        }
+        else
+        {
+            // On “revive”, immediately re-apply hostility look next frame
+            if (moodIcon && neutralIcon) { /* no-op; hostility update will set proper icon */ }
+        }
     }
 
     void RefreshStatuses()
     {
         if (!statusRow || !statusIconPrefab) return;
 
-        // Count how many icons we need
         int needed = 0;
         currentShown.Clear();
+
         if (statusHost != null)
         {
             foreach (var kv in statusHost.Active)

@@ -25,7 +25,7 @@ public class GridPathfinder : MonoBehaviour
             return true;
 
         // 🔹 World collision (walls, etc.)
-        Vector3 origin = snapped + Vector3.up * checkHalfExtents.y;
+        Vector3 origin = snapped + Vector3.up * Mathf.Max(0.3f, checkHalfExtents.y * 0.8f);
         return Physics.CheckBox(origin, checkHalfExtents, Quaternion.identity, obstacleLayer, QueryTriggerInteraction.Ignore);
     }
 
@@ -37,7 +37,7 @@ public class GridPathfinder : MonoBehaviour
         Vector3 b = Snap(toWorld);
 
         // Mid-edge between A and B
-        Vector3 mid = (a + b) * 0.5f + Vector3.up * checkHalfExtents.y;
+        Vector3 mid    = (a + b) * 0.5f + Vector3.up * Mathf.Max(0.3f, checkHalfExtents.y * 0.8f);
 
         // Edge-aligned check box (slimmer along travel axis)
         Vector3 half = checkHalfExtents;
@@ -110,20 +110,24 @@ public class GridPathfinder : MonoBehaviour
     /// <summary>
     /// A* search over grid centers (snapped). Returns centers including the goal.
     /// </summary>
-    public bool TryFindPath(Vector3 startWorld, Vector3 goalWorld, int maxNodes, out List<Vector3> path)
+    public bool TryFindPath(
+    Vector3 startWorld,
+    Vector3 goalWorld,
+    int maxNodes,
+    out List<Vector3> path,
+    bool goalPassable = false)
     {
         path = null;
 
         Vector3 start = Snap(startWorld);
         Vector3 goal  = Snap(goalWorld);
 
-        // Quick reject: goal blocked (by wall or occupied)
-        if (IsBlocked(goal)) return false;
+        // Only hard-reject a blocked goal when we are NOT allowed to treat it as passable
+        if (!goalPassable && IsBlocked(goal)) return false;
 
-        // A* structures
-        var open = new SimplePriorityQueue<Vector3>();
-        var came = new Dictionary<Vector3, Vector3>();
-        var g    = new Dictionary<Vector3, float>();
+        var open   = new SimplePriorityQueue<Vector3>();
+        var came   = new Dictionary<Vector3, Vector3>();
+        var g      = new Dictionary<Vector3, float>();
         var inOpen = new HashSet<Vector3>();
         var closed = new HashSet<Vector3>();
 
@@ -137,9 +141,18 @@ public class GridPathfinder : MonoBehaviour
         {
             var current = open.Dequeue();
             inOpen.Remove(current);
-            if (current == goal)
+
+            // *** NEW: if the goal is treated as passable, we can stop when we are ADJACENT to it. ***
+            if (current == goal || (goalPassable && ChebyshevTiles(current, goal) <= 1f))
             {
-                path = Reconstruct(came, start, goal);
+                // reconstruct to 'current'
+                var core = Reconstruct(came, start, current);
+
+                // append the goal so callers that trim the last node keep behavior identical
+                if (core.Count == 0 || core[^1] != goal)
+                    core.Add(goal);
+
+                path = core;
                 return true;
             }
 
@@ -149,6 +162,9 @@ public class GridPathfinder : MonoBehaviour
             foreach (var n in Neighbors(current))
             {
                 if (closed.Contains(n)) continue;
+
+                // Normal neighbor rules already exclude blocked/illegal edges;
+                // we don't need to special-case the goal here any more.
 
                 float step = Vector3.Distance(current, n) / Mathf.Max(0.0001f, tileSize); // 1 or 1.414
                 float tentative = g[current] + step;
@@ -173,6 +189,14 @@ public class GridPathfinder : MonoBehaviour
         }
 
         return false;
+    }
+
+    // helper used above
+    float ChebyshevTiles(Vector3 a, Vector3 b)
+    {
+        float dx = Mathf.Abs(a.x - b.x) / Mathf.Max(0.0001f, tileSize);
+        float dz = Mathf.Abs(a.z - b.z) / Mathf.Max(0.0001f, tileSize);
+        return Mathf.Max(dx, dz);
     }
 
     List<Vector3> Reconstruct(Dictionary<Vector3, Vector3> came, Vector3 start, Vector3 goal)
@@ -221,5 +245,44 @@ public class GridPathfinder : MonoBehaviour
             // not found, add
             Enqueue(item, pri);
         }
+    }
+
+    // Public helper: open, legal neighbors from a world position (snapped internally)
+    public List<Vector3> OpenNeighbors(Vector3 center)
+    {
+        var list = new List<Vector3>();
+        float t = tileSize;
+        Vector3 c = Snap(center);
+
+        Vector3[] card =
+        {
+            c + new Vector3( t,0, 0),
+            c + new Vector3(-t,0, 0),
+            c + new Vector3( 0,0, t),
+            c + new Vector3( 0,0,-t),
+        };
+
+        foreach (var n in card)
+            if (!IsTileBlocked(n) && !IsEdgeBlocked(c, n))
+                list.Add(n);
+
+        (Vector3 diag, Vector3 sideA, Vector3 sideB)[] diags =
+        {
+            (c + new Vector3( t,0, t), c + new Vector3( t,0, 0), c + new Vector3( 0,0, t)),
+            (c + new Vector3(-t,0, t), c + new Vector3(-t,0, 0), c + new Vector3( 0,0, t)),
+            (c + new Vector3( t,0,-t), c + new Vector3( t,0, 0), c + new Vector3( 0,0,-t)),
+            (c + new Vector3(-t,0,-t), c + new Vector3(-t,0, 0), c + new Vector3( 0,0,-t)),
+        };
+
+        foreach (var d in diags)
+        {
+            if (IsTileBlocked(d.diag)) continue;
+            if (IsTileBlocked(d.sideA) || IsTileBlocked(d.sideB)) continue;
+            if (IsEdgeBlocked(c, d.sideA) || IsEdgeBlocked(c, d.sideB)) continue;
+            if (IsEdgeBlocked(c, d.diag)) continue;
+            list.Add(d.diag);
+        }
+
+        return list;
     }
 }
