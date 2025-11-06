@@ -21,7 +21,12 @@ public class EquipmentUI : MonoBehaviour {
         Refresh();
     }
 
-    private void OnDisable(){ equipMgr.equipment.OnEquipmentChanged -= Refresh; }
+    private void OnDisable()
+    {
+        equipMgr.equipment.OnEquipmentChanged -= Refresh;
+        if (tooltip) tooltip.Hide();                 // force-hide tooltip here
+        if (equipMgr) equipMgr.RestoreCursor();      // reset cursor when equipment closes
+    }
 
     private void Refresh(){ head.Refresh(); neck.Refresh(); ringL.Refresh(); ringR.Refresh(); weapon.Refresh(); trinket.Refresh(); if(up1) up1.Refresh(); if(up2) up2.Refresh(); if(up3) up3.Refresh(); if(up4) up4.Refresh(); }
 }

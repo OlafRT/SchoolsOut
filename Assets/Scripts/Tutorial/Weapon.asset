@@ -16,5 +16,5 @@ MonoBehaviour:
 
 '
   voice: {fileID: 0}
-  condition: 6
+  condition: 11
   showExclamationWhileHidden: 1

@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: TeddyHat
+  m_EditorClassIdentifier: 
+  id: a19ff8a132474f2cbabb43849723cd06
+  baseName: Evil Clone Ears
+  icon: {fileID: 21300000, guid: 06c19703c692a0a4ead80bdc245e2f3a, type: 3}
+  rarity: 2
+  itemType: 2
+  isEquippable: 1
+  equipSlot: 0
+  allowedAffixes: 0500000001000000020000000300000004000000
+  description: Seems this belonged to a D&D fan.
+  isStaticItem: 1
+  overrideName: Evil Clone Ears
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 1
+  fixedCrit: 0
+  fixedToughness: 1
+  fixedValue: 1
+  forcedAffix: 0
+  isStackable: 0
+  maxStackSize: 20

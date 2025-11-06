@@ -107,6 +107,7 @@ public class StaplyManager : MonoBehaviour {
             TutorialEvents.OpenInventory += OnOpenInventory;
             TutorialEvents.OpenQuestLog += OnOpenQuestLog;
             TutorialEvents.EquippedItem += OnEquippedItem;
+            TutorialEvents.PickedUpItem += OnPickedUpItem;
         } else {
             TutorialEvents.Moved -= OnMoved;
             TutorialEvents.Aimed -= OnAimed;
@@ -118,6 +119,7 @@ public class StaplyManager : MonoBehaviour {
             TutorialEvents.OpenInventory -= OnOpenInventory;
             TutorialEvents.OpenQuestLog -= OnOpenQuestLog;
             TutorialEvents.EquippedItem -= OnEquippedItem;
+            TutorialEvents.PickedUpItem -= OnPickedUpItem;
         }
     }
 
@@ -135,6 +137,7 @@ public class StaplyManager : MonoBehaviour {
     void OnOpenInventory(){ if(IsCurrent(TutorialStep.Condition.OpenInventory)) CompleteCurrentStep(); }
     void OnOpenQuestLog(){ if(IsCurrent(TutorialStep.Condition.OpenQuestLog)) CompleteCurrentStep(); }
     void OnEquippedItem(){ if(IsCurrent(TutorialStep.Condition.EquippedItem)) CompleteCurrentStep(); }
+    void OnPickedUpItem(){ if (IsCurrent(TutorialStep.Condition.PickedUpItem)) CompleteCurrentStep(); }
 
     void OnDestroy(){ Subscribe(false); }
 }

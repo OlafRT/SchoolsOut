@@ -58,6 +58,8 @@ public class WorldPickupItem : MonoBehaviour
         // Success pickup
         if (toast) toast.Show($"Picked up {rolledInstance.DisplayName}", Color.green);
 
+        TutorialEvents.RaisePickedUpItem();
+
         if (pickupSfx)
         {
             AudioSource.PlayClipAtPoint(pickupSfx, transform.position, pickupVolume);

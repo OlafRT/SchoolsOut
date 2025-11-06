@@ -134,9 +134,15 @@ public class NPCMovement : MonoBehaviour
         if (hadRB)
         {
             prevKinematic = rb.isKinematic;
+
+            // Only touch velocities if the body was non-kinematic.
+            if (!prevKinematic)
+            {
+                rb.velocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+
             rb.isKinematic = true;
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
         }
 
         // Step duration based on tilesPerSecond with your active multipliers
@@ -352,9 +358,12 @@ public class NPCMovement : MonoBehaviour
         if (hadRB)
         {
             prevKinematic = rb.isKinematic;
+            if (!prevKinematic)
+            {
+                rb.velocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
             rb.isKinematic = true;
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
         }
 
         float t = 0f;

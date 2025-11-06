@@ -14,6 +14,7 @@ public class LootUI : MonoBehaviour
     public ItemTooltipUI tooltip;          // scene object -> we'll auto-find if null
     public Sprite moneyIcon;               // assign in prefab (sprite asset)
     public EquipmentManager cursorOwner;
+    public ScreenToast toast;
 
     [Header("Behaviour")]
     public float autoCloseDistance = 4f;
@@ -45,6 +46,9 @@ public class LootUI : MonoBehaviour
         {
             tooltip = FindAnyObjectByType<ItemTooltipUI>();
         }
+
+        if (toast == null)
+        toast = FindAnyObjectByType<ScreenToast>();
 
         // cache player transform once
         if (player == null)
@@ -89,6 +93,10 @@ public class LootUI : MonoBehaviour
     // --------------------------------------------------
     void RebuildSlots()
     {
+        // kill any stale tooltip/cursor before we refresh slots
+        if (tooltip) tooltip.Hide();
+        if (cursorOwner) cursorOwner.RestoreCursor();
+
         if (slotUIs == null || slotUIs.Count == 0) return;
 
         // Hide everything first
@@ -138,10 +146,28 @@ public class LootUI : MonoBehaviour
     {
         if (!corpse) return;
 
-        var itm = corpse.LootItem(corpseIndex); // remove from corpse list
+        // clear UI state before we mutate slots
+        if (tooltip) tooltip.Hide();
+        if (cursorOwner) cursorOwner.RestoreCursor();
+        UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
+
+        // Remove from corpse *temporarily*
+        var itm = corpse.LootItem(corpseIndex);
         if (itm != null)
         {
-            playerInventory.Add(itm, 1);
+            bool added = playerInventory.Add(itm, 1);
+
+            if (!added)
+            {
+                // Inventory full: put it back on the corpse
+                corpse.PutBackItem(corpseIndex, itm);
+
+                if (toast)
+                    toast.Show("My backpack is full.", Color.yellow);
+
+                RebuildSlots();
+                return;
+            }
         }
 
         AfterLootAttempt();
@@ -154,12 +180,13 @@ public class LootUI : MonoBehaviour
     {
         if (!corpse) return;
 
-        int amt = corpse.LootMoney(); // zeroes corpse.dollars
-        if (amt > 0)
-        {
-            wallet.Add(amt);
-        }
+        // clear UI state before we mutate slots
+        if (tooltip) tooltip.Hide();
+        if (cursorOwner) cursorOwner.RestoreCursor();
+        UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
 
+        int amt = corpse.LootMoney();
+        if (amt > 0) wallet.Add(amt);
         AfterLootAttempt();
     }
 

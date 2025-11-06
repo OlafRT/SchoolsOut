@@ -45,4 +45,10 @@ public class ItemTemplate : ScriptableObject {
         if (string.IsNullOrEmpty(id))
             id = System.Guid.NewGuid().ToString("N");
     }
+
+    [Header("Stacking")]
+    public bool isStackable = false;
+
+    [Min(1)]
+    public int maxStackSize = 20;
 }

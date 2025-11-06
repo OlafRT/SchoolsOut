@@ -20,7 +20,7 @@ MonoBehaviour:
   turnInNpcId: NPC_Teddy
   xpReward: 100
   moneyReward: 1
-  itemReward: {fileID: 11400000, guid: 3e3ae291ba406344390157c5ab99d598, type: 2}
+  itemReward: {fileID: 11400000, guid: cb532e49a2a3ab84dac3a7c9609ce401, type: 2}
   itemAmount: 1
   objectives:
   - type: 0

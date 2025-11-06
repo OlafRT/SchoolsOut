@@ -50,18 +50,26 @@ public class ItemSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             var s = inventory.Slots[inventoryIndex];
             if (s.IsEmpty)
             {
-                if (icon) { icon.sprite = null; icon.enabled = false; }
+                if (icon)
+                {
+                    icon.sprite = null;
+                    icon.enabled = false;
+                }
                 if (countText) countText.text = "";
             }
             else
             {
                 itm = s.item;
+
                 if (icon)
                 {
                     icon.sprite = itm?.Icon;
                     icon.enabled = (icon.sprite != null);
                 }
-                if (countText) countText.text = "";
+
+                // show stack size if we have more than one
+                if (countText)
+                    countText.text = s.count > 1 ? s.count.ToString() : "";
             }
         }
         else
@@ -72,7 +80,11 @@ public class ItemSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             itm = equipment.Get(equipSlot);
             if (itm == null)
             {
-                if (icon) { icon.sprite = null; icon.enabled = false; }
+                if (icon)
+                {
+                    icon.sprite = null;
+                    icon.enabled = false;
+                }
                 if (countText) countText.text = "";
             }
             else
@@ -82,6 +94,7 @@ public class ItemSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
                     icon.sprite = itm.Icon;
                     icon.enabled = (icon.sprite != null);
                 }
+                // no stacking on equipment
                 if (countText) countText.text = "";
             }
         }

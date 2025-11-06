@@ -45,9 +45,12 @@ public class NPCLootProfile : ScriptableObject
             var tpl = itemDatabase.templates[Random.Range(0, itemDatabase.templates.Count)];
             if (tpl == null) continue;
 
+            // For non-static items this will do a normal random roll.
+            // For static items it will ignore ilvl and use the fixed values from the template.
             int ilvl = Random.Range(minIlvl, maxIlvl + 1);
-            var inst = AffixRoller.Roll(tpl, ilvl);
-            list.Add(inst);
+            var inst = AffixRoller.CreateFromTemplate(tpl, ilvl);
+            if (inst != null)
+                list.Add(inst);
         }
         return list;
     }

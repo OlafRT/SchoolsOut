@@ -71,6 +71,10 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Tooltip("Animator trigger to play when stunned.")]
     public string stunTriggerName = "Stun";
 
+    [Header("Animation (Locomotion)")]
+    [Tooltip("Float parameter used by a 0..1 blend tree (0=Idle, 1=Walk).")]
+    public string locomotionSpeedParam = "Speed01";
+
     // ---- convenience
     public NPCFaction Faction => faction;
     public PlayerStats.AbilitySchool? FactionSchool => faction.ToAbilitySchool();
@@ -163,6 +167,13 @@ public class NPCAI : MonoBehaviour, IStunnable
             case Hostility.Friendly: DoFriendly(); break;
             case Hostility.Neutral:  DoWander();   break;
             case Hostility.Hostile:  DoHostile();  break;
+        }
+
+        // --- Locomotion param (Idle/Walk) ---
+        if (animator && !string.IsNullOrEmpty(locomotionSpeedParam))
+        {
+            float s = (mover && mover.IsMoving) ? 1f : 0f;
+            animator.SetFloat(locomotionSpeedParam, s);
         }
 
         #if UNITY_EDITOR

@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using System.Collections.Generic;
 
 #if CINEMACHINE
 using Cinemachine;
@@ -60,6 +61,10 @@ public class HackingStation : MonoBehaviour
     [SerializeField] private bool lockAfterSolved = true;            // Nerd only
     [SerializeField] private bool disableTriggerAfterLock = true;    // Nerd only
 
+    [Header("Player Visuals")]
+    [SerializeField] private Transform playerVisualRoot;   // root of the model/mesh hierarchy
+    [SerializeField] private Renderer[] extraRenderersToHide; // optional one-offs not under the root
+
     [Header("Jock Attempt UI")]
     [Tooltip("UI shown to Jock when he 'attempts' to hack (your messy image).")]
     [SerializeField] private GameObject jockAttemptUI;
@@ -97,6 +102,9 @@ public class HackingStation : MonoBehaviour
     private Quaternion fuseboxDoorClosedRot;
     private Quaternion worldDoorClosedRot;
     private Collider triggerCol;
+
+    private Renderer[] _cachedPlayerRenderers;
+    private bool _visualsHidden;
 
     // manual cam cache
     private Vector3 camOrigPos;
@@ -241,6 +249,7 @@ public class HackingStation : MonoBehaviour
 
         if (promptUI) promptUI.SetActive(false);
         foreach (var b in disableWhileHacking) if (b) b.enabled = false;
+        HidePlayerVisuals();
 
         if (fuseboxDoorHinge)
             StartCoroutine(RotateLocal(fuseboxDoorHinge, fuseboxDoorClosedRot, Quaternion.Euler(fuseboxDoorOpenLocalEuler), fuseboxOpenSeconds));
@@ -271,7 +280,7 @@ public class HackingStation : MonoBehaviour
     {
         exiting = true;
         if (puzzleRoot) puzzleRoot.SetActive(false);
-
+        if (_visualsHidden) ShowPlayerVisuals();
         nerdCancelArmed = false;
 
         // Fire event and start opening the world door, but DO NOT wait for it.
@@ -301,6 +310,7 @@ public class HackingStation : MonoBehaviour
         exiting = true;
         if (puzzleRoot) puzzleRoot.SetActive(false);
         nerdCancelArmed = false;
+        if (_visualsHidden) ShowPlayerVisuals();
 
         yield return MoveCameraToPlayer();
 
@@ -321,6 +331,7 @@ public class HackingStation : MonoBehaviour
     {
         if (promptUI) promptUI.SetActive(false);
         foreach (var b in disableWhileHacking) if (b) b.enabled = false;
+        HidePlayerVisuals();
 
         // Door open + SFX (same as Nerd)
         if (fuseboxDoorHinge)
@@ -328,7 +339,7 @@ public class HackingStation : MonoBehaviour
                                     Quaternion.Euler(fuseboxDoorOpenLocalEuler), fuseboxOpenSeconds));
         if (doorOpenClip && sfx) sfx.PlayOneShot(doorOpenClip);
 
-        // 🔧 NEW: fire the same event Nerd uses so your CameraFollow gets disabled
+        // fire the same event Nerd uses so your CameraFollow gets disabled
         onHackStart?.Invoke();
 
         // Move to the SAME puzzle cam pose as Nerd
@@ -344,7 +355,7 @@ public class HackingStation : MonoBehaviour
         // Hide fake UI and back out
         jockUIOpen = false;
         if (jockAttemptUI) jockAttemptUI.SetActive(false);
-
+        if (_visualsHidden) ShowPlayerVisuals();
         yield return MoveCameraToPlayer();
 
         if (fuseboxDoorHinge)
@@ -360,6 +371,7 @@ public class HackingStation : MonoBehaviour
     {
         jockBusy = true;
         _currentJockStation = this;
+        if (_visualsHidden) ShowPlayerVisuals();
 
         // Hide fake UI
         jockUIOpen = false;
@@ -568,6 +580,34 @@ public class HackingStation : MonoBehaviour
         }
     }
 
+    private void CachePlayerRenderers()
+    {
+        if (_cachedPlayerRenderers != null && _cachedPlayerRenderers.Length > 0) return;
+
+        List<Renderer> list = new List<Renderer>();
+        if (playerVisualRoot)
+            list.AddRange(playerVisualRoot.GetComponentsInChildren<Renderer>(true));
+        if (extraRenderersToHide != null && extraRenderersToHide.Length > 0)
+            foreach (var r in extraRenderersToHide) if (r) list.Add(r);
+
+        _cachedPlayerRenderers = list.ToArray();
+    }
+
+    private void HidePlayerVisuals()
+    {
+        CachePlayerRenderers();
+        if (_cachedPlayerRenderers == null) return;
+        foreach (var r in _cachedPlayerRenderers) if (r) r.enabled = false;
+        _visualsHidden = true;
+    }
+
+    private void ShowPlayerVisuals()
+    {
+        if (_cachedPlayerRenderers == null) return;
+        foreach (var r in _cachedPlayerRenderers) if (r) r.enabled = true;
+        _visualsHidden = false;
+    }
+
     // ----- shared teardown -----
     private void FinalizeEndCommon()
     {
@@ -583,6 +623,7 @@ public class HackingStation : MonoBehaviour
         exiting = false;
         jockUIOpen = false;
         nerdCancelArmed = false;
+        
         // jockBusy is reset in JockWrapUpAfterFall()
     }
 }

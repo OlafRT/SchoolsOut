@@ -19,11 +19,45 @@ public class Inventory : ScriptableObject {
 
     public void MarkDirty() { OnInventoryChanged?.Invoke(); }
 
-    public bool Add(ItemInstance item, int amount){
-        if(item == null || amount <= 0) return false;
-        for(int i=0;i<slots.Count && amount>0;i++) if(slots[i].IsEmpty){ slots[i] = new ItemStack(item, 1); amount--; }
+    public bool Add(ItemInstance item, int amount)
+    {
+        if (item == null || amount <= 0) return false;
+
+        bool stackable = item.template != null && item.template.isStackable;
+        int maxStack = stackable ? Mathf.Max(1, item.template.maxStackSize) : 1;
+
+        // 1) If stackable, first try to top up existing stacks of the same template
+        if (stackable)
+        {
+            for (int i = 0; i < slots.Count && amount > 0; i++)
+            {
+                var s = slots[i];
+                if (s.IsEmpty) continue;
+                if (s.item == null || s.item.template != item.template) continue;
+
+                int spaceLeft = maxStack - s.count;
+                if (spaceLeft <= 0) continue;
+
+                int toAdd = Mathf.Min(spaceLeft, amount);
+                s.count += toAdd;
+                amount -= toAdd;
+                slots[i] = s;
+            }
+        }
+
+        // 2) Then use empty slots for whatever is left
+        for (int i = 0; i < slots.Count && amount > 0; i++)
+        {
+            if (slots[i].IsEmpty)
+            {
+                int toPut = stackable ? Mathf.Min(amount, maxStack) : 1;
+                slots[i] = new ItemStack(item, toPut);
+                amount -= toPut;
+            }
+        }
+
         OnInventoryChanged?.Invoke();
-        return amount==0;
+        return amount == 0; // false means: ran out of space
     }
 
     public void Clear() {
@@ -31,9 +65,18 @@ public class Inventory : ScriptableObject {
     OnInventoryChanged?.Invoke();
     }
 
-    public void RemoveAt(int index, int amount){
-        if(index<0 || index>=slots.Count) return;
-        slots[index] = new ItemStack(null,0);
+    public void RemoveAt(int index, int amount)
+    {
+        if (index < 0 || index >= slots.Count) return;
+
+        var s = slots[index];
+        if (s.IsEmpty) return;
+
+        s.count -= amount;
+        if (s.count <= 0)
+            s = new ItemStack(null, 0);
+
+        slots[index] = s;
         OnInventoryChanged?.Invoke();
     }
 

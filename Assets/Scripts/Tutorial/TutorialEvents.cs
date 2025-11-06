@@ -13,4 +13,6 @@ public static class TutorialEvents {
     public static void RaiseOpenInventory() => OpenInventory?.Invoke();
     public static void RaiseOpenQuestLog() => OpenQuestLog?.Invoke();
     public static void RaiseEquippedItem() => EquippedItem?.Invoke();
+    public static event Action PickedUpItem;   // NEW
+    public static void RaisePickedUpItem() => PickedUpItem?.Invoke(); // NEW
 }

@@ -30,6 +30,9 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     public float corpseClickableHeight = 0.5f;
     public float corpseClickableYOffset = 0f;
 
+    [Header("Animation")]
+    public string deathTriggerName = "Die";
+
     [Header("Debug")]
     public int currentHP;
 
@@ -110,6 +113,12 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         {
             anim.applyRootMotion = false; // ensure death pose doesn't slide
             // (optional) anim.SetFloat("Speed01", 0f);
+        }
+
+        if (anim && !string.IsNullOrEmpty(deathTriggerName))
+        {
+            anim.ResetTrigger(deathTriggerName); // clean slate
+            anim.SetTrigger(deathTriggerName);   // fire death anim
         }
 
         // Make sure collider is there & is a trigger we control

@@ -192,7 +192,7 @@ public class CorpseLoot : MonoBehaviour,
 
         ForceRestoreCursor();
 
-        Destroy(gameObject);
+        //Destroy(gameObject);
     }
 
     void ForceRestoreCursor()
@@ -205,5 +205,17 @@ public class CorpseLoot : MonoBehaviour,
         {
             cursorOwner.RestoreCursor();
         }
+    }
+
+    public void PutBackItem(int corpseIndex, ItemInstance inst)
+    {
+        if (inst == null) return;
+        if (items == null) items = new List<ItemInstance>();
+
+        // clamp index; if out of range, just append at end
+        if (corpseIndex < 0 || corpseIndex > items.Count)
+            corpseIndex = items.Count;
+
+        items.Insert(corpseIndex, inst);
     }
 }

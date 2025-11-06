@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 public class DialogueController : MonoBehaviour
 {
@@ -9,6 +10,8 @@ public class DialogueController : MonoBehaviour
     public GameObject promptSpacebar;     // UI image for space prompt
     public GameObject dialoguePanel;      // background panel (set inactive at start)
     public TMP_Text dialogueText;         // text component inside the panel
+    public Image portraitImage;
+    public bool portraitSetNativeSize = false;
     public PlayerMovement player;         // your existing PlayerMovement
 
     DialogueInteractable active;
@@ -19,6 +22,7 @@ public class DialogueController : MonoBehaviour
         I = this;
         if (dialoguePanel) dialoguePanel.SetActive(false);
         if (promptSpacebar) promptSpacebar.SetActive(false);
+        if (portraitImage) portraitImage.gameObject.SetActive(false);
     }
 
     bool _externalLock = false;
@@ -61,6 +65,7 @@ public class DialogueController : MonoBehaviour
 
         // first line
         dialogueText.text = active.GetText(idx);
+        ApplyPortrait(idx);
         active.ApplyPerLineEffects(idx);
     }
 
@@ -74,7 +79,26 @@ public class DialogueController : MonoBehaviour
             return;
         }
         dialogueText.text = active.GetText(idx);
+        ApplyPortrait(idx);
         active.ApplyPerLineEffects(idx);
+    }
+
+        void ApplyPortrait(int lineIndex)
+    {
+        if (!portraitImage) return;
+
+        var sprite = active ? active.GetPortrait(lineIndex) : null; // uses your new API
+        if (sprite)
+        {
+            portraitImage.sprite = sprite;
+            portraitImage.gameObject.SetActive(true);
+            if (portraitSetNativeSize) portraitImage.SetNativeSize();
+        }
+        else
+        {
+            portraitImage.sprite = null;
+            portraitImage.gameObject.SetActive(false); // auto-hide when none
+        }
     }
 
     public void End()
@@ -97,6 +121,7 @@ public class DialogueController : MonoBehaviour
         }
 
         if (dialoguePanel) dialoguePanel.SetActive(false);
+        if (portraitImage) portraitImage.gameObject.SetActive(false);
 
         active = null;
         idx = 0;

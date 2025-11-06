@@ -32,6 +32,7 @@ public class EquipmentManager : MonoBehaviour {
         var previously = equipment.Swap(targetSlot, s.item);
         if(previously!=null) inventory.Add(previously, 1);
         inventory.RemoveAt(inventoryIndex, 1);
+        TutorialEvents.RaiseEquippedItem();
         return true;
     }
 

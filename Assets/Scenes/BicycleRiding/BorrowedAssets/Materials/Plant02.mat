@@ -76,7 +76,7 @@ Material:
     - _AlphaClipThreshold: 0.33
     - _BaseLight: 0.5671642
     - _Cutoff: 0.5
-    - _Glossiness: 0.5
+    - _Glossiness: 0
     - _HueVariationKwToggle: 1
     - _Metallic: 0
     - _NormalMapKwToggle: 1
