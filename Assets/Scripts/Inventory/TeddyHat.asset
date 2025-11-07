@@ -20,14 +20,14 @@ MonoBehaviour:
   isEquippable: 1
   equipSlot: 0
   allowedAffixes: 0500000001000000020000000300000004000000
-  description: Seems this belonged to a D&D fan.
+  description: Reward for helping Teddy deal with the clones.
   isStaticItem: 1
   overrideName: Evil Clone Ears
   fixedItemLevel: 1
   fixedRequiredLevel: 1
   fixedRarity: 1
   fixedMuscles: 0
-  fixedIQ: 1
+  fixedIQ: 0
   fixedCrit: 0
   fixedToughness: 1
   fixedValue: 1

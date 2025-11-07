@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3678517729138342940}
   - component: {fileID: 6814044817469706525}
   - component: {fileID: 7694084733580399764}
-  m_Layer: 0
+  m_Layer: 17
   m_Name: SmallDrops (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4941,7 +4941,7 @@ GameObject:
   - component: {fileID: 6814893915081318533}
   - component: {fileID: 2530301535916556436}
   - component: {fileID: 4500278649006043158}
-  m_Layer: 2
+  m_Layer: 17
   m_Name: Snot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5171,9 +5171,17 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1473353547583274, guid: c1c88308ebb5d2541a282905b854ee4c, type: 3}
+      propertyPath: m_Layer
+      value: 17
+      objectReference: {fileID: 0}
     - target: {fileID: 1722726733478836, guid: c1c88308ebb5d2541a282905b854ee4c, type: 3}
       propertyPath: m_Name
       value: BigSplash
+      objectReference: {fileID: 0}
+    - target: {fileID: 1722726733478836, guid: c1c88308ebb5d2541a282905b854ee4c, type: 3}
+      propertyPath: m_Layer
+      value: 17
       objectReference: {fileID: 0}
     - target: {fileID: 4079391813584830, guid: c1c88308ebb5d2541a282905b854ee4c, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5505,6 +5513,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: GoopStream
+      objectReference: {fileID: 0}
+    - target: {fileID: 4107912422913065060, guid: 942836b70a3e54b43bf38eeaa59cc728,
+        type: 3}
+      propertyPath: m_Layer
+      value: 17
       objectReference: {fileID: 0}
     - target: {fileID: 5949286990850800477, guid: 942836b70a3e54b43bf38eeaa59cc728,
         type: 3}

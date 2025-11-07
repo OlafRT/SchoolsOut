@@ -15,6 +15,8 @@ public class NPCAI : MonoBehaviour, IStunnable
     public Color gizmoLOSColorOK = Color.green;
     public Color gizmoLOSColorBlocked = Color.red;
     public bool debugChase = true;
+    [Tooltip("If true, prints AI tick/chase logs to the Console.")]
+    public bool logAI = false;
 
     [Header("Faction / Class")]
     public NPCFaction faction = NPCFaction.Jock;
@@ -97,6 +99,11 @@ public class NPCAI : MonoBehaviour, IStunnable
     bool isStunned = false;
     float stunUntil = 0f;
 
+    void LogAI(string msg)
+    {
+        if (logAI) UnityEngine.Debug.Log(msg);
+    }
+
     void Awake()
     {
         if (!mover) mover = GetComponent<NPCMovement>();
@@ -176,14 +183,12 @@ public class NPCAI : MonoBehaviour, IStunnable
             animator.SetFloat(locomotionSpeedParam, s);
         }
 
-        #if UNITY_EDITOR
-        if (debugAI && player)
+        if (logAI && player)
         {
             bool los = HasLineOfSight(player.transform.position);
             float distTiles = DistanceTiles(transform.position, Snap(player.transform.position));
-            UnityEngine.Debug.Log($"{name}  H={CurrentHostility}  LOS={los}  distTiles={distTiles:0.00}  moving={mover && mover.IsMoving}");
+            LogAI($"{name}  H={CurrentHostility}  LOS={los}  distTiles={distTiles:0.00}  moving={(mover && mover.IsMoving)}");
         }
-        #endif
     }
 
     // ======================
@@ -347,8 +352,8 @@ public class NPCAI : MonoBehaviour, IStunnable
         var tgtTile = Snap(player.transform.position);
         float distT = DistanceTiles(here, tgtTile);
 
-        // Loud, guaranteed log (not hidden behind any gate)
-        UnityEngine.Debug.Log($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={HasLineOfSight(player.transform.position)}");
+        // debug log
+        LogAI($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={HasLineOfSight(player.transform.position)}");
 
         // --- Try to attack if we're close enough by grid OR physical reach
         bool closeByGrid    = distT <= 1.01f;
@@ -391,7 +396,7 @@ public class NPCAI : MonoBehaviour, IStunnable
             if (best != here)
             {
                 TryPathTo(best);
-                UnityEngine.Debug.Log($"{name} CHASE -> greedy step {best}");
+                LogAI($"{name} CHASE -> greedy step {best}");
                 return;
             }
         }
@@ -405,19 +410,19 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (!pathfinder.IsBlocked(candX) && !pathfinder.IsEdgeBlocked(here, candX))
         {
             TryPathTo(candX);
-            UnityEngine.Debug.Log($"{name} CHASE -> axis X");
+            LogAI($"{name} CHASE -> axis X");
             return;
         }
         if (!pathfinder.IsBlocked(candZ) && !pathfinder.IsEdgeBlocked(here, candZ))
         {
             TryPathTo(candZ);
-            UnityEngine.Debug.Log($"{name} CHASE -> axis Z");
+            LogAI($"{name} CHASE -> axis Z");
             return;
         }
 
         // If literally no legal step, clear so we can re-evaluate next tick
         mover.ClearPath();
-        UnityEngine.Debug.Log($"{name} CHASE -> no legal step (cleared)");
+        LogAI($"{name} CHASE -> no legal step (cleared)");
     }
 
 
@@ -472,7 +477,7 @@ public class NPCAI : MonoBehaviour, IStunnable
 
         if (!(closeByGrid || closeByPhysics)) return;
 
-        // NEW: cooldown gate
+        // cooldown gate
         if (Time.time < nextMeleeReady) return;
         nextMeleeReady = Time.time + meleeCooldown;
 

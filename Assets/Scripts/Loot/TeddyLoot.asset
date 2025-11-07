@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c112ebc3d245cbe4381f0ed8c390ea46, type: 3}
   m_Name: TeddyLoot
   m_EditorClassIdentifier: 
-  itemDatabase: {fileID: 11400000, guid: b98911f19b6a48844837b0412669849f, type: 2}
+  itemDatabase: {fileID: 11400000, guid: f0c2749d45b98a047951934cb63924de, type: 2}
   itemRolls: {x: 1, y: 2}
-  itemDropChance: 0.6
-  dollarsPerLevel: 3
+  itemDropChance: 0.5
+  dollarsPerLevel: 1
   moneyRandomFactor: {x: 0.5, y: 1.5}
-  ilvlVariance: 2
+  ilvlVariance: 0

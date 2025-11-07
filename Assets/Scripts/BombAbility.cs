@@ -18,6 +18,16 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
     public GameObject bombPrefab;
     public GameObject explosionVfxPrefab;
 
+    [Header("Aim Constraints")]
+    [Tooltip("Max throw distance in tiles from the player.")]
+    public int maxRangeTiles = 12;
+
+    [Tooltip("Layers considered solid for line-of-sight (e.g., 'Wall').")]
+    public LayerMask wallMask;
+
+    [Tooltip("Small backoff distance (meters) from a blocking wall when snapping the telegraph.")]
+    public float wallBackoff = 0.2f;
+
     [Header("Impact SFX")]                       // <<< NEW
     [SerializeField] private AudioClip impactSfx;
     [SerializeField, Range(0f, 2f)] private float impactVolume = 1f;
@@ -79,6 +89,10 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         currentCharges = Mathf.Max(1, maxCharges);
         if (currentCharges < maxCharges)
             nextChargeReadyTime = Time.time + Mathf.Max(0.01f, rechargeSeconds);
+
+        // Default to "Wall" if left empty
+        if (wallMask.value == 0)
+            wallMask = LayerMask.GetMask("Wall");
     }
 
     void Update()
@@ -94,7 +108,8 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
             {
                 isAiming = true;
                 if (autoAttack) autoAttack.IsSuppressedByOtherAbilities = true;
-                UpdateMarkers(GetMouseSnapTileCenter());
+                var seed = ConstrainTarget(GetMouseSnapTileCenter());
+                UpdateMarkers(seed);
             }
             return;
         }
@@ -102,7 +117,7 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         // Aiming
         if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1)) { EndAim(true); return; }
 
-        Vector3 cur = GetMouseSnapTileCenter();
+        Vector3 cur = ConstrainTarget(GetMouseSnapTileCenter());
         if ((cur - aimCenter).sqrMagnitude > 0.0001f) UpdateMarkers(cur);
 
         if (Input.GetMouseButtonDown(0))
@@ -281,6 +296,45 @@ public class BombAbility : MonoBehaviour, IAbilityUI, IClassRestrictedAbility, I
         Vector3 fallback = ctx.Snap(transform.position);
         if (ctx.TryGetGroundHeight(fallback, out float gy2)) fallback.y = gy2;
         return fallback;
+    }
+
+    Vector3 ConstrainTarget(Vector3 desiredCenter)
+    {
+        // Player start (snap to grid) and raise a bit to cast through clear space
+        Vector3 start = ctx.Snap(transform.position);
+        if (ctx.TryGetGroundHeight(start, out float sgy)) start.y = sgy;
+        Vector3 startCast = start + Vector3.up * 0.6f;
+
+        // 1) Clamp by max range (tiles)
+        float maxMeters = Mathf.Max(1, maxRangeTiles) * Mathf.Max(0.0001f, ctx.tileSize);
+        Vector3 flatTo = desiredCenter; flatTo.y = start.y;
+        Vector3 delta = flatTo - start;
+        float dist = delta.magnitude;
+        if (dist > maxMeters)
+        {
+            flatTo = start + delta.normalized * maxMeters;
+            desiredCenter = new Vector3(flatTo.x, desiredCenter.y, flatTo.z);
+        }
+
+        // 2) Stop at walls (linecast from player to candidate)
+        // Cast slightly above the ground to avoid floor hits
+        Vector3 endCast = new Vector3(desiredCenter.x, startCast.y, desiredCenter.z);
+        Vector3 dir = (endCast - startCast);
+        float len = dir.magnitude;
+        if (len > 0.0001f)
+        {
+            dir /= len;
+            if (Physics.Raycast(startCast, dir, out var hit, len, wallMask, QueryTriggerInteraction.Ignore))
+            {
+                // Back off a little from the wall and snap to grid
+                Vector3 backed = hit.point - dir * Mathf.Max(0.01f, wallBackoff);
+                desiredCenter = ctx.Snap(backed);
+            }
+        }
+
+        // Snap to ground height for the final center
+        if (ctx.TryGetGroundHeight(desiredCenter, out float gy)) desiredCenter.y = gy;
+        return desiredCenter;
     }
 
     // ---- IAbilityUI ----

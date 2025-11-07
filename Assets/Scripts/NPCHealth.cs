@@ -25,6 +25,10 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     public Vector2 lootCursorHotspot = new Vector2(8, 2);
     public Canvas mainUICanvas;
 
+    [Header("Loot FX")]
+    public GameObject lootSparklesPrefab;
+    public Vector3 lootSparklesOffset = new Vector3(0f, 0.25f, 0f);
+
     [Header("Corpse Click Box")]
     [Tooltip("Approx height of the clickable trigger box (centered above ground).")]
     public float corpseClickableHeight = 0.5f;
@@ -161,6 +165,21 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
                 bc.center = new Vector3(0f, yOff + h * 0.5f, 0f);
             }
         }
+
+        // Make all corpse colliders non-blocking for combat but still raycastable for UI
+        const string corpseLayerName = "CorpseLoot";
+        int corpseLayer = LayerMask.NameToLayer(corpseLayerName);
+        if (corpseLayer == -1)
+            Debug.LogWarning($"Layer '{corpseLayerName}' not found. Create it in Project Settings → Tags & Layers.");
+
+        var allCols = GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < allCols.Length; i++)
+        {
+            var c = allCols[i];           // use a different name than the earlier 'col'
+            if (!c) continue;
+            c.gameObject.layer = corpseLayer;
+            c.isTrigger = true;           // never blocks bullets / nav / physics
+        }
         
         // Add/reuse CorpseLoot ON THIS GAMEOBJECT
         var corpse = GetComponent<CorpseLoot>();
@@ -173,6 +192,8 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         corpse.cursorOwner     = cursorOwner;
         corpse.lootCursor      = lootCursor;
         corpse.lootHotspot     = lootCursorHotspot;
+        corpse.lootFXPrefab = lootSparklesPrefab;
+        corpse.lootFXOffset = lootSparklesOffset;
 
         // tell it which canvas to use for the loot window
         corpse.preferredCanvas = mainUICanvas;

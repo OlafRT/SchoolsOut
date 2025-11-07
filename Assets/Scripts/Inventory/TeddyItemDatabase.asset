@@ -13,5 +13,4 @@ MonoBehaviour:
   m_Name: TeddyItemDatabase
   m_EditorClassIdentifier: 
   templates:
-  - {fileID: 11400000, guid: 8baa8f1971c0b9a4bb834bce00b7f5b2, type: 2}
-  - {fileID: 11400000, guid: b0136faeb9656714fbfcc2581fe294a5, type: 2}
+  - {fileID: 11400000, guid: 625f1b5259b398541baf462672cda30f, type: 2}

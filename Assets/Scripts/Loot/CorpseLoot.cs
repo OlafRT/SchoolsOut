@@ -24,6 +24,15 @@ public class CorpseLoot : MonoBehaviour,
     [Header("UI target")]
     public Canvas preferredCanvas; // main UI canvas to spawn LootWindow under
 
+    // ---------------- Loot FX ----------------
+    [Header("Loot FX")]
+    [Tooltip("Particle prefab (e.g., sparkles) to show while corpse has loot.")]
+    public GameObject lootFXPrefab;
+    [Tooltip("Local offset where the FX should sit (above the body).")]
+    public Vector3 lootFXOffset = new Vector3(0f, 0.25f, 0f);
+    GameObject _lootFXInstance;
+    // ----------------------------------------------
+
     LootUI _openUI;
     bool _hovering;
 
@@ -42,6 +51,8 @@ public class CorpseLoot : MonoBehaviour,
         items = profile ? profile.RollItems(npcLevel, rolls) : new List<ItemInstance>();
         if (items.Count > 3)
             items.RemoveRange(3, items.Count - 3);
+
+        UpdateLootFX(); // NEW: turn on FX if we actually have loot
     }
 
     void Update()
@@ -55,7 +66,11 @@ public class CorpseLoot : MonoBehaviour,
             // also restore cursor in case player was still hovering the corpse itself
             ForceRestoreCursor();
 
+            // NEW: clean up FX
+            if (_lootFXInstance) Destroy(_lootFXInstance);
+
             Destroy(gameObject);
+            return;
         }
     }
 
@@ -75,9 +90,10 @@ public class CorpseLoot : MonoBehaviour,
         var inst = items[corpseIndex];
         if (inst != null)
         {
-            // remove it from corpse
             items.RemoveAt(corpseIndex);
         }
+
+        UpdateLootFX();
         return inst;
     }
 
@@ -86,6 +102,7 @@ public class CorpseLoot : MonoBehaviour,
     {
         int amt = dollars;
         dollars = 0;
+        UpdateLootFX();
         return amt;
     }
 
@@ -131,16 +148,12 @@ public class CorpseLoot : MonoBehaviour,
         Canvas canvas = preferredCanvas;
         if (!canvas)
         {
-            // try to find the "UI" canvas
             var allCanvases = FindObjectsOfType<Canvas>();
             foreach (var c in allCanvases)
             {
                 if (c.name == "UI") { canvas = c; break; }
             }
-
-            // last resort, literally any canvas
-            if (!canvas)
-                canvas = FindAnyObjectByType<Canvas>();
+            if (!canvas) canvas = FindAnyObjectByType<Canvas>();
         }
 
         if (!canvas)
@@ -149,13 +162,11 @@ public class CorpseLoot : MonoBehaviour,
             return;
         }
 
-        // instantiate once and keep reusing
         if (_openUI == null)
         {
             _openUI = Instantiate(lootUIPrefab, canvas.transform);
             _openUI.gameObject.name = "LootWindow(Clone)";
 
-            // auto-wire refs if missing
             if (_openUI.playerInventory == null)
                 _openUI.playerInventory = FindAnyObjectByType<Inventory>();
             if (_openUI.wallet == null)
@@ -165,24 +176,18 @@ public class CorpseLoot : MonoBehaviour,
             if (_openUI.tooltip == null)
                 _openUI.tooltip = FindAnyObjectByType<ItemTooltipUI>();
 
-            // initial position
             RectTransform rt = _openUI.transform as RectTransform;
             if (rt)
             {
-                rt.anchorMin = new Vector2(0.5f, 0.5f);
-                rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
                 rt.anchoredPosition = Vector2.zero;
             }
         }
 
-        // bind (tells LootUI: "this corpse is your data source")
         _openUI.Bind(this);
-
-        // show, move on top, and build the slots
         _openUI.gameObject.SetActive(true);
         _openUI.transform.SetAsLastSibling();
-        _openUI.Refresh(); // calls RebuildSlots() inside LootUI
+        _openUI.Refresh();
     }
 
     // called if some external code wants to instantly nuke corpse (not strictly required anymore)
@@ -192,19 +197,14 @@ public class CorpseLoot : MonoBehaviour,
 
         ForceRestoreCursor();
 
+        UpdateLootFX(); // hide sparkles if we became empty
         //Destroy(gameObject);
     }
 
     void ForceRestoreCursor()
     {
-        // if we had changed the cursor to lootCursor, clear it
         Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
-
-        // and ask EquipmentManager to go back to normal cursor
-        if (cursorOwner != null)
-        {
-            cursorOwner.RestoreCursor();
-        }
+        if (cursorOwner != null) cursorOwner.RestoreCursor();
     }
 
     public void PutBackItem(int corpseIndex, ItemInstance inst)
@@ -212,10 +212,34 @@ public class CorpseLoot : MonoBehaviour,
         if (inst == null) return;
         if (items == null) items = new List<ItemInstance>();
 
-        // clamp index; if out of range, just append at end
         if (corpseIndex < 0 || corpseIndex > items.Count)
             corpseIndex = items.Count;
 
         items.Insert(corpseIndex, inst);
+        UpdateLootFX();
     }
+
+    // ---------------- FX spawn/cleanup ---------------
+    void UpdateLootFX()
+    {
+        bool shouldHaveFX = !IsEmpty && lootFXPrefab != null;
+
+        if (shouldHaveFX)
+        {
+            if (_lootFXInstance == null)
+            {
+                _lootFXInstance = Instantiate(lootFXPrefab, transform, false);
+                _lootFXInstance.transform.localPosition = lootFXOffset;
+            }
+        }
+        else
+        {
+            if (_lootFXInstance != null)
+            {
+                Destroy(_lootFXInstance);
+                _lootFXInstance = null;
+            }
+        }
+    }
+    // ------------------------------------------------------
 }

@@ -16,8 +16,8 @@ MonoBehaviour:
   title: Teddy's Clones
   description: There's 5 evil clones of Teddy running around! I need to put them
     down!
-  giverNpcId: NPC_Teddy
-  turnInNpcId: NPC_Teddy
+  giverNpcId: Teddy
+  turnInNpcId: Teddy
   xpReward: 100
   moneyReward: 1
   itemReward: {fileID: 11400000, guid: cb532e49a2a3ab84dac3a7c9609ce401, type: 2}

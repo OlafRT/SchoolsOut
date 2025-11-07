@@ -32,3 +32,5 @@ MonoBehaviour:
   fixedToughness: 0
   fixedValue: 1
   forcedAffix: 0
+  isStackable: 1
+  maxStackSize: 20
