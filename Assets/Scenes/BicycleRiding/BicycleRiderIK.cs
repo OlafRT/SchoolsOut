@@ -26,6 +26,16 @@ public class BicycleRiderIK : MonoBehaviour
     [Range(0,1)] public float handsWeightFast = 0.85f;
     [Range(0,1)] public float hintWeight = 0.8f;
 
+    [Header("Inhaler Pose")]
+    public Transform mouthTarget;
+    [Tooltip("Seconds the right hand stays at the mouth when using an inhaler.")]
+    public float inhalerPoseTime = 1.0f;
+    [Range(0,1)] public float inhalerHandWeight = 1f;
+
+    [Header("Inhaler Prop")]
+    [Tooltip("A regular-sized inhaler GameObject parented to the rider's right-hand bone. Leave disabled by default.")]
+    public GameObject handInhaler;
+
     [Header("Body Align")]
     public bool alignHipsToSeatRotation = true;      // rotate pelvis with the bike/seat
     public Vector3 pelvisYawPitchRollDeg;            // tiny local rotation trim if needed
@@ -57,11 +67,16 @@ public class BicycleRiderIK : MonoBehaviour
 
     float footBlend;      // 0 = on pedal, 1 = on ground/target
     float footBlendVel;   // for SmoothDamp
+    float inhalerTimer;
     // -------------------------------------------------------------
 
     Animator anim;
 
-    void Awake() { anim = GetComponent<Animator>(); }
+    void Awake()
+    {
+        anim = GetComponent<Animator>();
+        if (handInhaler) handInhaler.SetActive(false);   // ensure hidden on load
+    }
 
     void OnAnimatorIK(int layerIndex)
     {
@@ -78,6 +93,8 @@ public class BicycleRiderIK : MonoBehaviour
         // 2) Blend hand stickiness by speed (more glued when slow / steering with bars)
         float tSpeed = Mathf.Clamp01(bike.HandlebarBlend); // 0 slow -> 1 fast
         float handsW = Mathf.Lerp(handsWeightSlow, handsWeightFast, tSpeed);
+        bool inhalerActive = inhalerTimer > 0f;
+        if (inhalerActive) inhalerTimer -= Time.deltaTime;
 
         // 3) Update foot-down blend (with hysteresis)
         float spd = bike.CurrentSpeed;
@@ -109,8 +126,18 @@ public class BicycleRiderIK : MonoBehaviour
         SetHint(AvatarIKHint.RightKnee, rightKneeHint, hintWeight);
 
         // 7) Hands to grips
-        SetIK(AvatarIKGoal.LeftHand,  leftGrip,  handsW);
-        SetIK(AvatarIKGoal.RightHand, rightGrip, handsW);
+        if (inhalerActive && mouthTarget)
+        {
+            // Left hand stays on bar, right hand to mouth
+            SetIK(AvatarIKGoal.LeftHand,  leftGrip,  handsW);
+            SetIK(AvatarIKGoal.RightHand, mouthTarget, inhalerHandWeight);
+        }
+        else
+        {
+            // Normal both-hands-on-bars behavior
+            SetIK(AvatarIKGoal.LeftHand,  leftGrip,  handsW);
+            SetIK(AvatarIKGoal.RightHand, rightGrip, handsW);
+        }
 
         // 8) Elbow hints
         SetHint(AvatarIKHint.LeftElbow,  leftElbowHint,  hintWeight);
@@ -193,6 +220,26 @@ public class BicycleRiderIK : MonoBehaviour
         if (!t) return;
         anim.SetIKHintPositionWeight(hint, w);
         anim.SetIKHintPosition(hint, t.position);
+    }
+
+    public void PlayInhalerPose(float duration = -1f)
+    {
+        inhalerTimer = (duration > 0f) ? duration : inhalerPoseTime;
+
+        // Show the hand prop while we pose
+        if (handInhaler) handInhaler.SetActive(true);
+
+        // Restart the hide coroutine so overlapping uses extend correctly
+        StopAllCoroutines();
+        StartCoroutine(CoHideInhalerAfter(inhalerTimer));
+    }
+
+    System.Collections.IEnumerator CoHideInhalerAfter(float t)
+    {
+        // Keep the hand at the mouth slightly longer if you like:
+        float hold = Mathf.Max(0.05f, t);
+        yield return new WaitForSeconds(hold);
+        if (handInhaler) handInhaler.SetActive(false);
     }
 
 #if UNITY_EDITOR

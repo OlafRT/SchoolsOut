@@ -145,6 +145,35 @@ public class BicycleController : MonoBehaviour
 
     [Tooltip("Extra decay on exertion while braking or nearly stopped.")]
     public float exertionExtraDecayWhileIdle = 2.0f;
+
+    [Header("Breath / Exhaustion")]
+    public float maxBreath = 100f;
+    public float breath = 100f;
+    [Tooltip("Passive drain per second while moving.")]
+    public float breathDrainPerSec = 2.0f;
+    [Tooltip("Extra drain per pedal tap.")]
+    public float breathDrainPerTap = 1.5f;
+    [Tooltip("Speed is clamped when breath is very low.")]
+    public float lowBreathSpeedCap = 4.0f;
+    [Tooltip("If breath hits 0, we stop and 'fail'.")]
+    public bool stopOnZeroBreath = true;
+
+    [Header("Death On Zero Breath")]
+    public bool enableDeathUI = true;
+    public BreathDeathUI deathUI;      // assign in inspector
+    [SerializeField] float stopSpeedToDie = 0.08f; // how slow before we fade in UI
+    bool deathTriggered;
+
+    [Header("Inhaler Effect")]
+    public float inhaleRefillAmount = 35f;
+    public float boostMultiplier = 1.25f;     // multiplies pedalImpulseAccel & maxSpeed
+    public float boostSeconds = 2.0f;
+    public AudioClip inhalerClip;             // one-shot on pickup/use
+    public ParticleSystem inhalerSpray;       // assign the child PS on the rider here
+
+    [Header("Rider")]
+    public BicycleRiderIK riderIK;            // to trigger hand-to-mouth
+    public Transform riderMouth;              // same as riderIK.mouthTarget
     // ----------------------------------
 
     private float wheelDeg;
@@ -152,6 +181,9 @@ public class BicycleController : MonoBehaviour
     private float cadenceDegPerSec;
     private bool  WPressedThisFrame;
     private float tapTimer;
+    float boostTimer;
+    float baseMaxSpeed;
+    float basePedalImpulse;
     // audio bookkeeping
     float breathTimer;
     float exertion;
@@ -183,6 +215,8 @@ public class BicycleController : MonoBehaviour
     {
         if (leftPedal)  leftDefaultLocalRot  = Quaternion.Inverse(transform.rotation) * leftPedal.rotation;
         if (rightPedal) rightDefaultLocalRot = Quaternion.Inverse(transform.rotation) * rightPedal.rotation;
+        baseMaxSpeed = maxSpeed;
+        basePedalImpulse = pedalImpulseAccel;
     }
 
     void Update()
@@ -192,6 +226,7 @@ public class BicycleController : MonoBehaviour
             WPressedThisFrame = true;
             exertion += exertionPerTap;
             tapTimes.Add(Time.time);
+            breath = Mathf.Max(0f, breath - breathDrainPerTap);
         }
 
         // Drop old taps outside the window
@@ -205,6 +240,35 @@ public class BicycleController : MonoBehaviour
         if (braking || CurrentSpeed < 0.5f) extraDecay = exertionExtraDecayWhileIdle;
 
         exertion = Mathf.Max(0f, exertion - (exertionDecayPerSec + extraDecay) * Time.deltaTime);
+
+        // Passive drain when moving
+        if (CurrentSpeed > 0.2f)
+        breath = Mathf.Max(0f, breath - breathDrainPerSec * Time.deltaTime);
+
+        // Handle zero-breath fail
+        if (breath <= 0f && stopOnZeroBreath)
+        {
+            // Gently stop the bike
+            rb.velocity = Vector3.MoveTowards(rb.velocity, Vector3.zero, 8f * Time.deltaTime);
+
+            // When we're essentially stopped, trigger death once
+            if (!deathTriggered && CurrentSpeed <= stopSpeedToDie)
+                TriggerBreathDeath();
+        }
+
+        // Boost timer tick
+        if (boostTimer > 0f)
+        {
+            boostTimer -= Time.deltaTime;
+            float mul = (boostTimer > 0f) ? boostMultiplier : 1f;
+            maxSpeed = baseMaxSpeed * mul;
+            pedalImpulseAccel = basePedalImpulse * mul;
+            if (boostTimer <= 0f)
+            {
+                maxSpeed = baseMaxSpeed;
+                pedalImpulseAccel = basePedalImpulse;
+            }
+        }
 
         breathTimer -= Time.deltaTime;
     }
@@ -249,8 +313,13 @@ public class BicycleController : MonoBehaviour
         // --- Flatten unwanted vertical movement ---
         rb.velocity = new Vector3(rb.velocity.x, Mathf.Min(rb.velocity.y, 0f), rb.velocity.z);
 
+        // Low-breath cap (soft limiter)
+        float effectiveMax = maxSpeed;
+        if (breath <= 5f) effectiveMax = Mathf.Min(effectiveMax, lowBreathSpeedCap);
+
         // --- Tap pedaling ---
-        if (WPressedThisFrame && tapTimer <= 0f && speedAlongForward < pedalMaxSpeed && !frontBrake && !rearBrake)
+        // Use effectiveMax instead of maxSpeed where relevant (speed checks):
+        if (WPressedThisFrame && tapTimer <= 0f && speedAlongForward < pedalMaxSpeed && !frontBrake && !rearBrake && breath > 0f)
         {
             rb.AddForce(forward * pedalImpulseAccel, ForceMode.Acceleration);
             cadenceDegPerSec = Mathf.Min(maxCadence, cadenceDegPerSec + cadenceBoostPerTap);
@@ -505,5 +574,54 @@ public class BicycleController : MonoBehaviour
                 breathTimer = breathCooldown;
             }
         }
+    }
+
+    // Public API for pickups:
+    public void ApplyInhaler(float refillAmount, float speedBoostMul, float duration)
+    {
+        breath = Mathf.Min(maxBreath, breath + Mathf.Max(0f, refillAmount));
+        boostMultiplier = Mathf.Max(1f, speedBoostMul);
+        boostSeconds = Mathf.Max(0f, duration);
+        boostTimer = boostSeconds;
+
+        // Hand pose & SFX
+        if (riderIK) riderIK.PlayInhalerPose(boostSeconds * 0.6f);
+        if (oneShotSource && inhalerClip) oneShotSource.PlayOneShot(inhalerClip, 1f);
+
+        // --- PLAY EXISTING CHILD PARTICLES (no Instantiate) ---
+        if (inhalerSpray)
+        {
+            // Optional: align to mouth each time
+            if (riderMouth)
+            {
+                inhalerSpray.transform.position = riderMouth.position;
+                inhalerSpray.transform.rotation = riderMouth.rotation;
+            }
+
+            // Make sure we restart cleanly
+            inhalerSpray.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            inhalerSpray.Play(true);
+        }
+    } 
+
+    void TriggerBreathDeath()
+    {
+        if (deathTriggered) return;
+        deathTriggered = true;
+
+        // Stop physics/control
+        if (rb)
+        {
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.constraints = RigidbodyConstraints.FreezeAll;
+        }
+
+        // Mute ongoing loops if you want (optional):
+        if (rollingLoop && rollingLoop.isPlaying) rollingLoop.Stop();
+        if (rearSlideLoop && rearSlideLoop.isPlaying) rearSlideLoop.Stop();
+
+        // Show UI
+        if (enableDeathUI && deathUI) deathUI.Show();
     }
 }
