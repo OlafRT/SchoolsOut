@@ -128,7 +128,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         var abilities = GetComponent<PlayerAbilities>(); if (abilities) abilities.enabled = false;
 
         OnDied?.Invoke();
-        PlayerHUD.TryShowDeathPanel();
+        //PlayerHUD.TryShowDeathPanel();
 
         currentHP = 0;
         NotifyHUD();

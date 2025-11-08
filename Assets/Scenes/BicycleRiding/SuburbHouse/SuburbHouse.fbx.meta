@@ -3,7 +3,27 @@ guid: 163bfa8f03f55ea41a51d548474ad7eb
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ChimneyAndBase
+    second: {fileID: 2100000, guid: 0621f945540fabe42b411c17a95e2868, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: PorchAndGarageDoor
+    second: {fileID: 2100000, guid: 46800e63df97d5646a48d9979d46e5a5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: SuburbHouse
+    second: {fileID: 2100000, guid: 2d0b1a4c88339dc4ba9f49c74c99bc5c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: WindowsNDoor
+    second: {fileID: 2100000, guid: 7e92b350ded675145a708a80ccad4f0a, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

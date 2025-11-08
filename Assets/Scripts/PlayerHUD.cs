@@ -41,7 +41,7 @@ public class PlayerHUD : MonoBehaviour
         if (ph)
         {
             ph.OnDamaged += (_, __) => TryFlashDamage();
-            ph.OnDied    += TryShowDeathPanel;
+            //ph.OnDied    += TryShowDeathPanel;
         }
     }
 

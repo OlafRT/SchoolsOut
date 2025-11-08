@@ -3,7 +3,12 @@ guid: 48202ad393c98214e92eac7b2459cb88
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: PicketFence
+    second: {fileID: 2100000, guid: e4b1af8ba9c45604abe2e2199c026213, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
