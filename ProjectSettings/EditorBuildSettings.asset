@@ -11,4 +11,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Testing.unity
     guid: d034dc03d3d280e4ca2f708f07595a31
+  - enabled: 1
+    path: Assets/Scenes/Bicycle.unity
+    guid: 37ee9392c3176104abaf1b1b2bd200b2
   m_configObjects: {}
