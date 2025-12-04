@@ -10,18 +10,20 @@ public class GameSession : MonoBehaviour
     public static GameSession Instance { get; private set; }
 
     [Header("Scene")]
-    [SerializeField] private string gameSceneName = "Game";
+    [SerializeField] private string gameSceneName = "Game";      // Fallback / shared scene
+    [SerializeField] private string nerdSceneName = "Game_Nerd"; // NEW: Nerd-only scene
+    [SerializeField] private string jockSceneName = "Game_Jock"; // NEW: Jock-only scene
 
     [Header("Loading UI (optional)")]
     [SerializeField] private GameObject loadingScreenRoot;
-    [SerializeField] private Slider progressBar;                 // optional
-    [SerializeField] private TMPro.TMP_Text progressLabel;       // optional
+    [SerializeField] private Slider progressBar;
+    [SerializeField] private TMPro.TMP_Text progressLabel;
 
     [Header("Lighting Refresh")]
     [Tooltip("Call DynamicGI.UpdateEnvironment & refresh reflection probes after a scene loads.")]
     [SerializeField] private bool refreshLightingOnLoad = true;
-    [Tooltip("Extra frames to wait after load before refreshing (0–2 is usually enough).")]
-    [SerializeField][Range(0,5)] private int extraFramesToWait = 1;
+    [Tooltip("Extra frames to wait after load before refreshing (0–5 is usually enough).")]
+    [SerializeField][Range(0, 5)] private int extraFramesToWait = 1;
 
     public ClassType SelectedClass { get; private set; } = ClassType.Nerd;
 
@@ -47,18 +49,34 @@ public class GameSession : MonoBehaviour
     public void StartAsNerd() => BeginNewGame(ClassType.Nerd);
     public void StartAsJock() => BeginNewGame(ClassType.Jock);
 
-    // You can still call this directly if you prefer:
     public void BeginNewGame(ClassType pick)
     {
         SelectedClass = pick;
-        StartCoroutine(LoadGameCo());
+
+        // Decide which scene to load based on class
+        string targetScene = GetSceneNameForClass(pick);
+
+        StartCoroutine(LoadGameCo(targetScene));
     }
 
-    IEnumerator LoadGameCo()
+    // NEW: picks the scene name based on the selected class
+    string GetSceneNameForClass(ClassType pick)
+    {
+        if (pick == ClassType.Nerd && !string.IsNullOrEmpty(nerdSceneName))
+            return nerdSceneName;
+
+        if (pick == ClassType.Jock && !string.IsNullOrEmpty(jockSceneName))
+            return jockSceneName;
+
+        // Fallback if specific one is not set
+        return gameSceneName;
+    }
+
+    IEnumerator LoadGameCo(string sceneName)
     {
         if (loadingScreenRoot) loadingScreenRoot.SetActive(true);
 
-        var op = SceneManager.LoadSceneAsync(gameSceneName);
+        var op = SceneManager.LoadSceneAsync(sceneName);
         op.allowSceneActivation = false;
 
         while (op.progress < 0.9f)
@@ -85,14 +103,10 @@ public class GameSession : MonoBehaviour
 
     IEnumerator RefreshLightingNextFrame()
     {
-        // wait a couple of frames so everything is enabled
         yield return null;
         for (int i = 0; i < extraFramesToWait; i++) yield return null;
 
-        // Rebuild ambient/default reflection from the skybox
         DynamicGI.UpdateEnvironment();
-
-        // Refresh realtime reflection probes in the scene (works across Unity versions)
         RefreshRealtimeReflectionProbes();
     }
 
@@ -104,7 +118,6 @@ public class GameSession : MonoBehaviour
             var p = probes[i];
             if (!p || !p.isActiveAndEnabled) continue;
 
-            // Only re-render realtime probes; baked ones use their baked data
             if (p.mode == UnityEngine.Rendering.ReflectionProbeMode.Realtime)
             {
                 p.RenderProbe();
