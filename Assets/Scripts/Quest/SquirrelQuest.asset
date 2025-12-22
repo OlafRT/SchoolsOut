@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c630c849c1ef7144f95fb338abccb4f1, type: 3}
+  m_Name: SquirrelQuest
+  m_EditorClassIdentifier: 
+  questId: ekorn_help
+  title: Find help!
+  description: This squirrel seems to need help saving the forest! Find someone that
+    can speak squirrel!
+  giverNpcId: Squirrel
+  turnInNpcId: Marvin
+  xpReward: 55
+  moneyReward: 0
+  itemReward: {fileID: 0}
+  itemAmount: 1
+  objectives:
+  - type: 2
+    targetId: Marvin
+    requiredCount: 0
