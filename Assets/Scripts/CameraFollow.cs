@@ -4,6 +4,7 @@ public class CameraFollow : MonoBehaviour
 {
     [Header("Target")]
     public Transform player;
+    public Transform followTarget;
 
     [Header("Zoom Presets (edit in Inspector)")]
     [Tooltip("Offset when fully zoomed OUT (zoom = 0).")]
@@ -76,7 +77,9 @@ public class CameraFollow : MonoBehaviour
         float   targetPitch  = Mathf.Lerp(pitchFar,  pitchNear,  zoom);
 
         // Target position with shaker offset
-        Vector3 desiredPos = player.position + targetOffset + extraOffset;
+        Transform p = followTarget ? followTarget : player;
+        Vector3 desiredPos = p.position + targetOffset + extraOffset;
+
         float posT = 1f - Mathf.Exp(-positionLerpSpeed * Time.deltaTime);
         transform.position = Vector3.Lerp(transform.position, desiredPos, posT);
 
@@ -92,6 +95,7 @@ public class CameraFollow : MonoBehaviour
             float fovT = 1f - Mathf.Exp(-fovLerpSpeed * Time.deltaTime);
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, fovT);
         }
+
     }
 
     /// <summary>Drive sprint state from your movement script (e.g., when using custom input).</summary>

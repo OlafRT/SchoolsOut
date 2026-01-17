@@ -44,6 +44,11 @@ public class PlayerMovement : MonoBehaviour
     [Tooltip("Minimum magnitude considered 'moving' (prevents jitter).")]
     [SerializeField] private float moveEpsilon = 0.01f;
 
+    [Header("Camera Proxy (Optional)")]
+    public Transform cameraFollowTarget;
+    public float cameraFollowSmooth = 25f;
+    Vector3 cameraFollowVel;
+
     private bool isMoving = false;
     private Vector3 targetPosition;
     private Vector3 lastPosition;
@@ -107,6 +112,14 @@ public class PlayerMovement : MonoBehaviour
         // init yaw index for turning-in-place detection
         lastYawIndex = YawIndex8(transform.forward);
         lastFacing = transform.forward;
+
+        if (!cameraFollowTarget)
+        {
+            var t = transform.Find("PlayerFollowTarget");
+            if (t) cameraFollowTarget = t;
+        }
+        if (cameraFollowTarget)
+        cameraFollowTarget.position = transform.position;
     }
 
     void Update()
@@ -173,6 +186,12 @@ public class PlayerMovement : MonoBehaviour
 
         // Update animator using either the active step direction (if moving) or current wish
         UpdateAnimatorLocomotion(wish, /*wishDirValid*/ wish != Vector3.zero, isRunning);
+        if (cameraFollowTarget)
+        {
+            // Always chase the real transform position (not the snapped target)
+            float t = 1f - Mathf.Exp(-cameraFollowSmooth * Time.deltaTime);
+            cameraFollowTarget.position = Vector3.Lerp(cameraFollowTarget.position, transform.position, t);
+        }
     }
 
     // ---------- NEW: robust step start with sphere casts and axis-split for diagonals ----------
