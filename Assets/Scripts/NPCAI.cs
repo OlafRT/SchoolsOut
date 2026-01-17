@@ -77,6 +77,37 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Tooltip("Float parameter used by a 0..1 blend tree (0=Idle, 1=Walk).")]
     public string locomotionSpeedParam = "Speed01";
 
+    [Header("Animation (Locomotion)")]
+    public string isMovingBool = "IsMoving";
+    public string isRunningBool = "IsRunning";
+
+    [Tooltip("Tiles/sec at which we consider it a 'walk'.")]
+    public float walkTilesPerSecond = 2.0f;
+
+    [Tooltip("Tiles/sec at which we consider it a 'run'.")]
+    public float runTilesPerSecond = 4.0f;
+
+    [Header("Animation (Combat)")]
+    public string attackTriggerName = "Attack";
+    public bool lockMovementDuringAttack = true;
+    public float attackWindupSeconds = 0.15f;   // time before damage applies
+    public float attackRecoverSeconds = 0.35f;  // time after damage before AI continues
+
+    [Header("Animation (Idle Variants)")]
+    public bool enableRandomIdleVariants = true;
+    public float idleVariantMinSeconds = 6f;
+    public float idleVariantMaxSeconds = 14f;
+    public string talkTriggerName = "Talk";
+    public string phoneTriggerName = "Phone";
+    public string danceTriggerName = "Dance";
+    [Range(0f, 1f)] public float talkChance = 0.45f;
+    [Range(0f, 1f)] public float phoneChance = 0.35f;
+    // remaining chance becomes Dance
+
+    float stillTime = 0f;
+    float nextIdleVariantAt = 0f;
+    Coroutine attackRoutine;
+
     // ---- convenience
     public NPCFaction Faction => faction;
     public PlayerStats.AbilitySchool? FactionSchool => faction.ToAbilitySchool();
@@ -177,12 +208,15 @@ public class NPCAI : MonoBehaviour, IStunnable
         }
 
         // --- Locomotion param (Idle/Walk) ---
-        if (animator && !string.IsNullOrEmpty(locomotionSpeedParam))
-        {
-            float s = (mover && mover.IsMoving) ? 1f : 0f;
-            animator.SetFloat(locomotionSpeedParam, s);
-        }
+        //if (animator && !string.IsNullOrEmpty(locomotionSpeedParam))
+        //{
+        //    float s = (mover && mover.IsMoving) ? 1f : 0f;
+        //    animator.SetFloat(locomotionSpeedParam, s);
+        //}
 
+        UpdateAnimatorLocomotion();
+        UpdateIdleVariants();
+        
         if (logAI && player)
         {
             bool los = HasLineOfSight(player.transform.position);
@@ -460,6 +494,90 @@ public class NPCAI : MonoBehaviour, IStunnable
         else DoWander();
     }
 
+    void UpdateAnimatorLocomotion()
+    {
+        if (!animator || !mover) return;
+
+        bool moving = mover.IsMoving && !isAttacking;
+
+        // Current actual tiles/sec
+        float tps = mover.tilesPerSecond * mover.EffectiveSpeedMultiplier();
+
+        // Build a nice 0..1 value with a "walk midpoint" at 0.5
+        float speed01 = 0f;
+        bool running = false;
+
+        if (moving)
+        {
+            if (tps <= walkTilesPerSecond)
+            {
+                // 0..walk -> 0..0.5
+                speed01 = 0.5f * Mathf.Clamp01(tps / Mathf.Max(0.01f, walkTilesPerSecond));
+            }
+            else
+            {
+                // walk..run -> 0.5..1
+                float denom = Mathf.Max(0.01f, (runTilesPerSecond - walkTilesPerSecond));
+                float x = Mathf.Clamp01((tps - walkTilesPerSecond) / denom);
+                speed01 = 0.5f + 0.5f * x;
+            }
+
+            // Running should basically mean: hostile chase speed OR high movement speed
+            running = (runtimeHostility == Hostility.Hostile) || (tps >= (walkTilesPerSecond * 1.25f));
+        }
+
+        if (!string.IsNullOrEmpty(locomotionSpeedParam))
+            animator.SetFloat(locomotionSpeedParam, speed01);
+
+        if (!string.IsNullOrEmpty(isMovingBool))
+            animator.SetBool(isMovingBool, moving);
+
+        if (!string.IsNullOrEmpty(isRunningBool))
+            animator.SetBool(isRunningBool, running);
+    }
+
+    void UpdateIdleVariants()
+    {
+        if (!enableRandomIdleVariants || !animator) return;
+
+        // Only do fun idles when calm + not moving + not attacking + not stunned
+        bool calm = (runtimeHostility == Hostility.Neutral || runtimeHostility == Hostility.Friendly);
+        bool canIdleVariant = calm && !isAttacking && mover != null && !mover.IsMoving && !isStunned;
+
+        if (!canIdleVariant)
+        {
+            stillTime = 0f;
+            nextIdleVariantAt = 0f;
+            return;
+        }
+
+        stillTime += Time.deltaTime;
+
+        if (nextIdleVariantAt <= 0f)
+            nextIdleVariantAt = Random.Range(idleVariantMinSeconds, idleVariantMaxSeconds);
+
+        if (stillTime < nextIdleVariantAt) return;
+
+        // pick one of (Talk/Phone/Dance)
+        float r = Random.value;
+        if (r < talkChance)
+        {
+            if (!string.IsNullOrEmpty(talkTriggerName)) animator.SetTrigger(talkTriggerName);
+        }
+        else if (r < talkChance + phoneChance)
+        {
+            if (!string.IsNullOrEmpty(phoneTriggerName)) animator.SetTrigger(phoneTriggerName);
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(danceTriggerName)) animator.SetTrigger(danceTriggerName);
+        }
+
+        stillTime = 0f;
+        nextIdleVariantAt = Random.Range(idleVariantMinSeconds, idleVariantMaxSeconds);
+    }
+
+
     // ======================
     //  Combat
     // ======================
@@ -481,8 +599,36 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (Time.time < nextMeleeReady) return;
         nextMeleeReady = Time.time + meleeCooldown;
 
-        if (tgt.TryGetComponent<IDamageable>(out var dmg))
+        // start attack routine (anim + delayed damage)
+        if (attackRoutine != null) StopCoroutine(attackRoutine);
+        attackRoutine = StartCoroutine(MeleeRoutine(tgt));
+    }
+
+    IEnumerator MeleeRoutine(Transform tgt)
+    {
+        if (!tgt) yield break;
+
+        isAttacking = true;
+
+        if (lockMovementDuringAttack && mover)
+            mover.HardStop();
+
+        if (animator && !string.IsNullOrEmpty(attackTriggerName))
+            animator.SetTrigger(attackTriggerName);
+
+        // wait for “hit moment”
+        if (attackWindupSeconds > 0f)
+            yield return new WaitForSeconds(attackWindupSeconds);
+
+        if (tgt && tgt.TryGetComponent<IDamageable>(out var dmg))
             dmg.ApplyDamage(meleeDamage);
+
+        // small recovery so it doesn’t instantly snap back into stepping
+        if (attackRecoverSeconds > 0f)
+            yield return new WaitForSeconds(attackRecoverSeconds);
+
+        isAttacking = false;
+        attackRoutine = null;
     }
 
     // ======================

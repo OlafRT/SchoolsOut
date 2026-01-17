@@ -37,6 +37,14 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     [Header("Animation")]
     public string deathTriggerName = "Die";
 
+    [Header("Hit React")]
+    public bool playHitReacts = true;
+    public string hitReactTriggerA = "HitA";
+    public string hitReactTriggerB = "HitB";
+    public float hitReactCooldown = 0.25f;
+    float nextHitReactTime = 0f;
+
+
     [Header("Debug")]
     public int currentHP;
 
@@ -72,6 +80,21 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
 
         // Aggro this NPC + alert same-faction allies to attack the PLAYER
         if (ai) ai.OnDamagedByPlayer();
+
+        if (playHitReacts && Time.time >= nextHitReactTime)
+        {
+            nextHitReactTime = Time.time + hitReactCooldown;
+
+            var anim = GetComponentInChildren<Animator>();
+            if (anim)
+            {
+                // Randomly choose one of two hit reacts
+                bool a = Random.value < 0.5f;
+                string trig = a ? hitReactTriggerA : hitReactTriggerB;
+                if (!string.IsNullOrEmpty(trig))
+                    anim.SetTrigger(trig);
+            }
+        }
 
         if (currentHP == 0)
         {
