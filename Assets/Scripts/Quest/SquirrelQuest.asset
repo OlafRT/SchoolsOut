@@ -17,12 +17,12 @@ MonoBehaviour:
   description: This squirrel seems to need help saving the forest! Find someone that
     can speak squirrel!
   giverNpcId: Squirrel
-  turnInNpcId: Marvin
+  turnInNpcId: Tuber
   xpReward: 55
   moneyReward: 0
   itemReward: {fileID: 0}
   itemAmount: 1
   objectives:
   - type: 2
-    targetId: Marvin
+    targetId: Tuber
     requiredCount: 0
