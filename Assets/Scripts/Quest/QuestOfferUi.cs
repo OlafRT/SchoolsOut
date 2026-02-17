@@ -4,6 +4,8 @@ using UnityEngine.UI;
 
 public class QuestOfferUI : MonoBehaviour
 {
+    enum Mode { Offer, TurnIn }
+
     [Header("If left empty, will use this GameObject as the panel")]
     public GameObject panel;
 
@@ -14,18 +16,19 @@ public class QuestOfferUI : MonoBehaviour
     public Button declineBtn;
 
     [Header("Rewards (optional)")]
-    public GameObject rewardsRoot; // parent container for rewards (can be the row)
-    public TMP_Text xpText;        // e.g. "XP: +150"
-    public TMP_Text moneyText;     // e.g. "Money: +$20"
+    public GameObject rewardsRoot;
+    public TMP_Text xpText;
+    public TMP_Text moneyText;
 
     [Header("Item Reward (optional)")]
-    public GameObject itemRoot;   // a small container row/panel
+    public GameObject itemRoot;
     public UnityEngine.UI.Image itemIcon;
     public TMP_Text itemNameText;
 
     QuestDefinition current;
     QuestGiver giver;
     bool initialized = false;
+    Mode mode = Mode.Offer;
 
     void Awake()
     {
@@ -44,11 +47,50 @@ public class QuestOfferUI : MonoBehaviour
     public void ShowOffer(QuestDefinition def, QuestGiver g)
     {
         EnsureInit();
+        mode = Mode.Offer;
         current = def; giver = g;
 
         if (titleText) titleText.text = def ? def.title : "";
         if (descText)  descText.text  = def ? def.description : "";
 
+        if (declineBtn) declineBtn.gameObject.SetActive(true);
+        SetAcceptButtonLabel("Accept");
+
+        RefreshRewards(def);
+
+        if (panel) panel.SetActive(true);
+        DialogueController.I?.SetExternalLock(true);
+        Canvas.ForceUpdateCanvases();
+    }
+
+    public void ShowTurnIn(QuestDefinition def, QuestGiver g)
+    {
+        EnsureInit();
+        mode = Mode.TurnIn;
+        current = def; giver = g;
+
+        if (titleText) titleText.text = def ? def.title : "";
+        if (descText)  descText.text  = "Turn in this quest?";
+
+        if (declineBtn) declineBtn.gameObject.SetActive(false);
+        SetAcceptButtonLabel("Turn In");
+
+        RefreshRewards(def);
+
+        if (panel) panel.SetActive(true);
+        DialogueController.I?.SetExternalLock(true);
+        Canvas.ForceUpdateCanvases();
+    }
+
+    void SetAcceptButtonLabel(string label)
+    {
+        if (!acceptBtn) return;
+        var t = acceptBtn.GetComponentInChildren<TMP_Text>();
+        if (t) t.text = label;
+    }
+
+    void RefreshRewards(QuestDefinition def)
+    {
         // --- Rewards ---
         if (def != null)
         {
@@ -67,7 +109,6 @@ public class QuestOfferUI : MonoBehaviour
             {
                 if (def.moneyReward > 0) {
                     moneyText.gameObject.SetActive(true);
-                    // tweak currency label to your liking
                     moneyText.text = $"Money: +${def.moneyReward}";
                     any = true;
                 } else moneyText.gameObject.SetActive(false);
@@ -80,10 +121,9 @@ public class QuestOfferUI : MonoBehaviour
         if (itemRoot) itemRoot.SetActive(false);
         if (def != null && def.itemReward)
         {
-            if (itemIcon)    itemIcon.sprite = def.itemReward.icon;
+            if (itemIcon) itemIcon.sprite = def.itemReward.icon;
             if (itemNameText)
             {
-                // Name with amount (xN)
                 string baseName = string.IsNullOrEmpty(def.itemReward.overrideName)
                     ? def.itemReward.baseName
                     : def.itemReward.overrideName;
@@ -92,13 +132,6 @@ public class QuestOfferUI : MonoBehaviour
             }
             if (itemRoot) itemRoot.SetActive(true);
         }
-        // ---------------
-
-        if (panel) panel.SetActive(true);
-        DialogueController.I?.SetExternalLock(true);
-
-        // make it render immediately even if it was inactive
-        Canvas.ForceUpdateCanvases();
     }
 
     public void Hide()
@@ -106,11 +139,18 @@ public class QuestOfferUI : MonoBehaviour
         if (panel) panel.SetActive(false);
         DialogueController.I?.SetExternalLock(false);
         current = null; giver = null;
+        mode = Mode.Offer;
     }
 
     void Accept()
     {
-        if (giver && current) giver.OnAccepted();
+        if (giver && current)
+        {
+            if (mode == Mode.Offer)
+                giver.OnAccepted();
+            else
+                giver.OnTurnInConfirmed();
+        }
         Hide();
     }
 
