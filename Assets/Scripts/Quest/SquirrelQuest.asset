@@ -23,6 +23,6 @@ MonoBehaviour:
   itemReward: {fileID: 0}
   itemAmount: 1
   objectives:
-  - type: 2
+  - type: 3
     targetId: Tuber
     requiredCount: 0
