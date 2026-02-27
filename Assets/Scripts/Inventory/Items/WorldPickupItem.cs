@@ -65,6 +65,12 @@ public class WorldPickupItem : MonoBehaviour
             AudioSource.PlayClipAtPoint(pickupSfx, transform.position, pickupVolume);
         }
 
+        if (template != null)
+        {
+            int amt = 1;
+            QuestEvents.ItemLooted?.Invoke(template.id, amt);
+        }
+
         // Destroy the item in the world
         Destroy(gameObject);
     }

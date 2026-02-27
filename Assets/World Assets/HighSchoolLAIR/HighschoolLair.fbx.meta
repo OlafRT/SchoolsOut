@@ -3,7 +3,42 @@ guid: ab958bae7c6dc804fbb71efe8c1d2334
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Buildings
+    second: {fileID: 2100000, guid: 474c1366ec866a84d895343f506def2f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Entrance1
+    second: {fileID: 2100000, guid: 71ff2f8927284ba4ea0da1d5ebca37eb, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Extras
+    second: {fileID: 2100000, guid: 00c5ccdc2f7091b49825d6795e4ce027, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Glass
+    second: {fileID: 2100000, guid: 0d3f4083c5eb5c64db46b833f15df9ae, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Helicopter1
+    second: {fileID: 2100000, guid: 09cee981c60dc5a42806ec320803978a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Lair
+    second: {fileID: 2100000, guid: 3f0ec590e760daa4db957a3e7ebd262a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MiddleLayers
+    second: {fileID: 2100000, guid: 00bcc14108304974891bf7b293316fa6, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
