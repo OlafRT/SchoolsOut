@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: StacysRing
+  m_EditorClassIdentifier: 
+  id: Stacys Ring
+  baseName: Stacys Lost Ring
+  icon: {fileID: 21300000, guid: 6dce5143e0fb44243b23e080eadb4fbe, type: 3}
+  rarity: 3
+  itemType: 2
+  isEquippable: 1
+  equipSlot: 2
+  allowedAffixes: 010000000400000003000000000000000200000005000000
+  description: A gold ring with a massive diamond. Could it be real?
+  isStaticItem: 1
+  overrideName: Stacys Diamond Ring
+  fixedItemLevel: 3
+  fixedRequiredLevel: 2
+  fixedRarity: 3
+  fixedMuscles: 3
+  fixedIQ: 3
+  fixedCrit: 5
+  fixedToughness: 2
+  fixedValue: 25
+  forcedAffix: 0
+  isStackable: 0
+  maxStackSize: 20
