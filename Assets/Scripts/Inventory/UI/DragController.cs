@@ -185,6 +185,20 @@ public class DragController : MonoBehaviour
         CancelDrag();
     }
 
+    public void DropOnVendorSell(VendorUI vendorUI)
+    {
+        if (!_dragActive) return;
+        _handledDrop = true;
+
+        // Only allow selling from BAG for now (safe + matches your design)
+        if (from == Source.Bag && vendorUI != null && vendorUI.IsSellTab)
+        {
+            vendorUI.TrySellFromBagIndex(fromBagIndex);
+        }
+
+        CancelDrag();
+    }
+
     // -------- Called by ItemSlotUI.OnEndDrag (for bag/equip) --------
 
     public void EndDragPotentiallyDestroy()

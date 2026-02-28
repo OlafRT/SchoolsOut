@@ -53,17 +53,32 @@ public class QuestManager : MonoBehaviour
         OnChanged?.Invoke();
     }
 
-    public bool TryTurnIn(string questId){
+    public bool TryTurnIn(string questId)
+    {
         var qi = active.Find(q => q.def.questId == questId);
-        if (qi==null || !qi.IsComplete) return false;
+        if (qi == null || !qi.IsComplete) return false;
 
-        // rewards
-        if (playerStats) playerStats.AddXP(Mathf.Max(0, qi.def.xpReward));               // :contentReference[oaicite:0]{index=0}
-        if (wallet) wallet.Add(Mathf.Max(0, qi.def.moneyReward));                        // :contentReference[oaicite:1]{index=1}
-        // item reward
+        // --- Validate required collect items still exist ---
+        if (inventory && qi.def != null && qi.def.objectives != null)
+        {
+            for (int i = 0; i < qi.def.objectives.Count; i++)
+            {
+                var o = qi.def.objectives[i];
+                if (o.type != QuestDefinition.ObjectiveSpec.Type.Collect) continue;
+
+                int req = Mathf.Max(1, o.requiredCount);
+                if (inventory.CountByItemId(o.targetId) < req)
+                    return false; // can't turn in, items missing
+            }
+        }
+
+        // --- rewards ---
+        if (playerStats) playerStats.AddXP(Mathf.Max(0, qi.def.xpReward));
+        if (wallet) wallet.Add(Mathf.Max(0, qi.def.moneyReward));
+
+        // --- item reward ---
         if (inventory && qi.def.itemReward)
         {
-            // Build a simple instance from the template.
             var inst = new ItemInstance {
                 template       = qi.def.itemReward,
                 customName     = string.IsNullOrEmpty(qi.def.itemReward.overrideName) ? null : qi.def.itemReward.overrideName,
@@ -78,9 +93,22 @@ public class QuestManager : MonoBehaviour
                 bonusToughness = qi.def.itemReward.isStaticItem ? qi.def.itemReward.fixedToughness : 0,
                 value          = qi.def.itemReward.fixedValue
             };
-            // Add N copies (your Inventory.Add adds one per call into empty slots). :contentReference[oaicite:2]{index=2}
+
             for (int n = 0; n < Mathf.Max(1, qi.def.itemAmount); n++)
                 inventory.Add(inst, 1);
+        }
+
+        // --- Consume required collect items ---
+        if (inventory && qi.def != null && qi.def.objectives != null)
+        {
+            for (int i = 0; i < qi.def.objectives.Count; i++)
+            {
+                var o = qi.def.objectives[i];
+                if (o.type != QuestDefinition.ObjectiveSpec.Type.Collect) continue;
+
+                int req = Mathf.Max(1, o.requiredCount);
+                inventory.RemoveByItemId(o.targetId, req);
+            }
         }
 
         completedIds.Add(qi.def.questId);

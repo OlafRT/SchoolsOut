@@ -86,4 +86,56 @@ public class Inventory : ScriptableObject {
         (slots[fromIndex], slots[toIndex]) = (slots[toIndex], slots[fromIndex]);
         OnInventoryChanged?.Invoke();
     }
+
+    public int CountByItemId(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId)) return 0;
+
+        int total = 0;
+        for (int i = 0; i < slots.Count; i++)
+        {
+            var s = slots[i];
+            if (s.IsEmpty) continue;
+
+            var t = s.item?.template;
+            if (t != null && t.id == itemId)
+                total += s.count;
+        }
+        return total;
+    }
+
+    public bool RemoveByItemId(string itemId, int amount)
+    {
+        if (string.IsNullOrEmpty(itemId) || amount <= 0) return false;
+
+        int remaining = amount;
+
+        for (int i = 0; i < slots.Count && remaining > 0; i++)
+        {
+            var s = slots[i];
+            if (s.IsEmpty) continue;
+
+            var t = s.item?.template;
+            if (t == null || t.id != itemId) continue;
+
+            int take = Mathf.Min(s.count, remaining);
+            s.count -= take;
+            remaining -= take;
+
+            if (s.count <= 0)
+                s = new ItemStack(null, 0);
+
+            slots[i] = s;
+        }
+
+        if (remaining <= 0)
+        {
+            OnInventoryChanged?.Invoke();
+            return true;
+        }
+
+        // Not enough found (we already removed what we could; optional: revert if you want strict behavior)
+        OnInventoryChanged?.Invoke();
+        return false;
+    }
 }

@@ -108,7 +108,7 @@ public class DialogueController : MonoBehaviour
 
         DialogueNpcReporter talkRep = null;
         QuestGiver giver = null;
-
+        Vendor vendor = null;
         if (source)
         {
             talkRep = source.GetComponent<DialogueNpcReporter>()
@@ -118,6 +118,10 @@ public class DialogueController : MonoBehaviour
             giver = source.GetComponent<QuestGiver>()
                 ?? source.GetComponentInParent<QuestGiver>()
                 ?? source.GetComponentInChildren<QuestGiver>(true);
+
+            vendor = source.GetComponent<Vendor>()
+                ?? source.GetComponentInParent<Vendor>()
+                ?? source.GetComponentInChildren<Vendor>(true);
         }
 
         if (dialoguePanel) dialoguePanel.SetActive(false);
@@ -135,6 +139,15 @@ public class DialogueController : MonoBehaviour
 
         // Also try again on the next frame (covers UI/Canvas race conditions)
         if (giver) StartCoroutine(DeferredOffer(giver));
+
+        if (vendor)
+        {
+            vendor.Open(); // immediate (best for debugging)
+            StartCoroutine(DeferredVendor(vendor)); // next frame safety
+        }
+        else
+        {
+        }
     }
 
     private System.Collections.IEnumerator DeferredOffer(QuestGiver giver)
@@ -143,6 +156,11 @@ public class DialogueController : MonoBehaviour
         if (giver) giver.TryOpenOffer();
     }
 
+    private System.Collections.IEnumerator DeferredVendor(Vendor vendor)
+    {
+        yield return null;
+        if (vendor) vendor.Open();
+    }
     System.Collections.IEnumerator PostDialogueActionsNextFrame(Transform source)
     {
         // wait exactly one frame; lets the dialogue UI fully close first
