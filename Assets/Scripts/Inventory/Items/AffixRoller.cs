@@ -195,4 +195,70 @@ public static class AffixRoller
 
         return inst;
     }
+
+    public static ItemInstance CreateForVendor(ItemTemplate tpl, int itemLevel)
+    {
+        if (tpl == null) return null;
+
+        // static items unchanged
+        if (tpl.isStaticItem)
+            return BuildStatic(tpl);
+
+        // Start with a normal roll (keeps all your existing rules)
+        var inst = Roll(tpl, itemLevel);
+
+        // Enforce template rarity as a MINIMUM for vendor stock
+        if (tpl.rarity > inst.rarity)
+        {
+            inst.rarity = tpl.rarity;
+
+            // Rebuild stats/affix according to the same rules, but with enforced rarity.
+            inst.affix = AffixType.None;
+            inst.bonusMuscles = 0;
+            inst.bonusIQ = 0;
+            inst.bonusCrit = 0;
+
+            // Base toughness always = ilvl (same as Roll)
+            inst.bonusToughness = inst.itemLevel;
+
+            bool allowMagicAffix =
+                inst.rarity == Rarity.Uncommon ||
+                inst.rarity == Rarity.Rare ||
+                inst.rarity == Rarity.Epic ||
+                inst.rarity == Rarity.Legendary;
+
+            if (allowMagicAffix && tpl.allowedAffixes != null && tpl.allowedAffixes.Count > 0)
+            {
+                inst.affix = tpl.allowedAffixes[UnityEngine.Random.Range(0, tpl.allowedAffixes.Count)];
+
+                switch (inst.affix)
+                {
+                    case AffixType.Athlete:
+                        inst.bonusMuscles = inst.itemLevel;
+                        break;
+                    case AffixType.Scholar:
+                        inst.bonusIQ = inst.itemLevel;
+                        break;
+                    case AffixType.Lucky:
+                        inst.bonusCrit = inst.itemLevel;
+                        break;
+                    case AffixType.Power:
+                        Split(inst.itemLevel, out inst.bonusMuscles, out inst.bonusCrit);
+                        break;
+                    case AffixType.Cognition:
+                        Split(inst.itemLevel, out inst.bonusIQ, out inst.bonusCrit);
+                        break;
+                    default:
+                        inst.affix = AffixType.None;
+                        break;
+                }
+            }
+
+            // Apply rarity modifiers + recompute price (same as Roll)
+            ApplyRarityModifiers(inst);
+            inst.value = PriceCalculator.Evaluate(inst);
+        }
+
+        return inst;
+    }
 }

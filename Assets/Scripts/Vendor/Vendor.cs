@@ -226,6 +226,6 @@ public class Vendor : MonoBehaviour
     ItemInstance BuildInstanceFromTemplate(ItemTemplate t, int ilvl)
     {
         // This is what corpse loot uses. It handles static items too.
-        return AffixRoller.CreateFromTemplate(t, ilvl);
+        return AffixRoller.CreateForVendor(t, ilvl);
     }
 }
