@@ -179,6 +179,26 @@ public class ItemSlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        // Right-click to consume from bag
+        if (inventoryIndex >= 0 && eventData.button == PointerEventData.InputButton.Right)
+        {
+            var s = inventory?.Slots?[inventoryIndex];
+            if (s != null && !s.IsEmpty && s.item?.template != null)
+            {
+                var tpl = s.item.template;
+                if (tpl.isConsumable && tpl.consumableKind != ConsumableKind.None)
+                {
+                    var user = GameObject.FindGameObjectWithTag("Player")?.GetComponent<PlayerConsumables>();
+                    if (user != null && user.TryUseFromInventory(inventory, inventoryIndex))
+                    {
+                        Refresh();
+                        return;
+                    }
+                }
+            }
+        }
+
+        // default behavior (equip/unequip)
         OnClick();
     }
 

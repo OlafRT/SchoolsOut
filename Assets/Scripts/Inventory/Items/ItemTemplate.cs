@@ -1,6 +1,24 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum ConsumableKind
+{
+    None,
+    Food,
+    Healing,
+    Buff,
+    TeachSpell,
+    Utility
+}
+
+public enum BuffStat
+{
+    Muscles,
+    IQ,
+    Toughness,
+    CritChance
+}
+
 [CreateAssetMenu(menuName = "RPG/Item Template", fileName = "NewItemTemplate")]
 public class ItemTemplate : ScriptableObject {
     [Header("Identity")]
@@ -27,7 +45,6 @@ public class ItemTemplate : ScriptableObject {
     [Header("Tooltip")]
     [TextArea(2,6)] public string description;
 
-    // NEW SECTION: for handcrafted / static items
     [Header("Generation Rules")]
     public bool isStaticItem = false; // if true, don't randomize stats/affix
     public string overrideName;
@@ -45,6 +62,37 @@ public class ItemTemplate : ScriptableObject {
         if (string.IsNullOrEmpty(id))
             id = System.Guid.NewGuid().ToString("N");
     }
+
+    [Header("Consumable")]
+    public bool isConsumable = false;
+    public ConsumableKind consumableKind = ConsumableKind.None;
+
+    // Food (heal over time, requires sitting still)
+    [Header("Food")]
+    public int foodTotalHeal = 20;
+    public float foodDurationSeconds = 8f;
+    public bool foodConsumeOnStart = true; // WoW-like: you “use” it and regen starts
+    [Header("Food Prop (Enable existing)")]
+    public string foodPropId; // e.g. "Sandwich", "Apple", "Slushie"
+
+    // Healing potion (instant)
+    [Header("Healing Potion")]
+    public int healAmount = 30;
+
+    // Buff
+    [Header("Buff")]
+    public BuffStat buffStat = BuffStat.Muscles;
+    public int buffAmount = 2;
+    public float buffDurationSeconds = 30f;
+
+    // Teach Spell
+    [Header("Teach Spell")]
+    public string teachesAbilityName;
+
+    // Optional SFX
+    [Header("SFX")]
+    public AudioClip useSfx;
+    [Range(0f, 1f)] public float useSfxVolume = 0.8f;
 
     [Header("Stacking")]
     public bool isStackable = false;

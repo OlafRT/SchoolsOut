@@ -15,6 +15,11 @@ public class ActionBarAutoBinder : MonoBehaviour
 
     void Start()
     {
+        Refresh();
+    }
+
+    public void Refresh()
+    {
         if (!player) { Debug.LogWarning("ActionBarAutoBinder: No player assigned."); return; }
 
         var ctx = player.GetComponent<PlayerAbilities>();
@@ -42,7 +47,6 @@ public class ActionBarAutoBinder : MonoBehaviour
                 var match = filtered.FirstOrDefault(a => a.AbilityName == name);
                 if (match != null) ordered.Add(match);
             }
-            // add any remaining filtered abilities not listed
             ordered.AddRange(filtered.Where(a => !ordered.Contains(a)));
         }
         else
@@ -50,36 +54,35 @@ public class ActionBarAutoBinder : MonoBehaviour
             ordered = filtered;
         }
 
-        // bind up to 5
+        // bind up to slots.Length
         for (int i = 0; i < slots.Length; i++)
         {
+            if (!slots[i]) continue;
+
             if (i < ordered.Count)
                 slots[i].abilityComponent = (MonoBehaviour)ordered[i];
             else
-                slots[i].abilityComponent = null; // ensure slot clears
+                slots[i].abilityComponent = null;
         }
     }
 
     bool AllowedForPlayer(IAbilityUI a, PlayerAbilities.PlayerClass playerClass)
     {
-        // If the ability declares its restriction, honor it.
         if (a is IClassRestrictedAbility cra)
         {
-            return cra.AllowedFor switch
+            switch (cra.AllowedFor)
             {
-                AbilityClassRestriction.Both => true,
-                AbilityClassRestriction.Jock => playerClass == PlayerAbilities.PlayerClass.Jock,
-                AbilityClassRestriction.Nerd => playerClass == PlayerAbilities.PlayerClass.Nerd,
-                _ => true
-            };
+                case AbilityClassRestriction.Both: return true;
+                case AbilityClassRestriction.Jock: return playerClass == PlayerAbilities.PlayerClass.Jock;
+                case AbilityClassRestriction.Nerd: return playerClass == PlayerAbilities.PlayerClass.Nerd;
+            }
         }
 
-        // Fallback by common names/types so you don't have to modify every ability immediately.
+        // fallback heuristic
         string n = a.AbilityName?.ToLowerInvariant() ?? "";
         if (string.IsNullOrEmpty(n))
             n = a.GetType().Name.ToLowerInvariant();
 
-        // map known abilities
         if (n.Contains("charge") || n.Contains("kick") || n.Contains("strike"))
             return playerClass == PlayerAbilities.PlayerClass.Jock;
 
@@ -87,9 +90,8 @@ public class ActionBarAutoBinder : MonoBehaviour
             return playerClass == PlayerAbilities.PlayerClass.Nerd;
 
         if (n.Contains("autoattack") || n == "auto attack" || n == "auto-attack")
-            return true; // both
+            return true;
 
-        // default: allow both
         return true;
     }
 }

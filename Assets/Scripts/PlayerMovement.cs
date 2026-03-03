@@ -55,6 +55,7 @@ public class PlayerMovement : MonoBehaviour
 
     public bool canMove = true;
     private float moveCooldown = 0.2f;
+    public bool HasMoveInput { get; private set; }
 
     private Vector3 lastFacing = Vector3.forward;
 
@@ -150,6 +151,7 @@ public class PlayerMovement : MonoBehaviour
         if (!canMove)
         {
             UpdateAnimatorLocomotion(Vector3.zero, false);
+            HasMoveInput = false;
             return;
         }
 
@@ -159,6 +161,7 @@ public class PlayerMovement : MonoBehaviour
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))  wish += Vector3.back;
         if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))  wish += Vector3.left;
         if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) wish += Vector3.right;
+        HasMoveInput = wish != Vector3.zero;
 
         // If not aiming, snap facing to the 8-way movement direction
         if (wish != Vector3.zero && !(enableMouseSnapAim && Input.GetKey(aimMouseButton)))

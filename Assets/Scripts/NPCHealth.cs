@@ -10,6 +10,17 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     [Tooltip("If true, this NPC ignores damage ONLY when it is Friendly TOWARD THE PLAYER (per FactionRelations).")]
     public bool invulnerableIfFriendly = true;
 
+    [Header("On Damaged (optional)")]
+    [Tooltip("If true, the actions below trigger only the FIRST time this NPC is damaged (and not again on later hits).")]
+    public bool triggerOnDamagedOnce = true;
+
+    [Tooltip("GameObjects to disable when this NPC takes damage (e.g., quest marker, interaction prompt, etc.).")]
+    public GameObject[] disableOnDamaged;
+
+    [Tooltip("Scripts (MonoBehaviours) to enable when this NPC takes damage (e.g., flee AI, guard alert script, etc.).")]
+    public MonoBehaviour[] enableScriptsOnDamaged;
+
+
     [Header("Rewards")]
     public int xpReward = 10; // XP given to the player when this NPC dies
 
@@ -53,6 +64,8 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     bool isStunned;
     float stunEnd;
     bool isDead;
+    bool damagedTriggered;
+
 
     // Cache player refs to avoid repeated Find calls
     static GameObject cachedPlayerGO;
@@ -78,6 +91,8 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
 
         currentHP = Mathf.Max(0, currentHP - amount);
 
+        TriggerOnDamagedActions();
+
         // Aggro this NPC + alert same-faction allies to attack the PLAYER
         if (ai) ai.OnDamagedByPlayer();
 
@@ -99,6 +114,37 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         if (currentHP == 0)
         {
             HandleDeath();
+        }
+    }
+
+
+    void TriggerOnDamagedActions()
+    {
+        bool hasAny =
+            (disableOnDamaged != null && disableOnDamaged.Length > 0) ||
+            (enableScriptsOnDamaged != null && enableScriptsOnDamaged.Length > 0);
+
+        if (!hasAny) return;
+
+        if (triggerOnDamagedOnce && damagedTriggered) return;
+        if (triggerOnDamagedOnce) damagedTriggered = true;
+
+        if (disableOnDamaged != null)
+        {
+            for (int i = 0; i < disableOnDamaged.Length; i++)
+            {
+                var go = disableOnDamaged[i];
+                if (go) go.SetActive(false);
+            }
+        }
+
+        if (enableScriptsOnDamaged != null)
+        {
+            for (int i = 0; i < enableScriptsOnDamaged.Length; i++)
+            {
+                var mb = enableScriptsOnDamaged[i];
+                if (mb) mb.enabled = true;
+            }
         }
     }
 

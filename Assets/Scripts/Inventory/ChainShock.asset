@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: ChainShock
+  m_EditorClassIdentifier: 
+  id: ChainShockSpellLearn
+  baseName: Spell on Paper
+  icon: {fileID: 21300000, guid: 3e846cd41d3912f4e8546e4a50f0b1d3, type: 3}
+  rarity: 1
+  itemType: 2
+  isEquippable: 1
+  equipSlot: 0
+  allowedAffixes: 0100000002000000030000000400000005000000
+  description: Written on a sheet of toilet paper with something... brown?
+  isStaticItem: 1
+  overrideName: Tubers' Spell
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 0
+  forcedAffix: 0
+  isConsumable: 1
+  consumableKind: 4
+  foodTotalHeal: 0
+  foodDurationSeconds: 0
+  foodConsumeOnStart: 0
+  healAmount: 0
+  buffStat: 0
+  buffAmount: 0
+  buffDurationSeconds: 0
+  teachesAbilityName: Chain Shock
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
+  isStackable: 0
+  maxStackSize: 20

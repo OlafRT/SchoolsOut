@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: Sandwich
+  m_EditorClassIdentifier: 
+  id: ce07fba72e604502a92fb4171e3ea976
+  baseName: Sandwich
+  icon: {fileID: 21300000, guid: 713802dc3767bff428de9d657d5a7d29, type: 3}
+  rarity: 1
+  itemType: 0
+  isEquippable: 0
+  equipSlot: 0
+  allowedAffixes: 0100000002000000030000000400000005000000
+  description: 'Restores 70 health over 10 seconds. Must remain seated while eating. '
+  isStaticItem: 1
+  overrideName: Sandwich
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 1
+  forcedAffix: 0
+  isConsumable: 1
+  consumableKind: 1
+  foodTotalHeal: 70
+  foodDurationSeconds: 10
+  foodConsumeOnStart: 1
+  foodPropId: Sandwich
+  healAmount: 30
+  buffStat: 0
+  buffAmount: 0
+  buffDurationSeconds: 0
+  teachesAbilityName: 
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
+  isStackable: 1
+  maxStackSize: 20
