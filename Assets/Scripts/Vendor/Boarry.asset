@@ -22,6 +22,12 @@ MonoBehaviour:
   - template: {fileID: 11400000, guid: af8bf3a4e163cdf4bb12085755b430d0, type: 2}
     amount: 1
   - template: {fileID: 11400000, guid: 85de85a778540de4cbd9511661428e76, type: 2}
-    amount: 3
+    amount: 20
+  - template: {fileID: 11400000, guid: a88dab8ae4288884ea460ff0784e21e5, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: 9a75c249aae63b645b696646a58a361d, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: 5698d725096ed2148a2484ddc3abe30e, type: 2}
+    amount: 1
   buyMultiplier: 1.5
   sellMultiplier: 1

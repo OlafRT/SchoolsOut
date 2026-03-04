@@ -48,10 +48,14 @@ public class PlayerMovement : MonoBehaviour
     public Transform cameraFollowTarget;
     public float cameraFollowSmooth = 25f;
     Vector3 cameraFollowVel;
+    private CameraFollow camFollow;
 
     private bool isMoving = false;
     private Vector3 targetPosition;
     private Vector3 lastPosition;
+    private Coroutine moveRoutine;
+    private Vector3 cachedWish;      // latest input direction from Update
+    private bool cachedRunHeld;      // latest sprint input from Update
 
     public bool canMove = true;
     private float moveCooldown = 0.2f;
@@ -121,6 +125,7 @@ public class PlayerMovement : MonoBehaviour
         }
         if (cameraFollowTarget)
         cameraFollowTarget.position = transform.position;
+        if (Camera.main) camFollow = Camera.main.GetComponent<CameraFollow>();
     }
 
     void Update()
@@ -150,6 +155,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (!canMove)
         {
+            if (camFollow) camFollow.SetSprinting(false);
             UpdateAnimatorLocomotion(Vector3.zero, false);
             HasMoveInput = false;
             return;
@@ -163,6 +169,9 @@ public class PlayerMovement : MonoBehaviour
         if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) wish += Vector3.right;
         HasMoveInput = wish != Vector3.zero;
 
+        cachedWish = wish;
+        cachedRunHeld = hasRunningShoes && Input.GetKey(KeyCode.LeftShift);
+
         // If not aiming, snap facing to the 8-way movement direction
         if (wish != Vector3.zero && !(enableMouseSnapAim && Input.GetKey(aimMouseButton)))
         {
@@ -175,56 +184,85 @@ public class PlayerMovement : MonoBehaviour
         // Sprint + aura slow
         bool isRunning = hasRunningShoes && Input.GetKey(KeyCode.LeftShift);
         float currentSpeed = moveSpeed * (isRunning ? sprintMultiplier : 1f) * EffectiveSpeedMultiplier;
-        // Update camera sprint FOV only if actually moving AND running
-        var camFollow = Camera.main ? Camera.main.GetComponent<CameraFollow>() : null;
+        // Keep sprint "on" between grid steps if the player is still holding movement input.
         if (camFollow)
-            camFollow.SetSprinting(isRunning && isMoving);
+            camFollow.SetSprinting(isRunning && (HasMoveInput || isMoving));
 
-        // Try to start a step if we have intent
+        // Start continuous movement loop once; it will chain tiles smoothly.
         if (!isMoving && wish != Vector3.zero)
         {
-            Vector3 snappedDir = SnapDirTo8(wish).normalized;
-            TryStartStep(snappedDir, currentSpeed);
+            if (moveRoutine != null) StopCoroutine(moveRoutine);
+            moveRoutine = StartCoroutine(MoveContinuous());
         }
 
         // Update animator using either the active step direction (if moving) or current wish
         UpdateAnimatorLocomotion(wish, /*wishDirValid*/ wish != Vector3.zero, isRunning);
-        if (cameraFollowTarget)
-        {
-            // Always chase the real transform position (not the snapped target)
-            float t = 1f - Mathf.Exp(-cameraFollowSmooth * Time.deltaTime);
-            cameraFollowTarget.position = Vector3.Lerp(cameraFollowTarget.position, transform.position, t);
-        }
     }
 
-    // ---------- NEW: robust step start with sphere casts and axis-split for diagonals ----------
-    private void TryStartStep(Vector3 snappedDir, float speed)
+    void LateUpdate()
     {
-        Vector3 moveDelta = snappedDir * tileSize;
+        if (cameraFollowTarget)
+            cameraFollowTarget.position = transform.position;
+    }
 
-        // 1) try full intended move
-        if (IsStepClear(moveDelta))
+    private IEnumerator MoveContinuous()
+    {
+        isMoving = true;
+
+        while (true)
         {
-            StartCoroutine(MoveToPosition(moveDelta, speed));
-            return;
+            // No input? stop immediately.
+            if (cachedWish == Vector3.zero)
+                break;
+
+            // Recompute speed each tile so sprint / aura slow updates live
+            bool isRunning = cachedRunHeld;
+            float speed = moveSpeed * (isRunning ? sprintMultiplier : 1f) * EffectiveSpeedMultiplier;
+
+            // Snap to 8-way
+            Vector3 snappedDir = SnapDirTo8(cachedWish).normalized;
+            Vector3 moveDelta = snappedDir * tileSize;
+
+            // 1) try full intended move
+            if (!IsStepClear(moveDelta))
+            {
+                // 2) if diagonal, try sliding along X or Z
+                bool diagonal = Mathf.Abs(snappedDir.x) > 0f && Mathf.Abs(snappedDir.z) > 0f;
+                if (diagonal)
+                {
+                    Vector3 dx = new Vector3(Mathf.Sign(snappedDir.x), 0f, 0f) * tileSize;
+                    Vector3 dz = new Vector3(0f, 0f, Mathf.Sign(snappedDir.z)) * tileSize;
+
+                    bool xClear = IsStepClear(dx);
+                    bool zClear = IsStepClear(dz);
+
+                    if (xClear && !zClear) moveDelta = dx;
+                    else if (!xClear && zClear) moveDelta = dz;
+                    else break; // blocked
+                }
+                else break; // blocked
+            }
+
+            // Set next target
+            targetPosition = RoundToNearestTile(transform.position + moveDelta);
+
+            // Move to target smoothly; NO "isMoving=false" gap between tiles
+            while (Vector3.Distance(transform.position, targetPosition) > 0.001f)
+            {
+                transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
+
+                // keep animator hot
+                UpdateAnimatorLocomotion(moveDelta, true, isRunning);
+
+                yield return null;
+            }
+
+            transform.position = targetPosition;
+            lastPosition = targetPosition;
         }
 
-        // 2) if diagonal, try sliding along X or Z separately (prevents diagonal phasing)
-        bool diagonal = Mathf.Abs(snappedDir.x) > 0f && Mathf.Abs(snappedDir.z) > 0f;
-        if (diagonal)
-        {
-            Vector3 dx = new Vector3(Mathf.Sign(snappedDir.x), 0f, 0f) * tileSize;
-            Vector3 dz = new Vector3(0f, 0f, Mathf.Sign(snappedDir.z)) * tileSize;
-
-            bool xClear = IsStepClear(dx);
-            bool zClear = IsStepClear(dz);
-
-            if (xClear && !zClear) { StartCoroutine(MoveToPosition(dx, speed)); return; }
-            if (!xClear && zClear) { StartCoroutine(MoveToPosition(dz, speed)); return; }
-
-            // If both clear we prefer the intended diag (already failed), else neither clear -> blocked.
-        }
-        // blocked – do nothing
+        isMoving = false;
+        moveRoutine = null;
     }
 
     // Checks path to target and the target cell itself using a sphere "body".
@@ -242,24 +280,6 @@ public class PlayerMovement : MonoBehaviour
         Vector3 dest = RoundToNearestTile(transform.position + delta);
         bool overlapped = Physics.CheckSphere(dest + Vector3.up * 0.1f, collisionRadius - skin, obstacleLayer, QueryTriggerInteraction.Ignore);
         return !overlapped;
-    }
-
-    private IEnumerator MoveToPosition(Vector3 direction, float speed)
-    {
-        isMoving = true;
-        targetPosition = RoundToNearestTile(transform.position + direction);
-
-        while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
-            // while sliding, keep animator hot
-            UpdateAnimatorLocomotion(direction, /*wishDirValid*/ true, hasRunningShoes && Input.GetKey(KeyCode.LeftShift));
-            yield return null;
-        }
-
-        transform.position = targetPosition;
-        isMoving = false;
-        lastPosition = targetPosition;
     }
 
     private void UpdateAnimatorLocomotion(Vector3 wishDirWorld, bool wishDirValid, bool isRunning = false)

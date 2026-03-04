@@ -20,7 +20,7 @@ MonoBehaviour:
   isEquippable: 0
   equipSlot: 0
   allowedAffixes: 0100000002000000030000000400000005000000
-  description: 'Restores 70 health over 10 seconds. Must remain seated while eating. '
+  description: 'Restores 100 health over 10 seconds. Must remain seated while eating. '
   isStaticItem: 1
   overrideName: Sandwich
   fixedItemLevel: 1
@@ -34,7 +34,7 @@ MonoBehaviour:
   forcedAffix: 0
   isConsumable: 1
   consumableKind: 1
-  foodTotalHeal: 70
+  foodTotalHeal: 100
   foodDurationSeconds: 10
   foodConsumeOnStart: 1
   foodPropId: Sandwich
@@ -43,7 +43,7 @@ MonoBehaviour:
   buffAmount: 0
   buffDurationSeconds: 0
   teachesAbilityName: 
-  useSfx: {fileID: 0}
+  useSfx: {fileID: 8300000, guid: 2a503ca1db112ce47aff95c5c2244cce, type: 3}
   useSfxVolume: 0.8
   isStackable: 1
   maxStackSize: 20

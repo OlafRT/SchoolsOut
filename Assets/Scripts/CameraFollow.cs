@@ -35,14 +35,18 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("Higher = snappier (rotation).")]
     public float rotationLerpSpeed = 18f;
 
-    // --- NEW: FOV sprint kick ---
+    // --- FOV ---
     [Header("FOV Kick (Sprint)")]
-    [Tooltip("Camera FOV when not sprinting.")]
+    [Tooltip("Camera FOV when not sprinting (also used as zoom-out FOV).")]
     public float fovDefault = 60f;
-    [Tooltip("Camera FOV while sprinting.")]
+    [Tooltip("Camera FOV while sprinting (adds on top of zoom FOV).")]
     public float fovSprint = 75f;
     [Tooltip("Smoothing for FOV change.")]
     public float fovLerpSpeed = 12f;
+
+    [Header("FOV (Zoom)")]
+    [Tooltip("Camera FOV at max zoom-in (zoom = 1).")]
+    public float fovZoomMax = 80f;
 
     // Shaker (and other systems) can add to this safely.
     [HideInInspector] public Vector3 extraOffset = Vector3.zero;
@@ -50,6 +54,10 @@ public class CameraFollow : MonoBehaviour
     float baseYaw;
     Camera cam;
     bool sprintOverride = false; // set via SetSprinting
+
+    [Header("Sprint Blend")]
+    public float sprintBlendSpeed = 10f; // higher = snappier
+    float sprintWeight = 0f;            // 0..1
 
     void Awake()
     {
@@ -88,14 +96,26 @@ public class CameraFollow : MonoBehaviour
         float rotT = 1f - Mathf.Exp(-rotationLerpSpeed * Time.deltaTime);
         transform.rotation = Quaternion.Slerp(transform.rotation, desiredRot, rotT);
 
-        // --- FOV sprint kick ---
+        // --- FOV: zoom base + sprint add-on ---
         if (cam)
         {
-            float targetFov = sprintOverride ? fovSprint : fovDefault;
+            // Base FOV from zoom (60 -> 80)
+            float zoomBaseFov = Mathf.Lerp(fovDefault, fovZoomMax, zoom);
+
+            // Smooth sprint weight (prevents chop if sprint ever flickers)
+            float targetSprintWeight = sprintOverride ? 1f : 0f;
+            sprintWeight = Mathf.MoveTowards(
+                sprintWeight,
+                targetSprintWeight,
+                sprintBlendSpeed * Time.deltaTime
+            );
+
+            float sprintAdd = (fovSprint - fovDefault) * sprintWeight;
+            float targetFov = zoomBaseFov + sprintAdd;
+
             float fovT = 1f - Mathf.Exp(-fovLerpSpeed * Time.deltaTime);
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, fovT);
         }
-
     }
 
     /// <summary>Drive sprint state from your movement script (e.g., when using custom input).</summary>

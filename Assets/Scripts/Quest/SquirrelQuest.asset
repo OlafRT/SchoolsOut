@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: SquirrelQuest
   m_EditorClassIdentifier: 
   questId: ekorn_help
-  title: Find help!
-  description: This squirrel seems to need help saving the forest! Find someone that
-    can speak squirrel!
+  title: My Hero!
+  description: This squirrel seems to say someone needs help in the forest! I should
+    head east and find whoever needs my help!
   giverNpcId: Squirrel
   turnInNpcId: Tuber
   xpReward: 55

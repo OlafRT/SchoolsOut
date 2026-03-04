@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   questId: tuberneedstp
   title: Truffle Trouble
-  description: Dr. Tuber is in desperate need of toilet paper! Find some and bring
-    it to him.
+  description: Dr. Tuber is in desperate need of toilet paper! Find some from the
+    bunker by the pond to the west and bring it back to him.
   giverNpcId: Tuber
   turnInNpcId: Tuber
   xpReward: 250

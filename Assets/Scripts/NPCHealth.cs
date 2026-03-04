@@ -45,6 +45,19 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     public float corpseClickableHeight = 0.5f;
     public float corpseClickableYOffset = 0f;
 
+    // NEW: extra forgiving click area
+    [Tooltip("Adds an extra big trigger collider used for clicking the corpse (loot).")]
+    public bool addExtraLootClickCollider = true;
+
+    [Tooltip("Extra click box size on X/Z. Increase this to make looting easier.")]
+    public Vector2 extraClickSizeXZ = new Vector2(1.6f, 1.6f);
+
+    [Tooltip("Extra click box height.")]
+    public float extraClickHeight = 0.8f;
+
+    [Tooltip("Extra click box Y offset (relative to NPC root).")]
+    public float extraClickYOffset = 0f;
+
     [Header("Animation")]
     public string deathTriggerName = "Die";
 
@@ -64,8 +77,11 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     bool isStunned;
     float stunEnd;
     bool isDead;
+    public bool IsDead => isDead;
     bool damagedTriggered;
 
+    // Optional: child visual controller that can play a custom death pose (e.g., NPC804R)
+    private NPC804R npc804r;
 
     // Cache player refs to avoid repeated Find calls
     static GameObject cachedPlayerGO;
@@ -75,6 +91,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     {
         ai = GetComponent<NPCAI>();
         currentHP = maxHP;
+        npc804r = GetComponentInChildren<NPC804R>(true);
 
         if (!cachedPlayerGO)    cachedPlayerGO = GameObject.FindWithTag("Player");
         if (cachedPlayerGO && !cachedPlayerStats)
@@ -152,7 +169,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     {
         if (isDead) return;
         isDead = true;
-
+        if (npc804r) npc804r.Die();
         AwardXP();
         GetComponent<EnemyDeathReporter>()?.ReportDeath();
 
@@ -233,6 +250,28 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
                 bc.size   = new Vector3(0.8f, h, 0.8f);
                 bc.center = new Vector3(0f, yOff + h * 0.5f, 0f);
             }
+        }
+        // Add an extra forgiving click collider for looting (doesn't block anything)
+        if (addExtraLootClickCollider)
+        {
+            // Avoid adding duplicates if HandleDeath ever runs twice (safety)
+            BoxCollider extra = null;
+            var boxes = GetComponents<BoxCollider>();
+            for (int i = 0; i < boxes.Length; i++)
+            {
+                if (boxes[i] && boxes[i].isTrigger && boxes[i].size.x >= 1.2f && boxes[i].size.z >= 1.2f)
+                {
+                    extra = boxes[i];
+                    break;
+                }
+            }
+
+            if (!extra) extra = gameObject.AddComponent<BoxCollider>();
+
+            extra.isTrigger = true;
+            float h = Mathf.Max(0.2f, extraClickHeight);
+            extra.size = new Vector3(Mathf.Max(0.5f, extraClickSizeXZ.x), h, Mathf.Max(0.5f, extraClickSizeXZ.y));
+            extra.center = new Vector3(0f, extraClickYOffset + h * 0.5f, 0f);
         }
 
         // Make all corpse colliders non-blocking for combat but still raycastable for UI
