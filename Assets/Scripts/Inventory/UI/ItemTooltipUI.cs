@@ -50,17 +50,51 @@ public class ItemTooltipUI : MonoBehaviour
 
         panel.gameObject.SetActive(true);
 
-        // Title / rarity
+        // Title / rarity color only — no rarity label text
         var rarity = item.rarity;
-        titleText.text = item.DisplayName + " (" + rarity + ")";
+        titleText.text = item.DisplayName;
         titleText.color = RarityColors.Get(rarity);
 
-        // Stats block
+        // Stats block — equipment stats OR consumable description
         string stats = string.Empty;
-        if (item.bonusMuscles != 0)   stats += $"+{item.bonusMuscles} Muscles\n";
-        if (item.bonusIQ != 0)        stats += $"+{item.bonusIQ} IQ\n";
-        if (item.bonusCrit != 0)      stats += $"+{item.bonusCrit}% Crit\n";
-        if (item.bonusToughness != 0) stats += $"+{item.bonusToughness} Toughness\n";
+        var tpl = item.template;
+
+        if (tpl != null && tpl.isConsumable)
+        {
+            switch (tpl.consumableKind)
+            {
+                case ConsumableKind.Food:
+                    stats = $"Restores {tpl.foodTotalHeal} health over {tpl.foodDurationSeconds:0.#} seconds.";
+                    break;
+                case ConsumableKind.Healing:
+                    stats = $"Instantly restores {tpl.healAmount} health.";
+                    break;
+                case ConsumableKind.Buff:
+                    string statName = tpl.buffStat switch
+                    {
+                        BuffStat.Muscles    => "Muscles",
+                        BuffStat.IQ         => "IQ",
+                        BuffStat.Toughness  => "Toughness",
+                        BuffStat.CritChance => "Crit Chance",
+                        _                   => tpl.buffStat.ToString()
+                    };
+                    stats = $"Increases your {statName} by {tpl.buffAmount} for {tpl.buffDurationSeconds:0.#} seconds.";
+                    break;
+                case ConsumableKind.TeachSpell:
+                    string abilityName = string.IsNullOrEmpty(tpl.teachesAbilityName)
+                        ? "an ability"
+                        : tpl.teachesAbilityName;
+                    stats = $"Teaches you how to use {abilityName}.";
+                    break;
+            }
+        }
+        else
+        {
+            if (item.bonusMuscles != 0)   stats += $"+{item.bonusMuscles} Muscles\n";
+            if (item.bonusIQ != 0)        stats += $"+{item.bonusIQ} IQ\n";
+            if (item.bonusCrit != 0)      stats += $"+{item.bonusCrit}% Crit\n";
+            if (item.bonusToughness != 0) stats += $"+{item.bonusToughness} Toughness\n";
+        }
         statsText.text = stats.TrimEnd();
 
         // Flavor / description

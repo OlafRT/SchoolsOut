@@ -10,9 +10,11 @@ public class Inventory : ScriptableObject {
     public event Action OnInventoryChanged;
 
     private void OnEnable(){
-        if (slots.Count == 0){
-            for(int i=0;i<capacity;i++) slots.Add(new ItemStack(null,0));
-        }
+        // Always reinitialize at runtime. Inventory is a ScriptableObject whose
+        // serialized data persists between Editor Play sessions, so without this
+        // the bag appears full at the start of every new session.
+        slots.Clear();
+        for(int i=0;i<capacity;i++) slots.Add(new ItemStack(null,0));
     }
 
     public IReadOnlyList<ItemStack> Slots => slots;

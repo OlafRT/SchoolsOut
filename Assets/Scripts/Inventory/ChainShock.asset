@@ -20,7 +20,8 @@ MonoBehaviour:
   isEquippable: 1
   equipSlot: 0
   allowedAffixes: 0100000002000000030000000400000005000000
-  description: Written on a sheet of toilet paper with something... brown?
+  description: Written on a sheet of toilet paper with something... brown? (Right
+    click to use.)
   isStaticItem: 1
   overrideName: Tubers' Spell
   fixedItemLevel: 1
@@ -37,6 +38,7 @@ MonoBehaviour:
   foodTotalHeal: 0
   foodDurationSeconds: 0
   foodConsumeOnStart: 0
+  foodPropId: 
   healAmount: 0
   buffStat: 0
   buffAmount: 0

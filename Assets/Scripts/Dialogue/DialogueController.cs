@@ -105,6 +105,7 @@ public class DialogueController : MonoBehaviour
     {
         // cache the transform and any quest/report components BEFORE we null 'active'
         var source = active ? active.transform : null;
+        var interactable = active;   // cached for dance — active is nulled below
 
         DialogueNpcReporter talkRep = null;
         QuestGiver giver = null;
@@ -130,6 +131,9 @@ public class DialogueController : MonoBehaviour
         active = null;
         idx = 0;
         if (player) player.canMove = true;
+
+        // Trigger dance if this NPC has danceOnFinish enabled
+        if (interactable) interactable.TryTriggerDance(player ? player.gameObject : null);
 
         // Report talk now
         if (talkRep) talkRep.ReportTalked();

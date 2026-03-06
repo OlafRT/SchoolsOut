@@ -15,8 +15,12 @@ public class LoadSceneOnEnable : MonoBehaviour
 
     private void OnEnable()
     {
-        if (_triggered || s_isLoading) return;
-        _triggered = true;
+        // Reset the static flag — it persists across scene loads so we must
+        // clear it at the start of each new trigger, not rely on the scene
+        // change to do it (Unity statics survive scene transitions).
+        s_isLoading = false;
+        _triggered = false;
+
         StartCoroutine(LoadNext());
     }
 

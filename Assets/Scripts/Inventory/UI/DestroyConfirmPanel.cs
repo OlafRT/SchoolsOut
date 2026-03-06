@@ -16,7 +16,6 @@ public class DestroyConfirmPanel : MonoBehaviour
     {
         if (yesButton) yesButton.onClick.AddListener(ClickYes);
         if (noButton)  noButton.onClick.AddListener(ClickNo);
-        gameObject.SetActive(false);
     }
 
     public void Show(string text, Action yes, Action no)

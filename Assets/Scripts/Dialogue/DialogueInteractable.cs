@@ -151,4 +151,27 @@ public class DialogueInteractable : MonoBehaviour
         if (current == linesAfterCompletion)    return portraitsAfterCompletion;
         return null;
     }
+
+    // ─── Dance on Finish ───────────────────────────────────────────────────────
+    [Header("Dance on Finish")]
+    [Tooltip("If true, the player will start dancing when this dialogue ends.")]
+    public bool danceOnFinish = false;
+
+    [Tooltip("Animator trigger to fire on the player. Matches PlayerDancer.defaultDanceTrigger " +
+             "if left empty.")]
+    public string danceAnimTrigger = "Dance";
+
+    /// <summary>
+    /// Called by the dialogue controller after the last line is dismissed.
+    /// Finds PlayerDancer on the player and starts the dance if danceOnFinish is set.
+    /// </summary>
+    public void TryTriggerDance(GameObject player)
+    {
+        if (!danceOnFinish || !player) return;
+
+        var dancer = player.GetComponent<PlayerDancer>();
+        if (!dancer) dancer = player.AddComponent<PlayerDancer>();   // safe fallback
+
+        dancer.StartDancing(danceAnimTrigger);
+    }
 }

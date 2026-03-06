@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -9,6 +10,9 @@ public class PlayerConsumables : MonoBehaviour
     public PlayerAbilities abilities;
     public ActionBarAutoBinder actionBarBinder; // optional (drag in)
 
+    [Header("Feedback")]
+    public ScreenToast toast;
+
     [Header("Food")]
     public Animator animator;
     public string sitBool = "IsSitting";
@@ -18,6 +22,9 @@ public class PlayerConsumables : MonoBehaviour
     GameObject activeFoodProp;
 
     Coroutine eatingRoutine;
+
+    // Tracks which buff stats are currently active so we can block re-application
+    private readonly HashSet<BuffStat> activeBuffs = new HashSet<BuffStat>();
 
     void Awake()
     {
@@ -40,10 +47,6 @@ public class PlayerConsumables : MonoBehaviour
 
         if (!tpl.isConsumable || tpl.consumableKind == ConsumableKind.None)
             return false;
-
-        // optional SFX
-        if (tpl.useSfx)
-            AudioSource.PlayClipAtPoint(tpl.useSfx, transform.position, tpl.useSfxVolume);
 
         switch (tpl.consumableKind)
         {
@@ -71,6 +74,7 @@ public class PlayerConsumables : MonoBehaviour
     {
         if (!health) return false;
 
+        if (tpl.useSfx) AudioSource.PlayClipAtPoint(tpl.useSfx, transform.position, tpl.useSfxVolume);
         health.Heal(Mathf.Max(0, tpl.healAmount));
         inv.RemoveAt(bagIndex, 1);
         return true;
@@ -80,17 +84,17 @@ public class PlayerConsumables : MonoBehaviour
     {
         if (!health) return false;
 
-        // cancel previous
+        // Block if already eating
         if (eatingRoutine != null)
         {
-            StopCoroutine(eatingRoutine);
-            eatingRoutine = null;
-            SetSitting(false);
+            toast?.Show("I'm already eating!", Color.yellow);
+            return false;
         }
 
         if (tpl.foodConsumeOnStart)
             inv.RemoveAt(bagIndex, 1);
 
+        if (tpl.useSfx) AudioSource.PlayClipAtPoint(tpl.useSfx, transform.position, tpl.useSfxVolume);
         eatingRoutine = StartCoroutine(EatRoutine(inv, bagIndex, tpl));
         return true;
     }
@@ -100,7 +104,7 @@ public class PlayerConsumables : MonoBehaviour
         SetSitting(true);
         ShowFoodProp(tpl);
 
-        var pm = GetComponent<PlayerMovement>();   // <-- added
+        var pm = GetComponent<PlayerMovement>();
 
         Vector3 startPos = transform.position;
         float dur = Mathf.Max(0.1f, tpl.foodDurationSeconds);
@@ -152,12 +156,30 @@ public class PlayerConsumables : MonoBehaviour
 
     bool UseBuff(Inventory inv, int bagIndex, ItemTemplate tpl)
     {
+        // Block if this stat is already buffed
+        if (activeBuffs.Contains(tpl.buffStat))
+        {
+            toast?.Show("I already had one of those!", Color.yellow);
+            return false;
+        }
+
         var buffs = GetComponent<PlayerTimedBuffs>();
         if (!buffs) buffs = gameObject.AddComponent<PlayerTimedBuffs>();
 
+        if (tpl.useSfx) AudioSource.PlayClipAtPoint(tpl.useSfx, transform.position, tpl.useSfxVolume);
         buffs.ApplyBuff(tpl.buffStat, tpl.buffAmount, tpl.buffDurationSeconds);
         inv.RemoveAt(bagIndex, 1);
+
+        // Track the active buff and clear it when the duration expires
+        StartCoroutine(TrackBuffDuration(tpl.buffStat, tpl.buffDurationSeconds));
         return true;
+    }
+
+    IEnumerator TrackBuffDuration(BuffStat stat, float duration)
+    {
+        activeBuffs.Add(stat);
+        yield return new WaitForSeconds(Mathf.Max(0f, duration));
+        activeBuffs.Remove(stat);
     }
 
     bool UseTeachSpell(Inventory inv, int bagIndex, ItemTemplate tpl)
@@ -174,6 +196,7 @@ public class PlayerConsumables : MonoBehaviour
         if (!actionBarBinder) actionBarBinder = FindObjectOfType<ActionBarAutoBinder>(true);
         if (actionBarBinder) actionBarBinder.Refresh();
 
+        if (tpl.useSfx) AudioSource.PlayClipAtPoint(tpl.useSfx, transform.position, tpl.useSfxVolume);
         inv.RemoveAt(bagIndex, 1);
         return true;
     }

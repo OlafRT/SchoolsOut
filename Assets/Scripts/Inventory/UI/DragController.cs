@@ -46,7 +46,6 @@ public class DragController : MonoBehaviour
         }
     }
 
-    // -------- Begin Drag (Bag / Equip / Loot) --------
 
     public void BeginDragFromBag(int bagIndex, Sprite icon)
     {
@@ -122,6 +121,13 @@ public class DragController : MonoBehaviour
     public void DropOnBag(int toIndex)
     {
         if (!_dragActive) return;
+
+        // Same-slot drop: happens on the very first drag because Unity's EventSystem
+        // fires OnDrop on the source slot before OnEndDrag. Just return — leave
+        // _dragActive true and _handledDrop false so EndDragPotentiallyDestroy
+        // can still run and show the destroy confirm.
+        if (from == Source.Bag && toIndex == fromBagIndex) return;
+
         _handledDrop = true;
 
         switch (from)
@@ -205,36 +211,26 @@ public class DragController : MonoBehaviour
     {
         if (!_dragActive) return;
 
-        // already dropped on a valid slot?
         if (_handledDrop) { CancelDrag(); return; }
 
-        // Off-target drop: only offer destroy if origin was the bag and the slot still has an item
         if (from == Source.Bag && inventory != null &&
             fromBagIndex >= 0 && fromBagIndex < inventory.Slots.Count)
         {
             var s = inventory.Slots[fromBagIndex];
             if (!s.IsEmpty && destroyConfirm != null)
             {
-                // CAPTURE the index & name BEFORE we cancel/reset state
                 int idx = fromBagIndex;
                 string name = s.item?.DisplayName ?? "this item";
-
-                // hide ghost & restore cursor, but DO NOT rely on fromBagIndex after this
                 CancelDrag();
-
                 destroyConfirm.Show(
                     $"Do you want to destroy {name}?",
-                    // YES:
                     () => { inventory.RemoveAt(idx, 1); },
-                    // NO:
-                    () => { /* no-op; item stays */ }
+                    () => { }
                 );
                 return;
             }
         }
 
-        // Otherwise just cancel
         CancelDrag();
     }
 }
-

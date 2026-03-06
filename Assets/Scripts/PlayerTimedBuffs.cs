@@ -3,15 +3,39 @@ using UnityEngine;
 
 public class PlayerTimedBuffs : MonoBehaviour
 {
+    /// <summary>Read-only snapshot of a single active buff for UI consumption.</summary>
+    public struct BuffInfo
+    {
+        public BuffStat stat;
+        public float    remaining;   // seconds left
+        public float    duration;    // original total duration
+    }
+
     class Buff
     {
         public BuffStat stat;
         public int amount;
         public float endTime;
+        public float duration;   // stored so UI can compute fill %
     }
 
     PlayerStats stats;
     readonly List<Buff> active = new();
+
+    /// <summary>Current active buffs — read by BuffBarUI every frame.</summary>
+
+    // Public accessor so BuffBarUI can read what it needs without reflection
+    public BuffInfo GetInfo(int i)
+    {
+        var b = active[i];
+        return new BuffInfo
+        {
+            stat      = b.stat,
+            remaining = Mathf.Max(0f, b.endTime - Time.time),
+            duration  = b.duration
+        };
+    }
+    public int ActiveCount => active.Count;
 
     void Awake()
     {
@@ -30,9 +54,10 @@ public class PlayerTimedBuffs : MonoBehaviour
 
         active.Add(new Buff
         {
-            stat = stat,
-            amount = amount,
-            endTime = Time.time + dur
+            stat     = stat,
+            amount   = amount,
+            endTime  = Time.time + dur,
+            duration = dur
         });
 
         stats.RaiseStatsChanged();

@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: Slushie
+  m_EditorClassIdentifier: 
+  id: Brain Freeze
+  baseName: Brain Freeze
+  icon: {fileID: 21300000, guid: 80fba3c4470f10b48ab8810fd49dc3d0, type: 3}
+  rarity: 1
+  itemType: 0
+  isEquippable: 0
+  equipSlot: 0
+  allowedAffixes: 0100000002000000030000000400000005000000
+  description: Chills your brain! Activates neurons! (Right click to use.)
+  isStaticItem: 1
+  overrideName: Brain Freeze
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 10
+  forcedAffix: 0
+  isConsumable: 1
+  consumableKind: 3
+  foodTotalHeal: 0
+  foodDurationSeconds: 0
+  foodConsumeOnStart: 0
+  foodPropId: Slushie
+  healAmount: 30
+  buffStat: 1
+  buffAmount: 8
+  buffDurationSeconds: 60
+  teachesAbilityName: 
+  useSfx: {fileID: 8300000, guid: f8f711a1778327049820696749441450, type: 3}
+  useSfxVolume: 0.6
+  isStackable: 1
+  maxStackSize: 20

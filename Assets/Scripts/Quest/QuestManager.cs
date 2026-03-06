@@ -14,6 +14,7 @@ public class QuestManager : MonoBehaviour
     public PlayerStats playerStats;       // drop your PlayerStats here
     public PlayerWallet wallet;           // ScriptableObject
     public Inventory inventory;           // ScriptableObject (optional)
+    public ScreenToast toast;             // optional — shown when bag is full on turn-in
 
     public System.Action OnChanged;       // UI refresh hook
     public System.Action<string,string> OnProgress;   // (questId, "1/5 rats defeated")
@@ -58,6 +59,19 @@ public class QuestManager : MonoBehaviour
         var qi = active.Find(q => q.def.questId == questId);
         if (qi == null || !qi.IsComplete) return false;
 
+        // --- Check space for item reward BEFORE doing anything ---
+        if (inventory && qi.def.itemReward)
+        {
+            int needed = Mathf.Max(1, qi.def.itemAmount);
+            int freeSlots = 0;
+            foreach (var s in inventory.Slots) if (s.IsEmpty) freeSlots++;
+            if (freeSlots < needed)
+            {
+                toast?.Show("My backpack is full!", UnityEngine.Color.yellow);
+                return false;
+            }
+        }
+
         // --- Validate required collect items still exist ---
         if (inventory && qi.def != null && qi.def.objectives != null)
         {
@@ -95,7 +109,14 @@ public class QuestManager : MonoBehaviour
             };
 
             for (int n = 0; n < Mathf.Max(1, qi.def.itemAmount); n++)
-                inventory.Add(inst, 1);
+            {
+                if (!inventory.Add(inst, 1))
+                {
+                    // Shouldn't reach here after the space check above, but fail safe
+                    toast?.Show("My backpack is full!", UnityEngine.Color.yellow);
+                    return false;
+                }
+            }
         }
 
         // --- Consume required collect items ---
