@@ -17,4 +17,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/ForestNerd.unity
     guid: d11dbe0eb2f08df4faa4221cf3bb5b1e
+  - enabled: 1
+    path: Assets/Scenes/HighSchool.unity
+    guid: 7f361833f225c434c80171100f14fde3
   m_configObjects: {}
