@@ -49,19 +49,28 @@ public class QuestLogRow : MonoBehaviour
     string BuildProgressLine(QuestInstance qi)
     {
         if (qi.def.objectives.Count == 0) return "";
-        var o = qi.def.objectives[0];
-        int req = (o.type == QuestDefinition.ObjectiveSpec.Type.Reach ||
-                   o.type == QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
-        int cur = Mathf.Min(req, qi.progress[0]);
 
-        switch (o.type)
+        var lines = new System.Text.StringBuilder();
+        for (int i = 0; i < qi.def.objectives.Count; i++)
         {
-            case QuestDefinition.ObjectiveSpec.Type.Kill:    return $"{cur}/{req} {o.targetId} defeated";
-            case QuestDefinition.ObjectiveSpec.Type.Collect: return $"{cur}/{req} {o.targetId} collected";
-            case QuestDefinition.ObjectiveSpec.Type.Reach:   return cur >= req ? $"Reached {o.targetId}" : $"Reach {o.targetId}";
-            case QuestDefinition.ObjectiveSpec.Type.Talk:    return cur >= req ? $"Talked to {o.targetId}" : $"Talk to {o.targetId}";
+            var o = qi.def.objectives[i];
+            int req = (o.type == QuestDefinition.ObjectiveSpec.Type.Reach ||
+                    o.type == QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
+            int cur = Mathf.Min(req, qi.progress[i]);
+
+            string line = o.type switch {
+                QuestDefinition.ObjectiveSpec.Type.Kill    => $"{cur}/{req} {o.targetId} defeated",
+                QuestDefinition.ObjectiveSpec.Type.Collect => $"{cur}/{req} {o.targetId} collected",
+                QuestDefinition.ObjectiveSpec.Type.Reach   => cur >= req ? $"Reached {o.targetId}" : $"Reach {o.targetId}",
+                QuestDefinition.ObjectiveSpec.Type.Talk    => cur >= req ? $"Talked to {o.targetId}" : $"Talk to {o.targetId}",
+                _ => ""
+            };
+
+            if (lines.Length > 0) lines.Append("\n");
+            lines.Append(line);
         }
-        return "";
+        return lines.ToString();
     }
+
 }
 

@@ -26,12 +26,14 @@ public class QuestManager : MonoBehaviour
         QuestEvents.ItemLooted  += OnItemLooted;
         QuestEvents.PlaceReached+= OnPlaceReached;
         QuestEvents.NpcTalked   += OnNpcTalked;
+        QuestEvents.ItemRemoved += OnItemRemoved;
     }
     void OnDestroy(){
         QuestEvents.EnemyKilled -= OnEnemyKilled;
         QuestEvents.ItemLooted  -= OnItemLooted;
         QuestEvents.PlaceReached-= OnPlaceReached;
         QuestEvents.NpcTalked   -= OnNpcTalked;
+        QuestEvents.ItemRemoved -= OnItemRemoved;
     }
 
     public bool HasActive(string questId){
@@ -40,13 +42,27 @@ public class QuestManager : MonoBehaviour
     }
     public bool IsCompleted(string questId) => completedIds.Contains(questId);
 
-    public void Accept(QuestDefinition def){
-    if (def==null || HasActive(def.questId) || IsCompleted(def.questId)) return;
-    var qi = new QuestInstance(def);
-    active.Add(qi);
-    OnChanged?.Invoke();
-    OnQuestProgress?.Invoke(def.questId);                 // ping now
-    OnProgress?.Invoke(def.questId, BuildProgressLine(qi)); // seed toast once
+    public void Accept(QuestDefinition def)
+    {
+        if (def == null || HasActive(def.questId) || IsCompleted(def.questId)) return;
+        var qi = new QuestInstance(def);
+        active.Add(qi);
+
+        // Catch items the player already has
+        if (inventory != null)
+        {
+            foreach (var o in def.objectives)
+            {
+                if (o.type != QuestDefinition.ObjectiveSpec.Type.Collect) continue;
+                int alreadyHave = inventory.CountByItemId(o.targetId);
+                if (alreadyHave > 0)
+                    BumpAll(QuestDefinition.ObjectiveSpec.Type.Collect, o.targetId, alreadyHave);
+            }
+        }
+
+        OnChanged?.Invoke();
+        OnQuestProgress?.Invoke(def.questId);
+        OnProgress?.Invoke(def.questId, BuildProgressLine(qi));
     }
 
     public void Abandon(string questId){
@@ -145,6 +161,43 @@ public class QuestManager : MonoBehaviour
     void OnItemLooted(string itemId, int amount){
         BumpAll(QuestDefinition.ObjectiveSpec.Type.Collect, itemId, Mathf.Max(1,amount));
     }
+    void OnItemRemoved(string itemId, int amount)
+    {
+        bool changed = false;
+        var changedIds = new System.Collections.Generic.HashSet<string>();
+
+        foreach (var qi in active)
+        {
+            for (int i = 0; i < qi.def.objectives.Count; i++)
+            {
+                var o = qi.def.objectives[i];
+                if (o.type != QuestDefinition.ObjectiveSpec.Type.Collect) continue;
+                if (o.targetId != itemId) continue;
+
+                int before = qi.progress[i];
+                qi.progress[i] = Mathf.Max(0, before - amount);
+
+                if (qi.progress[i] != before)
+                {
+                    changed = true;
+                    changedIds.Add(qi.def.questId);
+                }
+            }
+        }
+
+        if (!changed) return;
+
+        OnChanged?.Invoke();
+        foreach (var qid in changedIds)
+        {
+            var qi = active.Find(q => q.def.questId == qid);
+            if (qi != null)
+            {
+                OnProgress?.Invoke(qid, BuildProgressLine(qi));
+                OnQuestProgress?.Invoke(qid);
+            }
+        }
+    }
     void OnPlaceReached(string placeId){
         BumpAll(QuestDefinition.ObjectiveSpec.Type.Reach, placeId, 1, capToReq:true);
     }
@@ -154,18 +207,27 @@ public class QuestManager : MonoBehaviour
     string BuildProgressLine(QuestInstance qi)
     {
         if (qi.def.objectives.Count == 0) return "";
-        var o = qi.def.objectives[0];
-        int req = (o.type==QuestDefinition.ObjectiveSpec.Type.Reach || o.type==QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
-        int cur = Mathf.Min(req, qi.progress[0]);
 
-        switch (o.type)
+        var lines = new System.Text.StringBuilder();
+        for (int i = 0; i < qi.def.objectives.Count; i++)
         {
-            case QuestDefinition.ObjectiveSpec.Type.Kill:    return $"{cur}/{req} {o.targetId} defeated";
-            case QuestDefinition.ObjectiveSpec.Type.Collect: return $"{cur}/{req} {o.targetId} collected";
-            case QuestDefinition.ObjectiveSpec.Type.Reach:   return cur>=req ? $"Reached {o.targetId}" : $"Reach {o.targetId}";
-            case QuestDefinition.ObjectiveSpec.Type.Talk:    return cur>=req ? $"Talked to {o.targetId}" : $"Talk to {o.targetId}";
+            var o = qi.def.objectives[i];
+            int req = (o.type == QuestDefinition.ObjectiveSpec.Type.Reach ||
+                    o.type == QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
+            int cur = Mathf.Min(req, qi.progress[i]);
+
+            string line = o.type switch {
+                QuestDefinition.ObjectiveSpec.Type.Kill    => $"{cur}/{req} {o.targetId} defeated",
+                QuestDefinition.ObjectiveSpec.Type.Collect => $"{cur}/{req} {o.targetId} collected",
+                QuestDefinition.ObjectiveSpec.Type.Reach   => cur >= req ? $"Reached {o.targetId}" : $"Reach {o.targetId}",
+                QuestDefinition.ObjectiveSpec.Type.Talk    => cur >= req ? $"Talked to {o.targetId}" : $"Talk to {o.targetId}",
+                _ => ""
+            };
+
+            if (lines.Length > 0) lines.Append("\n");
+            lines.Append(line);
         }
-        return "";
+        return lines.ToString();
     }
 
     void BumpAll(QuestDefinition.ObjectiveSpec.Type t, string id, int delta, bool capToReq=false){

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: Goo
   m_EditorClassIdentifier: 
-  id: Goo
+  id: Mystery Goo
   baseName: Mystery Goo
   icon: {fileID: 21300000, guid: dfa91548844d30549b4bded59bcde77d, type: 3}
   rarity: 1
@@ -22,7 +22,7 @@ MonoBehaviour:
   allowedAffixes: 00000000
   description: Disgusting!
   isStaticItem: 1
-  overrideName: Mystery Goop
+  overrideName: Mystery Goo
   fixedItemLevel: 1
   fixedRequiredLevel: 1
   fixedRarity: 0

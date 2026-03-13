@@ -146,6 +146,9 @@ public class Vendor : MonoBehaviour
             return false;
         }
 
+        //Quest Tracking
+        QuestEvents.ItemLooted?.Invoke(s.item.template.id, 1);
+
         // Remove 1 from vendor stack
         s.count -= 1;
         if (s.count <= 0) s = new ItemStack(null, 0);
@@ -166,9 +169,12 @@ public class Vendor : MonoBehaviour
         if (s == null || s.IsEmpty) return false;
 
         int price = SellPrice(s.item);
+        string itemId = s.item?.template?.id; // grab BEFORE removal
 
         // Remove 1 from bag
         playerInventory.RemoveAt(bagIndex, 1);
+
+        if (itemId != null) QuestEvents.ItemRemoved?.Invoke(itemId, 1);
 
         // Add to vendor stock so you can buy back
         AddToStock(s.item, 1);

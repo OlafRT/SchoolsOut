@@ -24,5 +24,6 @@ MonoBehaviour:
   itemAmount: 1
   objectives:
   - type: 1
+    collectTemplate: {fileID: 11400000, guid: a06526b1a65444043ad8f77922189009, type: 2}
     targetId: Broken Boar Chip
     requiredCount: 5

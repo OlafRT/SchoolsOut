@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: Bomb
+  m_EditorClassIdentifier: 
+  id: Bomb
+  baseName: Bomb
+  icon: {fileID: 21300000, guid: 288bdc64a9e1cd743adf3f2f98225e6d, type: 3}
+  rarity: 2
+  itemType: 2
+  isEquippable: 0
+  equipSlot: 1
+  allowedAffixes: 010000000400000003000000000000000200000005000000
+  description: Teaches the bomb ability (Right click to use)
+  isStaticItem: 1
+  overrideName: Goo Bomb
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 1
+  fixedIQ: 0
+  fixedCrit: 1
+  fixedToughness: 1
+  fixedValue: 5
+  forcedAffix: 0
+  isConsumable: 1
+  consumableKind: 4
+  foodTotalHeal: 20
+  foodDurationSeconds: 8
+  foodConsumeOnStart: 1
+  foodPropId: 
+  healAmount: 30
+  buffStat: 0
+  buffAmount: 2
+  buffDurationSeconds: 30
+  teachesAbilityName: Bomb
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
+  isStackable: 0
+  maxStackSize: 20

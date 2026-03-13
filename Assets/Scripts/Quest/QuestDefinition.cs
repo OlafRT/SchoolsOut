@@ -31,10 +31,22 @@ public class QuestDefinition : ScriptableObject
         public enum Type { Kill, Collect, Reach, Talk }
         public Type type = Type.Kill;
 
+        [Tooltip("For Collect objectives — drag an ItemTemplate here to auto-fill the Target ID.")]
+        public ItemTemplate collectTemplate;   // ← new
+
         [Tooltip("Identifier used by reporters (enemyId, itemId, placeId, npcId).")]
         public string targetId;
 
         [Tooltip("How many are needed (ignored for Reach/Talk).")]
         public int requiredCount = 1;
+    }
+
+    void OnValidate()
+    {
+        foreach (var o in objectives)
+        {
+            if (o.type == ObjectiveSpec.Type.Collect && o.collectTemplate != null)
+                o.targetId = o.collectTemplate.id;
+        }
     }
 }

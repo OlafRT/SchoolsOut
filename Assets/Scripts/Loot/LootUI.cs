@@ -146,12 +146,10 @@ public class LootUI : MonoBehaviour
     {
         if (!corpse) return;
 
-        // clear UI state before we mutate slots
         if (tooltip) tooltip.Hide();
         if (cursorOwner) cursorOwner.RestoreCursor();
         UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(null);
 
-        // Remove from corpse *temporarily*
         var itm = corpse.LootItem(corpseIndex);
         if (itm != null)
         {
@@ -159,15 +157,14 @@ public class LootUI : MonoBehaviour
 
             if (!added)
             {
-                // Inventory full: put it back on the corpse
                 corpse.PutBackItem(corpseIndex, itm);
-
-                if (toast)
-                    toast.Show("My backpack is full.", Color.yellow);
-
+                if (toast) toast.Show("My backpack is full.", Color.yellow);
                 RebuildSlots();
                 return;
             }
+
+            // ↓ Add this line
+            QuestEvents.ItemLooted?.Invoke(itm.template.id, 1);
         }
 
         AfterLootAttempt();

@@ -3,7 +3,12 @@ guid: 84f772d5bde1b7b44a849e6d440dfa04
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Skyscrapers1
+    second: {fileID: 2100000, guid: f465caa7251928744995c83c84222791, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
