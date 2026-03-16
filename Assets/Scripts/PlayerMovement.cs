@@ -413,4 +413,18 @@ public class PlayerMovement : MonoBehaviour
         if (delta < -4) delta += 8;
         return delta;
     }
+
+    public void StopMovement()
+    {
+        if (moveRoutine != null)
+        {
+            StopCoroutine(moveRoutine);
+            moveRoutine = null;
+        }
+        isMoving = false;
+        // Snap to the nearest tile so the corpse doesn't rest between tiles
+        transform.position = RoundToNearestTile(transform.position);
+        targetPosition = transform.position;
+        cachedWish = Vector3.zero;
+    }
 }

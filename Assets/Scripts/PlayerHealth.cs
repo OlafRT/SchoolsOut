@@ -124,11 +124,17 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         if (IsDead) return;
         IsDead = true;
 
-        var move = GetComponent<PlayerMovement>(); if (move) move.enabled = false;
-        var abilities = GetComponent<PlayerAbilities>(); if (abilities) abilities.enabled = false;
+        var move = GetComponent<PlayerMovement>();
+        if (move)
+        {
+            move.StopMovement(); // <-- kill the coroutine first
+            move.enabled = false;
+        }
+
+        var abilities = GetComponent<PlayerAbilities>();
+        if (abilities) abilities.enabled = false;
 
         OnDied?.Invoke();
-        //PlayerHUD.TryShowDeathPanel();
 
         currentHP = 0;
         NotifyHUD();
