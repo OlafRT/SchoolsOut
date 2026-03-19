@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: RawPork
   m_EditorClassIdentifier: 
-  id: RawPork
+  id: Raw Pork
   baseName: Raw Pork Meat
   icon: {fileID: 21300000, guid: e5df5ff674c9d4d4387a337d94e449bc, type: 3}
   rarity: 1

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PigLoot
   m_EditorClassIdentifier: 
   itemDatabase: {fileID: 11400000, guid: d57bb28645ce6cf49b1802e76a2d5496, type: 2}
-  itemRolls: {x: 1, y: 2}
+  itemRolls: {x: 1, y: 1}
   itemDropChance: 1
   dollarsPerLevel: 0
   moneyRandomFactor: {x: 0, y: 0}
