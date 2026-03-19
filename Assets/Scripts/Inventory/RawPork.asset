@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: RawPork
+  m_EditorClassIdentifier: 
+  id: RawPork
+  baseName: Raw Pork Meat
+  icon: {fileID: 21300000, guid: e5df5ff674c9d4d4387a337d94e449bc, type: 3}
+  rarity: 1
+  itemType: 1
+  isEquippable: 0
+  equipSlot: 0
+  allowedAffixes: 00000000
+  description: From cute little piglets...
+  isStaticItem: 1
+  overrideName: Raw Pork Meat
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 3
+  forcedAffix: 0
+  isConsumable: 0
+  consumableKind: 2
+  foodTotalHeal: 20
+  foodDurationSeconds: 8
+  foodConsumeOnStart: 0
+  foodPropId: 
+  healAmount: 50
+  buffStat: 0
+  buffAmount: 2
+  buffDurationSeconds: 30
+  teachesAbilityName: 
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
+  isStackable: 1
+  maxStackSize: 20
