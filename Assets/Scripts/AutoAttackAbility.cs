@@ -337,7 +337,7 @@ public class AutoAttackAbility : MonoBehaviour
         if (ctx.projectilePrefab)
         {
             Vector3 spawn = ctx.Snap(transform.position)
-                           + new Vector3(sx, 0, sz) * (ctx.tileSize * 0.5f);
+               + new Vector3(sx, 0, sz) * (ctx.tileSize * 0.1f);
 
             var go = Instantiate(ctx.projectilePrefab, spawn, Quaternion.LookRotation(dir8, Vector3.up));
 

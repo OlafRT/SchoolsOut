@@ -123,6 +123,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     float nextMeleeReady;
     Vector3 homeTile;
     NPCHealth hp;
+    PlayerHealth playerHealth;
 
     bool wanderRunning = false;
     bool isAttacking = false;
@@ -146,6 +147,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     void Start()
     {
         if (!player) player = GameObject.FindGameObjectWithTag("Player");
+        if (player) playerHealth = player.GetComponent<PlayerHealth>();
         homeTile = Snap((home ? home.position : transform.position));
         //transform.position = homeTile;
 
@@ -254,7 +256,7 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (includePlayer && player && WithinTiles(transform.position, player.transform.position, detectRadiusTiles) && HasLineOfSight(player.transform.position))
         {
             var ps = player.GetComponent<PlayerStats>();
-            if (ps)
+            if (ps && !(playerHealth && playerHealth.IsDead))   // don't aggro a dead player
             {
                 NPCFaction pf = ps.playerClass == PlayerStats.PlayerClass.Jock ? NPCFaction.Jock : NPCFaction.Nerd;
                 var rel = FactionRelations.GetRelation(this.faction, pf);
@@ -380,6 +382,16 @@ public class NPCAI : MonoBehaviour, IStunnable
     void DoHostile()
     {
         if (!player || mover == null || pathfinder == null) return;
+
+        // Player died — drop aggro and go back to wandering
+        if (playerHealth && playerHealth.IsDead)
+        {
+            hasManualHostility = false;
+            runtimeHostility = startingHostility;
+            if (attackTarget == player.transform) attackTarget = null;
+            if (mover) mover.ClearPath();
+            return;
+        }
 
         // --- Always log once per hostile tick so we can see what's happening indoors/outdoors
         var here    = transform.position;
@@ -621,7 +633,12 @@ public class NPCAI : MonoBehaviour, IStunnable
             yield return new WaitForSeconds(attackWindupSeconds);
 
         if (tgt && tgt.TryGetComponent<IDamageable>(out var dmg))
-            dmg.ApplyDamage(meleeDamage);
+        {
+            // Don't land a hit on a player who died during the windup
+            bool targetIsDeadPlayer = (playerHealth && tgt == player.transform && playerHealth.IsDead);
+            if (!targetIsDeadPlayer)
+                dmg.ApplyDamage(meleeDamage);
+        }
 
         // small recovery so it doesn’t instantly snap back into stepping
         if (attackRecoverSeconds > 0f)
@@ -810,14 +827,26 @@ public class NPCAI : MonoBehaviour, IStunnable
 // ---- Tile registry ----
 public static class NPCTileRegistry
 {
-    private static readonly HashSet<Vector2Int> occupied = new();
+    // Ref-counted: multiple NPCs can share a tile without incorrectly clearing it
+    // when only one of them leaves (e.g. two NPCs spawned on the same tile at startup).
+    private static readonly Dictionary<Vector2Int, int> occupied = new();
     private static readonly HashSet<Vector2Int> reserved = new();
 
-    public static bool IsBlocked(Vector2Int tile) => occupied.Contains(tile) || reserved.Contains(tile);
-    public static bool IsOccupied(Vector2Int tile) => occupied.Contains(tile);
+    public static bool IsBlocked(Vector2Int tile) => occupied.ContainsKey(tile) || reserved.Contains(tile);
+    public static bool IsOccupied(Vector2Int tile) => occupied.ContainsKey(tile);
 
-    public static void Register(Vector2Int tile) => occupied.Add(tile);
-    public static void Unregister(Vector2Int tile) => occupied.Remove(tile);
+    public static void Register(Vector2Int tile)
+    {
+        occupied.TryGetValue(tile, out int count);
+        occupied[tile] = count + 1;
+    }
+
+    public static void Unregister(Vector2Int tile)
+    {
+        if (!occupied.TryGetValue(tile, out int count)) return;
+        if (count <= 1) occupied.Remove(tile);
+        else            occupied[tile] = count - 1;
+    }
 
     public static void Reserve(Vector2Int tile) => reserved.Add(tile);
     public static void Unreserve(Vector2Int tile) => reserved.Remove(tile);
@@ -825,8 +854,8 @@ public static class NPCTileRegistry
     public static void CommitReservation(Vector2Int from, Vector2Int to)
     {
         reserved.Remove(to);
-        occupied.Remove(from);
-        occupied.Add(to);
+        Unregister(from);
+        Register(to);
     }
 
     public static void ClearAll()

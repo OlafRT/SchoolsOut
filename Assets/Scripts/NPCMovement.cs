@@ -89,6 +89,8 @@ public class NPCMovement : MonoBehaviour
     }
     // ------------------------------------
 
+    bool tileRegistered = false;
+
     void Awake()
     {
         if (!pathfinder) pathfinder = FindAnyObjectByType<GridPathfinder>();
@@ -98,12 +100,34 @@ public class NPCMovement : MonoBehaviour
         transform.position = snap;
         currentTile = WorldToTile(snap);
         NPCTileRegistry.Register(currentTile);
+        tileRegistered = true;
     }
 
     void OnDestroy()
     {
+        if (!tileRegistered) return;
         if (hasReservedDest) NPCTileRegistry.Unreserve(reservedDestTile);
         NPCTileRegistry.Unregister(currentTile);
+    }
+
+    // Called when the component is disabled (e.g. NPC dies — NPCHealth sets enabled = false).
+    // Frees the tile immediately so living NPCs don't treat the corpse as an obstacle.
+    void OnDisable()
+    {
+        if (!tileRegistered) return;
+        if (hasReservedDest)
+        {
+            NPCTileRegistry.Unreserve(reservedDestTile);
+            hasReservedDest = false;
+        }
+        NPCTileRegistry.Unregister(currentTile);
+        tileRegistered = false;
+    }
+
+    void OnEnable()
+    {
+        if (!tileRegistered) return; // Awake hasn't run yet — it will register
+        NPCTileRegistry.Register(currentTile);
     }
 
     public void ClearPath() => currentPath.Clear();
@@ -270,8 +294,10 @@ public class NPCMovement : MonoBehaviour
 
         Vector2Int nextTile = WorldToTile(next);
 
-        // If next tile is blocked, clear so AI can replan immediately
-        if (pathfinder && pathfinder.IsBlocked(next))
+        // Check occupied AND reserved — pathfinder.IsBlocked only checks IsOccupied,
+        // which misses tiles another NPC has already reserved this frame.
+        // Using the registry directly here closes that race window.
+        if (NPCTileRegistry.IsBlocked(nextTile))
         {
             currentPath.Clear();
             return false;

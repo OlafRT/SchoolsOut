@@ -47,8 +47,9 @@ public class DeathPanelController : MonoBehaviour
 
     public void RestartNow()
     {
-        // if your game sometimes pauses on death, ensure time resumes
-        if (Time.timeScale == 0f) Time.timeScale = 1f;
+        // Always restore timescale — covers both full pause and slow-mo (e.g. 0.15f on death)
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
 
         if (optionalFadeOut > 0f && cg)
         {

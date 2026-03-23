@@ -1,4 +1,4 @@
-// QuestManager.cs
+using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -20,20 +20,36 @@ public class QuestManager : MonoBehaviour
     public System.Action<string,string> OnProgress;   // (questId, "1/5 rats defeated")
     public System.Action<string> OnQuestProgress;  
 
-    void Awake(){
+    void Awake()
+    {
+        if (I != null && I != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         I = this;
+        DontDestroyOnLoad(gameObject);
+
         QuestEvents.EnemyKilled += OnEnemyKilled;
         QuestEvents.ItemLooted  += OnItemLooted;
         QuestEvents.PlaceReached+= OnPlaceReached;
         QuestEvents.NpcTalked   += OnNpcTalked;
         QuestEvents.ItemRemoved += OnItemRemoved;
+
+        SceneManager.sceneLoaded += OnSceneLoaded;
+
+        RebindSceneReferences();
     }
-    void OnDestroy(){
+    void OnDestroy()
+    {
         QuestEvents.EnemyKilled -= OnEnemyKilled;
         QuestEvents.ItemLooted  -= OnItemLooted;
         QuestEvents.PlaceReached-= OnPlaceReached;
         QuestEvents.NpcTalked   -= OnNpcTalked;
         QuestEvents.ItemRemoved -= OnItemRemoved;
+
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     public bool HasActive(string questId){
@@ -204,6 +220,23 @@ public class QuestManager : MonoBehaviour
     void OnNpcTalked(string npcId){
         BumpAll(QuestDefinition.ObjectiveSpec.Type.Talk, npcId, 1, capToReq:true);
     }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        RebindSceneReferences();
+
+        // Tell UI in the new scene to refresh itself
+        OnChanged?.Invoke();
+    }
+
+    void RebindSceneReferences()
+    {
+        playerStats = FindFirstObjectByType<PlayerStats>();
+        wallet      = FindFirstObjectByType<PlayerWallet>();
+        inventory   = FindFirstObjectByType<Inventory>();
+        toast       = FindFirstObjectByType<ScreenToast>();
+    }
+    
     string BuildProgressLine(QuestInstance qi)
     {
         if (qi.def.objectives.Count == 0) return "";

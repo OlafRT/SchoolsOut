@@ -14,15 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   questId: go_to_school
   title: Get to School!
-  description: It's time to go. Whenever you're ready, good knight. Let's make haste
-    for the dreadful castle!
+  description: It's time to go. Make haste for the dreadful castle and talk to Ernest
+    there.
   giverNpcId: Bike
-  turnInNpcId: North Hollow High
-  xpReward: 150
-  moneyReward: 0
+  turnInNpcId: Ernest
+  xpReward: 300
+  moneyReward: 5
   itemReward: {fileID: 0}
   itemAmount: 1
   objectives:
-  - type: 2
-    targetId: North Hollow High
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Ernest
     requiredCount: 0

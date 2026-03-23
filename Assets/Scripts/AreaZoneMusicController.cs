@@ -66,6 +66,9 @@ public class AreaZoneMusicController : MonoBehaviour
         return src;
     }
 
+    /// <summary>Resume music for the given zone — call this after respawning.</summary>
+    public void ResumeForZone(ZoneVolume zone) => HandleZoneChanged(zone);
+
     void HandleZoneChanged(ZoneVolume zone)
     {
         // Determine target clip/params
