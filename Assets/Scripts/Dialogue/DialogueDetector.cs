@@ -78,22 +78,41 @@ public class DialogueDetector : MonoBehaviour
         );
 
         DialogueInteractable talk = null;
+        ElevatorButton elevatorBtn = null;
+
         foreach (var h in hits)
         {
             if ((dialogueLayers.value != 0) &&
                 ((dialogueLayers.value & (1 << h.gameObject.layer)) == 0))
                 continue;
 
-            talk = h.GetComponentInParent<DialogueInteractable>();
-            if (!talk) talk = h.GetComponentInChildren<DialogueInteractable>();
-            if (talk) break;
+            if (!talk)
+            {
+                talk = h.GetComponentInParent<DialogueInteractable>();
+                if (!talk) talk = h.GetComponentInChildren<DialogueInteractable>();
+            }
+
+            if (!elevatorBtn)
+            {
+                elevatorBtn = h.GetComponentInParent<ElevatorButton>();
+                if (!elevatorBtn) elevatorBtn = h.GetComponentInChildren<ElevatorButton>();
+            }
+
+            if (talk && elevatorBtn) break;
         }
 
-        controller.ShowPrompt(talk != null);
+        // Dialogue takes priority if both somehow overlap
+        bool showPrompt = talk != null || elevatorBtn != null;
+        controller.ShowPrompt(showPrompt);
 
-        // Start dialogue; QuestGiver/Reporter is handled later by DialogueController.End()
         if (talk && Input.GetKeyDown(KeyCode.Space))
+        {
             controller.Begin(talk);
+        }
+        else if (elevatorBtn && Input.GetKeyDown(KeyCode.Space))
+        {
+            elevatorBtn.Interact();
+        }
     }
 
     // --- helpers (unchanged) ---
