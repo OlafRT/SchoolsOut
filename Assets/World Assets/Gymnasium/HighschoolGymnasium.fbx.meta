@@ -3,7 +3,57 @@ guid: f9ed318a682ea1c43ac32b141a8aff31
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: AudiRack
+    second: {fileID: 2100000, guid: 9c452173eae37ef4e94df4576206c773, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Banner1
+    second: {fileID: 2100000, guid: 196658010ded46c468a8b72e1676f698, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Board2
+    second: {fileID: 2100000, guid: 8322610081f957345a1d037bc11f85d3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: BricksNnails
+    second: {fileID: 2100000, guid: 496f682b87092ff428aaef1cffdbc968, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Extras
+    second: {fileID: 2100000, guid: a2a56c16a0b188f4c8c66896c2fcad86, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Floor1
+    second: {fileID: 2100000, guid: d40896366212f0a46b3d8952ae54352b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Pole
+    second: {fileID: 2100000, guid: ae8aff26589d1ba4bb687a9f336ae0b8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: RailingRebar
+    second: {fileID: 2100000, guid: 5285b769e44d5c04981b80ff6370e53d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ropes
+    second: {fileID: 2100000, guid: 0b9892daaeabdec4e95d335504f40387, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Walls
+    second: {fileID: 2100000, guid: eae7fd944ace07244adf11608c646ab1, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -35,7 +85,7 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 1
+    globalScale: 100
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -90,7 +140,7 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
-    globalScale: 1
+    globalScale: 100
     rootMotionBoneName: 
     hasTranslationDoF: 0
     hasExtraRoot: 0
