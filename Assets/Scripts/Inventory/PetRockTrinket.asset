@@ -20,7 +20,7 @@ MonoBehaviour:
   isEquippable: 1
   equipSlot: 5
   allowedAffixes: 0100000002000000030000000400000005000000
-  description: 
+  description: If you can't afford a regular pet, this one will do!
   isStaticItem: 1
   overrideName: Pet Rock
   fixedItemLevel: 3
@@ -37,6 +37,7 @@ MonoBehaviour:
   foodTotalHeal: 20
   foodDurationSeconds: 8
   foodConsumeOnStart: 1
+  foodPropId: 
   healAmount: 30
   buffStat: 0
   buffAmount: 0

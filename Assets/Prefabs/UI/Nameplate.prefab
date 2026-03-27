@@ -252,7 +252,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 8.86, y: 4.2}
-  m_SizeDelta: {x: 200, y: 50}
+  m_SizeDelta: {x: 215, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &516104515680578095
 CanvasRenderer:
@@ -282,7 +282,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Jimmy
+  m_text: JIMMY
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d732bc83efaff11479e160aa3c61ff3b, type: 2}
   m_sharedMaterial: {fileID: 6446506414119219430, guid: d732bc83efaff11479e160aa3c61ff3b,

@@ -131,6 +131,18 @@ public class NPCAI : MonoBehaviour, IStunnable
     bool isStunned = false;
     float stunUntil = 0f;
 
+    // ── Flee override (used by NPCCallForBackup) ──────────────────────────────
+    // When fleeActive is true, DoHostile() paths toward fleeTarget instead of the
+    // player, but NPCAI.Update() keeps running so locomotion bools stay live.
+    bool    fleeActive    = false;
+    Vector3 fleeTarget    = Vector3.zero;
+
+    // When aiSuspended is true, the hostility switch is skipped entirely (no
+    // pathfinding decisions) but UpdateAnimatorLocomotion() still runs every frame.
+    // Use this during the phone-call animation so the mover's stop naturally
+    // clears IsMoving/IsRunning before the trigger fires.
+    bool aiSuspended = false;
+
     void LogAI(string msg)
     {
         if (logAI) UnityEngine.Debug.Log(msg);
@@ -202,11 +214,14 @@ public class NPCAI : MonoBehaviour, IStunnable
 
             lastHostility = runtimeHostility;
         }
-        switch (runtimeHostility)
+        if (!aiSuspended)
         {
-            case Hostility.Friendly: DoFriendly(); break;
-            case Hostility.Neutral:  DoWander();   break;
-            case Hostility.Hostile:  DoHostile();  break;
+            switch (runtimeHostility)
+            {
+                case Hostility.Friendly: DoFriendly(); break;
+                case Hostility.Neutral:  DoWander();   break;
+                case Hostility.Hostile:  DoHostile();  break;
+            }
         }
 
         // --- Locomotion param (Idle/Walk) ---
@@ -382,6 +397,18 @@ public class NPCAI : MonoBehaviour, IStunnable
     void DoHostile()
     {
         if (!player || mover == null || pathfinder == null) return;
+
+        // ── Flee override: path away from player instead of toward them ──────
+        if (fleeActive)
+        {
+            // Let the mover finish its current step before requesting a new path
+            if (mover.IsMoving) return;
+            if (pathfinder.TryFindPath(transform.position, fleeTarget, 2000, out var fleePath, goalPassable: true)
+                && fleePath != null && fleePath.Count >= 2)
+                mover.SetPath(fleePath);
+            return;
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         // Player died — drop aggro and go back to wandering
         if (playerHealth && playerHealth.IsDead)
@@ -711,6 +738,40 @@ public class NPCAI : MonoBehaviour, IStunnable
     {
         if (mover) mover.ClearPath();
     }
+
+    // ── Flee API (called by NPCCallForBackup) ─────────────────────────────────
+
+    /// <summary>
+    /// Makes DoHostile() path toward worldGoal instead of the player.
+    /// NPCAI.Update() keeps running so locomotion, animation bools, and
+    /// speed multipliers all stay live — movement looks natural (she runs).
+    /// </summary>
+    public void StartFlee(Vector3 worldGoal)
+    {
+        fleeTarget = worldGoal;
+        fleeActive = true;
+        // Make sure she runs while fleeing
+        if (mover) mover.SetExternalSpeedMultiplier(chaseSpeedMultiplier);
+    }
+
+    /// <summary>Stop the flee redirect; DoHostile() resumes chasing the player.</summary>
+    public void StopFlee()
+    {
+        fleeActive = false;
+    }
+
+    /// <summary>
+    /// Suspends all pathfinding decisions (the hostility switch) while keeping
+    /// UpdateAnimatorLocomotion() alive. Use this during the phone-call animation
+    /// so that when the mover stops, IsMoving/IsRunning clear automatically and
+    /// the Phone trigger fires into the correct Idle state.
+    /// </summary>
+    public void SuspendDecisions(bool suspend)
+    {
+        aiSuspended = suspend;
+        if (suspend && mover) mover.HardStop();
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     public void CancelAttack()
     {

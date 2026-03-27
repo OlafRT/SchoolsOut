@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: JuiceCarton
+  m_EditorClassIdentifier: 
+  id: e6a4228044ea4b49abd8c5064b17483d
+  baseName: Juice Carton
+  icon: {fileID: 21300000, guid: ee94256e125ea5f43a060ffac68015b3, type: 3}
+  rarity: 1
+  itemType: 0
+  isEquippable: 0
+  equipSlot: 0
+  allowedAffixes: 0100000002000000030000000400000005000000
+  description: Filled with vitamins, maybe... Right click to use.)
+  isStaticItem: 1
+  overrideName: Orange Juice
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 1
+  forcedAffix: 0
+  isConsumable: 1
+  consumableKind: 3
+  foodTotalHeal: 100
+  foodDurationSeconds: 10
+  foodConsumeOnStart: 1
+  foodPropId: Juice
+  healAmount: 30
+  buffStat: 3
+  buffAmount: 15
+  buffDurationSeconds: 25
+  teachesAbilityName: 
+  useSfx: {fileID: 8300000, guid: 2a503ca1db112ce47aff95c5c2244cce, type: 3}
+  useSfxVolume: 0.8
+  isStackable: 1
+  maxStackSize: 20
