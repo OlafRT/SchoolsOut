@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: SquirtBoy
   m_EditorClassIdentifier: 
-  id: a19ff8a132474f2cbabb43849723cd06
+  id: squirtboy
   baseName: Squirt Boy
   icon: {fileID: 21300000, guid: 7b143e8c12b557844b1f7f80eb4e520f, type: 3}
   rarity: 2

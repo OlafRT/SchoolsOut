@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: Spade
   m_EditorClassIdentifier: 
-  id: a19ff8a132474f2cbabb43849723cd06
+  id: Spade
   baseName: Shovel
   icon: {fileID: 21300000, guid: d97a6d655d32cf748b69632a12241a4e, type: 3}
   rarity: 2

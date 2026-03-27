@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: Frying Pan
   m_EditorClassIdentifier: 
-  id: a19ff8a132474f2cbabb43849723cd06
+  id: FryingPan
   baseName: Frying Pan
   icon: {fileID: 21300000, guid: 7f1419cd19852a349af57342c5d481e8, type: 3}
   rarity: 2

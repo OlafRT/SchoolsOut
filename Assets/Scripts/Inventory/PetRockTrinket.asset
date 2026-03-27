@@ -12,13 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: PetRockTrinket
   m_EditorClassIdentifier: 
-  id: e5ffc360c99a41df9dab2eaf9b57c247
+  id: PetRock
   baseName: Pet Rock
   icon: {fileID: 21300000, guid: 05a8f25220711d34790a6357836bf349, type: 3}
   rarity: 2
   itemType: 2
   isEquippable: 1
   equipSlot: 5
+  hasClassRestriction: 0
+  requiredClass: 1
   allowedAffixes: 0100000002000000030000000400000005000000
   description: If you can't afford a regular pet, this one will do!
   isStaticItem: 1
