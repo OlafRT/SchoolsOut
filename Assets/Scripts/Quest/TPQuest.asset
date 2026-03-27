@@ -24,5 +24,6 @@ MonoBehaviour:
   itemAmount: 1
   objectives:
   - type: 1
+    collectTemplate: {fileID: 0}
     targetId: TP
     requiredCount: 1

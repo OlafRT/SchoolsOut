@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: TeddyHatVariant
+  m_EditorClassIdentifier: 
+  id: Pink Cuddle Ears
+  baseName: Pink Cuddle Ears
+  icon: {fileID: 21300000, guid: 06c19703c692a0a4ead80bdc245e2f3a, type: 3}
+  rarity: 3
+  itemType: 2
+  isEquippable: 1
+  equipSlot: 0
+  allowedAffixes: 050000000100000002000000030000000400000000000000
+  description: A pair of girly pink ears. Quite stylish though...
+  isStaticItem: 0
+  overrideName: Pink Cuddle Ears
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 1
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 1
+  fixedValue: 1
+  forcedAffix: 0
+  isConsumable: 0
+  consumableKind: 0
+  foodTotalHeal: 20
+  foodDurationSeconds: 8
+  foodConsumeOnStart: 1
+  foodPropId: 
+  healAmount: 30
+  buffStat: 0
+  buffAmount: 2
+  buffDurationSeconds: 30
+  teachesAbilityName: 
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
+  isStackable: 0
+  maxStackSize: 20

@@ -1,3 +1,22 @@
+// WorldPickupItem.cs  (updated for save system support)
+// ─────────────────────────────────────────────────────────────────────────────
+// Changes from original:
+//
+//  • If this GameObject has a SaveableObject component, the item hides itself
+//    with SetActive(false) instead of Destroy so the save system can track
+//    whether it has been picked up.
+//
+//  • If there is no SaveableObject (e.g. dynamically spawned loot that doesn't
+//    need to persist), it still calls Destroy as before — no behaviour change.
+//
+// SAVE SYSTEM USAGE
+// ─────────────────
+//  1. Add a SaveableObject component to any WorldPickupItem you place in the
+//     scene that should remain collected after the player saves and reloads.
+//  2. That's it. The save manager will record isActive=false once picked up
+//     and restore that state on load so the item doesn't reappear.
+// ─────────────────────────────────────────────────────────────────────────────
+
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -17,18 +36,20 @@ public class WorldPickupItem : MonoBehaviour
     public AudioClip pickupSfx;
     [Range(0f, 1f)] public float pickupVolume = 1f;
 
-    // runtime instance we’ll generate once
+    // Runtime instance rolled once on Awake
     ItemInstance rolledInstance;
+
+    // Cache whether we have a SaveableObject — determines Destroy vs SetActive
+    bool _hasSaveable;
 
     void Awake()
     {
-        // Roll the instance we’re going to give
-        if (template != null)
-        {
-            rolledInstance = AffixRoller.CreateFromTemplate(template, itemLevel);
-        }
+        _hasSaveable = GetComponent<SaveableObject>() != null;
 
-        // Ensure we have a trigger collider so the player can walk into it
+        if (template != null)
+            rolledInstance = AffixRoller.CreateFromTemplate(template, itemLevel);
+
+        // Ensure we have a trigger collider
         var col = GetComponent<Collider>();
         if (!col)
         {
@@ -40,38 +61,36 @@ public class WorldPickupItem : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        // We only care if the player walked into it
         if (!other.CompareTag("Player")) return;
         if (rolledInstance == null) return;
         if (playerInventory == null) return;
 
-        // Try to add to inventory
         bool added = playerInventory.Add(rolledInstance, 1);
 
         if (!added)
         {
-            // inventory full, optional toast
             if (toast) toast.Show("My backpack is full.", Color.yellow);
             return;
         }
 
-        // Success pickup
+        // Feedback
         if (toast) toast.Show($"Picked up {rolledInstance.DisplayName}", Color.green);
 
         TutorialEvents.RaisePickedUpItem();
 
         if (pickupSfx)
-        {
             AudioSource.PlayClipAtPoint(pickupSfx, transform.position, pickupVolume);
-        }
 
         if (template != null)
-        {
-            int amt = 1;
-            QuestEvents.ItemLooted?.Invoke(template.id, amt);
-        }
+            QuestEvents.ItemLooted?.Invoke(template.id, 1);
 
-        // Destroy the item in the world
-        Destroy(gameObject);
+        // ── Remove from world ──────────────────────────────────────────────
+        // If there's a SaveableObject on this GameObject, hide it so the save
+        // system can record it as "collected" (isActive = false).
+        // Otherwise, destroy it outright as before.
+        if (_hasSaveable)
+            gameObject.SetActive(false);
+        else
+            Destroy(gameObject);
     }
 }

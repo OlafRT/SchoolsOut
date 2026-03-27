@@ -11,13 +11,17 @@ public class QuestManager : MonoBehaviour
     public List<string> completedIds = new();
 
     [Header("Refs")]
-    public PlayerStats playerStats;       // drop your PlayerStats here
-    public PlayerWallet wallet;           // ScriptableObject
-    public Inventory inventory;           // ScriptableObject (optional)
-    public ScreenToast toast;             // optional — shown when bag is full on turn-in
+    [Tooltip("Leave empty — found automatically (MonoBehaviour in scene).")]
+    public PlayerStats playerStats;
+    [Tooltip("Assign your PlayerWallet ScriptableObject asset here. DO NOT leave empty.")]
+    public PlayerWallet wallet;
+    [Tooltip("Assign your PlayerInventory ScriptableObject asset here. DO NOT leave empty.")]
+    public Inventory inventory;
+    [Tooltip("Leave empty — found automatically (MonoBehaviour in scene).")]
+    public ScreenToast toast;
 
-    public System.Action OnChanged;       // UI refresh hook
-    public System.Action<string,string> OnProgress;   // (questId, "1/5 rats defeated")
+    public System.Action OnChanged;
+    public System.Action<string,string> OnProgress;
     public System.Action<string> OnQuestProgress;  
 
     void Awake()
@@ -31,23 +35,24 @@ public class QuestManager : MonoBehaviour
         I = this;
         DontDestroyOnLoad(gameObject);
 
-        QuestEvents.EnemyKilled += OnEnemyKilled;
-        QuestEvents.ItemLooted  += OnItemLooted;
-        QuestEvents.PlaceReached+= OnPlaceReached;
-        QuestEvents.NpcTalked   += OnNpcTalked;
-        QuestEvents.ItemRemoved += OnItemRemoved;
+        QuestEvents.EnemyKilled  += OnEnemyKilled;
+        QuestEvents.ItemLooted   += OnItemLooted;
+        QuestEvents.PlaceReached += OnPlaceReached;
+        QuestEvents.NpcTalked    += OnNpcTalked;
+        QuestEvents.ItemRemoved  += OnItemRemoved;
 
         SceneManager.sceneLoaded += OnSceneLoaded;
 
         RebindSceneReferences();
     }
+
     void OnDestroy()
     {
-        QuestEvents.EnemyKilled -= OnEnemyKilled;
-        QuestEvents.ItemLooted  -= OnItemLooted;
-        QuestEvents.PlaceReached-= OnPlaceReached;
-        QuestEvents.NpcTalked   -= OnNpcTalked;
-        QuestEvents.ItemRemoved -= OnItemRemoved;
+        QuestEvents.EnemyKilled  -= OnEnemyKilled;
+        QuestEvents.ItemLooted   -= OnItemLooted;
+        QuestEvents.PlaceReached -= OnPlaceReached;
+        QuestEvents.NpcTalked    -= OnNpcTalked;
+        QuestEvents.ItemRemoved  -= OnItemRemoved;
 
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
@@ -56,6 +61,7 @@ public class QuestManager : MonoBehaviour
         foreach (var q in active) if (q.def.questId == questId) return true;
         return false;
     }
+
     public bool IsCompleted(string questId) => completedIds.Contains(questId);
 
     public void Accept(QuestDefinition def)
@@ -77,6 +83,7 @@ public class QuestManager : MonoBehaviour
         }
 
         OnChanged?.Invoke();
+        RefreshActivatedObjects();
         OnQuestProgress?.Invoke(def.questId);
         OnProgress?.Invoke(def.questId, BuildProgressLine(qi));
     }
@@ -114,15 +121,15 @@ public class QuestManager : MonoBehaviour
 
                 int req = Mathf.Max(1, o.requiredCount);
                 if (inventory.CountByItemId(o.targetId) < req)
-                    return false; // can't turn in, items missing
+                    return false;
             }
         }
 
-        // --- rewards ---
+        // --- Rewards ---
         if (playerStats) playerStats.AddXP(Mathf.Max(0, qi.def.xpReward));
-        if (wallet) wallet.Add(Mathf.Max(0, qi.def.moneyReward));
+        if (wallet)      wallet.Add(Mathf.Max(0, qi.def.moneyReward));
 
-        // --- item reward ---
+        // --- Item reward ---
         if (inventory && qi.def.itemReward)
         {
             var inst = new ItemInstance {
@@ -144,7 +151,6 @@ public class QuestManager : MonoBehaviour
             {
                 if (!inventory.Add(inst, 1))
                 {
-                    // Shouldn't reach here after the space check above, but fail safe
                     toast?.Show("My backpack is full!", UnityEngine.Color.yellow);
                     return false;
                 }
@@ -167,20 +173,21 @@ public class QuestManager : MonoBehaviour
         completedIds.Add(qi.def.questId);
         active.Remove(qi);
         OnChanged?.Invoke();
+        RefreshActivatedObjects();
         return true;
     }
 
-    // --- Progress handling ---
-    void OnEnemyKilled(string enemyId){
-        BumpAll(QuestDefinition.ObjectiveSpec.Type.Kill, enemyId, 1);
-    }
-    void OnItemLooted(string itemId, int amount){
-        BumpAll(QuestDefinition.ObjectiveSpec.Type.Collect, itemId, Mathf.Max(1,amount));
-    }
+    // ── Progress handlers ─────────────────────────────────────────────────────
+
+    void OnEnemyKilled(string enemyId) => BumpAll(QuestDefinition.ObjectiveSpec.Type.Kill, enemyId, 1);
+
+    void OnItemLooted(string itemId, int amount) =>
+        BumpAll(QuestDefinition.ObjectiveSpec.Type.Collect, itemId, Mathf.Max(1, amount));
+
     void OnItemRemoved(string itemId, int amount)
     {
         bool changed = false;
-        var changedIds = new System.Collections.Generic.HashSet<string>();
+        var changedIds = new HashSet<string>();
 
         foreach (var qi in active)
         {
@@ -207,36 +214,29 @@ public class QuestManager : MonoBehaviour
         foreach (var qid in changedIds)
         {
             var qi = active.Find(q => q.def.questId == qid);
-            if (qi != null)
-            {
-                OnProgress?.Invoke(qid, BuildProgressLine(qi));
-                OnQuestProgress?.Invoke(qid);
-            }
+            if (qi != null) { OnProgress?.Invoke(qid, BuildProgressLine(qi)); OnQuestProgress?.Invoke(qid); }
         }
     }
-    void OnPlaceReached(string placeId){
-        BumpAll(QuestDefinition.ObjectiveSpec.Type.Reach, placeId, 1, capToReq:true);
-    }
-    void OnNpcTalked(string npcId){
-        BumpAll(QuestDefinition.ObjectiveSpec.Type.Talk, npcId, 1, capToReq:true);
-    }
+
+    void OnPlaceReached(string placeId) => BumpAll(QuestDefinition.ObjectiveSpec.Type.Reach, placeId, 1, capToReq: true);
+    void OnNpcTalked(string npcId)      => BumpAll(QuestDefinition.ObjectiveSpec.Type.Talk,  npcId,  1, capToReq: true);
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         RebindSceneReferences();
-
-        // Tell UI in the new scene to refresh itself
         OnChanged?.Invoke();
     }
 
     void RebindSceneReferences()
     {
+        // Only rebind MonoBehaviours — they live in the scene and change when scenes load.
+        // DO NOT rebind ScriptableObjects (wallet, inventory) — they are project assets
+        // assigned once in the Inspector and FindFirstObjectByType returns null for them,
+        // which would silently break rewards every time a scene loads.
         playerStats = FindFirstObjectByType<PlayerStats>();
-        wallet      = FindFirstObjectByType<PlayerWallet>();
-        inventory   = FindFirstObjectByType<Inventory>();
         toast       = FindFirstObjectByType<ScreenToast>();
     }
-    
+
     string BuildProgressLine(QuestInstance qi)
     {
         if (qi.def.objectives.Count == 0) return "";
@@ -246,7 +246,7 @@ public class QuestManager : MonoBehaviour
         {
             var o = qi.def.objectives[i];
             int req = (o.type == QuestDefinition.ObjectiveSpec.Type.Reach ||
-                    o.type == QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
+                       o.type == QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
             int cur = Mathf.Min(req, qi.progress[i]);
 
             string line = o.type switch {
@@ -263,42 +263,55 @@ public class QuestManager : MonoBehaviour
         return lines.ToString();
     }
 
-    void BumpAll(QuestDefinition.ObjectiveSpec.Type t, string id, int delta, bool capToReq=false){
-    bool changed = false;
-    var changedIds = new System.Collections.Generic.HashSet<string>();
+    void BumpAll(QuestDefinition.ObjectiveSpec.Type t, string id, int delta, bool capToReq = false)
+    {
+        bool changed = false;
+        var changedIds = new HashSet<string>();
 
-    foreach (var qi in active){
-        for (int i=0;i<qi.def.objectives.Count;i++){
-            var o = qi.def.objectives[i];
-            if (o.type != t || o.targetId != id) continue;
+        foreach (var qi in active)
+        {
+            for (int i = 0; i < qi.def.objectives.Count; i++)
+            {
+                var o = qi.def.objectives[i];
+                if (o.type != t || o.targetId != id) continue;
 
-            int before = qi.progress[i];
-            int after  = before + delta;
+                int before = qi.progress[i];
+                int after  = before + delta;
 
-            if (capToReq){
-                int req = (o.type==QuestDefinition.ObjectiveSpec.Type.Reach || o.type==QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
-                after = Mathf.Min(req, after);
+                if (capToReq)
+                {
+                    int req = (o.type == QuestDefinition.ObjectiveSpec.Type.Reach ||
+                               o.type == QuestDefinition.ObjectiveSpec.Type.Talk) ? 1 : o.requiredCount;
+                    after = Mathf.Min(req, after);
+                }
+
+                qi.progress[i] = Mathf.Max(before, after);
+
+                if (qi.progress[i] != before)
+                {
+                    changed = true;
+                    changedIds.Add(qi.def.questId);
+                }
             }
-            qi.progress[i] = Mathf.Max(before, after);
+        }
 
-            if (qi.progress[i] != before){
-                changed = true;
-                changedIds.Add(qi.def.questId);
-            }
+        if (!changed) return;
+
+        OnChanged?.Invoke();
+        foreach (var qid in changedIds)
+        {
+            var qi = active.Find(q => q.def.questId == qid);
+            if (qi != null) { OnProgress?.Invoke(qid, BuildProgressLine(qi)); OnQuestProgress?.Invoke(qid); }
         }
     }
 
-    if (!changed) return;
-
-    OnChanged?.Invoke();
-
-    // emit toasts + per-giver pings
-    foreach (var qid in changedIds){
-        var qi = active.Find(q => q.def.questId == qid);
-        if (qi != null){
-            OnProgress?.Invoke(qid, BuildProgressLine(qi));
-            OnQuestProgress?.Invoke(qid);
-        }
-    }
+    // Called after any quest state change to update ALL QuestActivatedObjects
+    // in the scene, including those that start disabled (which can't self-subscribe).
+    static void RefreshActivatedObjects()
+    {
+        var all = FindObjectsByType<QuestActivatedObject>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var obj in all)
+            obj.ApplyQuestState();
     }
 }

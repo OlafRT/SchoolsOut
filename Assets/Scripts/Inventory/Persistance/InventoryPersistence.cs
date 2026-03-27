@@ -5,7 +5,7 @@ using System.IO;
 
 [Serializable] public class ItemInstanceData { public string templateId; public int itemLevel; public int requiredLevel; public Rarity rarity; public AffixType affix; public int bonusMuscles; public int bonusIQ; public int bonusCrit; public int bonusToughness; public int value; }
 [Serializable] public class InventoryData { public int capacity; public List<SlotData> slots = new(); }
-[Serializable] public class SlotData { public bool occupied; public ItemInstanceData item; }
+[Serializable] public class SlotData { public bool occupied; public int count = 1; public ItemInstanceData item; }
 [Serializable] public class EquipmentData { public List<EquipEntryData> equipped = new(); }
 [Serializable] public class EquipEntryData { public EquipSlot slot; public bool occupied; public ItemInstanceData item; }
 [Serializable] public class WalletData { public int dollars; }

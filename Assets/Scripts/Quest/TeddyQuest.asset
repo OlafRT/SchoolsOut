@@ -19,10 +19,11 @@ MonoBehaviour:
   giverNpcId: Teddy
   turnInNpcId: Teddy
   xpReward: 100
-  moneyReward: 1
+  moneyReward: 3
   itemReward: {fileID: 11400000, guid: cb532e49a2a3ab84dac3a7c9609ce401, type: 2}
   itemAmount: 1
   objectives:
   - type: 0
+    collectTemplate: {fileID: 0}
     targetId: Evil Clone
     requiredCount: 5

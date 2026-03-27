@@ -19,8 +19,13 @@ public class EquipmentVisualLibrary : MonoBehaviour
 
     Dictionary<ItemTemplate, Entry> _map;
 
-    void Awake()
+    // Build (or rebuild) the lookup and hide all visuals.
+    // Called lazily on first TryGet so it's always ready regardless
+    // of which component's Awake/OnEnable runs first.
+    void EnsureMap()
     {
+        if (_map != null) return;
+
         _map = new Dictionary<ItemTemplate, Entry>();
         foreach (var e in entries)
         {
@@ -35,7 +40,9 @@ public class EquipmentVisualLibrary : MonoBehaviour
 
     public bool TryGet(ItemTemplate t, out Entry e)
     {
-        if (_map != null && t != null && _map.TryGetValue(t, out var found))
+        EnsureMap();
+
+        if (t != null && _map.TryGetValue(t, out var found))
         {
             e = found;
             return true;
