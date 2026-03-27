@@ -19,6 +19,8 @@ MonoBehaviour:
   itemType: 2
   isEquippable: 1
   equipSlot: 4
+  hasClassRestriction: 1
+  requiredClass: 1
   allowedAffixes: 02000000050000000300000000000000
   description: From the popular TV-Show Mick and Shorty.
   isStaticItem: 0

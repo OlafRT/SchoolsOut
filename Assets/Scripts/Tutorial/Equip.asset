@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: Equip
   m_EditorClassIdentifier: 
-  line: Equip your weapon now by clicking on it in your inventory! Go on!
-  voice: {fileID: 0}
+  line: "Now equip that weapon from your inventory by clicking on it. Unless you
+    were fixin\u2019 to fight with harsh language."
+  voice: {fileID: 8300000, guid: 7bd923d36b9753745a8fbb3b9bbfa94c, type: 3}
   condition: 10
   showExclamationWhileHidden: 1

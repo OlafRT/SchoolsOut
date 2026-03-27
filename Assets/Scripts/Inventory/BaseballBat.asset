@@ -19,6 +19,8 @@ MonoBehaviour:
   itemType: 2
   isEquippable: 1
   equipSlot: 4
+  hasClassRestriction: 1
+  requiredClass: 0
   allowedAffixes: 01000000040000000300000000000000
   description: Standard baseball bat.
   isStaticItem: 1
@@ -32,3 +34,18 @@ MonoBehaviour:
   fixedToughness: 1
   fixedValue: 5
   forcedAffix: 0
+  isConsumable: 0
+  consumableKind: 0
+  foodTotalHeal: 20
+  foodDurationSeconds: 8
+  foodConsumeOnStart: 1
+  foodPropId: 
+  healAmount: 30
+  buffStat: 0
+  buffAmount: 2
+  buffDurationSeconds: 30
+  teachesAbilityName: 
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
+  isStackable: 0
+  maxStackSize: 20

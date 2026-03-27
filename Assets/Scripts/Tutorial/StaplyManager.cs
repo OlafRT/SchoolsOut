@@ -9,6 +9,9 @@ public class StaplyManager : MonoBehaviour {
     [Header("Flow")]
     public List<TutorialStep> steps;
     public bool freezeAtStart = true;
+    [Header("Intro Voice")]
+    public AudioClip introVoiceNewPlayer;   // "Well hey there! I'm Staply..."
+    public AudioClip introVoiceReturning;   // "Back again? I'll hide in my little corner..."
     const string KeySeen = "Staply_Seen";
     int index = 0;
     bool tutorialEnabled = true;
@@ -23,75 +26,78 @@ public class StaplyManager : MonoBehaviour {
         staply.SetExclamation(false);
         staply.Appear();
         if (PlayerPrefs.GetInt(KeySeen,0)==1){
-        ui.ShowOk(
-        "Back again? I’ll hide in my little corner — click me if you need help.",
-        onOk: ()=> { FinishIntro(false); }
-        );
+            ui.ShowOk(
+                "Back again? I'll hide in my little corner - click me if you need help.",
+                onOk: ()=> { FinishIntro(false); }
+            );
+            staply.PlayLine(introVoiceReturning);
         } else {
             ui.ShowYesNo(
-                "Hello, I'm Staply! Your personal game assistant! I might be a hallucination, but who can be sure, eh?\nAnyway, have you played this game before?",
+                "Well hey there! I'm Staply, your personal game assistant! Folks keep sayin' I'm a hallucination, but near as I can tell, I'm the only one here makin' any sense.\nNow, have you played this game before?",
                 onYes: ()=>{ PlayerPrefs.SetInt(KeySeen,1); FinishIntro(false); },
                 onNo:  ()=>{ PlayerPrefs.SetInt(KeySeen,1); FinishIntro(true); }
             );
+            staply.PlayLine(introVoiceNewPlayer);
         }
     }
 
     void FinishIntro(bool startTutorial){
-    ui.Hide();
-    ResumeTime();
+        ui.Hide();
+        staply.StopTalking();
+        ResumeTime();
 
-    if (startTutorial){
-        ShowCurrentStep();
-    } else {
-        tutorialEnabled = false;
-        staply.HideToCorner(true);
-        staply.SetExclamation(false);
-    }
+        if (startTutorial){
+            ShowCurrentStep();
+        } else {
+            tutorialEnabled = false;
+            staply.HideToCorner(true);
+            staply.SetExclamation(false);
+        }
     }
 
     void ResumeTime(){ if (Mathf.Approximately(Time.timeScale,0f)) Time.timeScale = 1f; }
 
     void ShowCurrentStep(){
-    if(!tutorialEnabled || index >= steps.Count) { staply.SetExclamation(false); return; }
+        if(!tutorialEnabled || index >= steps.Count) { staply.SetExclamation(false); return; }
 
-    var step = steps[index];
-    stepActive = true;
+        var step = steps[index];
+        stepActive = true;
 
-    staply.Appear();
-    staply.SetExclamation(false);
-    ui.ShowLine(step.line);
-    staply.PlayLine(step.voice);
+        staply.Appear();
+        staply.SetExclamation(false);
+        ui.ShowLine(step.line);
+        staply.PlayLine(step.voice);
     }
 
     void CompleteCurrentStep(){
-    if(!stepActive) return;
-    stepActive = false;
+        if(!stepActive) return;
+        stepActive = false;
 
-    ui.Hide();
-    staply.StopTalking();
-    staply.HideToCorner(true);
+        ui.Hide();
+        staply.StopTalking();
+        staply.HideToCorner(true);
 
-    bool more = ++index < steps.Count;
+        bool more = ++index < steps.Count;
 
-    // Show the exclamation on the proxy only if there's another step waiting.
-    staply.SetExclamation(more && steps[index].showExclamationWhileHidden);
+        // Show the exclamation on the proxy only if there's another step waiting.
+        staply.SetExclamation(more && steps[index].showExclamationWhileHidden);
 
-    // IMPORTANT: do NOT auto ShowCurrentStep() here anymore.
-    // We wait for the player to click the corner proxy.
+        // IMPORTANT: do NOT auto ShowCurrentStep() here anymore.
+        // We wait for the player to click the corner proxy.
     }
 
     // Optional: bind this to a click target on Staply in the corner
     public void OnStaplyClicked(){
-    // Only open if there is a pending step and not already speaking.
-    if (!tutorialEnabled) { staply.HideToCorner(true); return; }
-    if (stepActive) { return; }
+        // Only open if there is a pending step and not already speaking.
+        if (!tutorialEnabled) { staply.HideToCorner(true); return; }
+        if (stepActive) { return; }
 
-    if (index < steps.Count){
-        ShowCurrentStep();                 // opens the next queued line
-    } else {
-        // No more steps — don’t block the screen; bounce back to corner
-        staply.HideToCorner(true);
-    }
+        if (index < steps.Count){
+            ShowCurrentStep();                 // opens the next queued line
+        } else {
+            // No more steps - don't block the screen; bounce back to corner
+            staply.HideToCorner(true);
+        }
     }
 
     // ----- Condition handling -----

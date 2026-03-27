@@ -19,6 +19,8 @@ MonoBehaviour:
   itemType: 2
   isEquippable: 0
   equipSlot: 1
+  hasClassRestriction: 1
+  requiredClass: 1
   allowedAffixes: 010000000400000003000000000000000200000005000000
   description: Teaches the bomb ability (Right click to use)
   isStaticItem: 1

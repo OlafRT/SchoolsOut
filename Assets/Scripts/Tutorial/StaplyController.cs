@@ -24,6 +24,13 @@ public class StaplyController : MonoBehaviour {
 
     public StaplyManager manager;
 
+    Coroutine _mouthRoutine;
+
+    void Awake(){
+        // Mouth animation must run even when timeScale is 0 (frozen at tutorial start)
+        if (animator) animator.updateMode = AnimatorUpdateMode.UnscaledTime;
+    }
+
     void Reset(){
         if (visualRoot == null && transform.childCount > 0)
             visualRoot = transform.GetChild(0);
@@ -56,26 +63,36 @@ public class StaplyController : MonoBehaviour {
     }
 
     public void OnProxyClicked(){
-    // Forward to manager so it decides what to do
-    if (manager != null) manager.OnStaplyClicked();
-    else Appear(); // fallback (but ideally always wire the manager)
+        // Forward to manager so it decides what to do
+        if (manager != null) manager.OnStaplyClicked();
+        else Appear(); // fallback (but ideally always wire the manager)
     }
 
     public void PlayLine(AudioClip clip){
         if (clip){
-            audioSource.clip = clip; audioSource.Play();
+            audioSource.clip = clip;
+            audioSource.Play();
             animator?.SetBool("Talking", true);
-            CancelInvoke(nameof(StopMouth));
-            Invoke(nameof(StopMouth), clip.length);
-        } else StopMouth();
+            if (_mouthRoutine != null) StopCoroutine(_mouthRoutine);
+            _mouthRoutine = StartCoroutine(StopMouthAfter(clip.length));
+        } else {
+            StopMouth();
+        }
     }
 
     public void StopTalking(){
         if (audioSource && audioSource.isPlaying) audioSource.Stop();
+        if (_mouthRoutine != null){ StopCoroutine(_mouthRoutine); _mouthRoutine = null; }
         StopMouth();
     }
 
     // ----- Internals -----
+    IEnumerator StopMouthAfter(float seconds){
+        yield return new WaitForSecondsRealtime(seconds);
+        _mouthRoutine = null;
+        StopMouth();
+    }
+
     IEnumerator TweenLocal(Vector3 posTarget, Quaternion rotTarget, float scaleTarget, System.Action onDone=null){
         Vector3 p0 = transform.localPosition;
         Quaternion r0 = transform.localRotation;
@@ -107,8 +124,7 @@ public class StaplyController : MonoBehaviour {
         if (visualRoot) visualRoot.gameObject.SetActive(on);
     }
 
-    public void SetExclamation(bool on)
-    {
+    public void SetExclamation(bool on){
         if (exclamation3D) exclamation3D.SetActive(on);
         if (exclamationUI) exclamationUI.SetActive(on);
     }

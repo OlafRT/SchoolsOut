@@ -18,12 +18,20 @@ public class EquipmentManager : MonoBehaviour {
         if (toast) toast.Show("I'm not high enough level to use that yet.", Color.red);
     }
 
+    void DenyClass(PlayerStats.PlayerClass required){
+        if (toast) toast.Show($"Only a {required} can equip that.", Color.red);
+    }
+
     public bool TryEquipFromInventory(int inventoryIndex){
         var s = inventory.Slots[inventoryIndex];
         if (s.IsEmpty || s.item==null || s.item.template==null || !s.item.template.isEquippable) return false;
 
         // level gate
         if (GetPlayerLevel() < s.item.requiredLevel){ DenyEquip(); return false; }
+
+        // class gate
+        if (s.item.template.hasClassRestriction && player.playerClass != s.item.template.requiredClass)
+            { DenyClass(s.item.template.requiredClass); return false; }
 
         EquipSlot targetSlot = (s.item.template.itemType == ItemType.Upgrade)
             ? (equipment.FirstEmptyUpgradeSlot() ?? EquipmentState.UpgradeSlots[0])

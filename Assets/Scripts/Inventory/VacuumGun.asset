@@ -19,6 +19,8 @@ MonoBehaviour:
   itemType: 2
   isEquippable: 1
   equipSlot: 4
+  hasClassRestriction: 1
+  requiredClass: 1
   allowedAffixes: 020000000500000000000000030000000400000001000000
   description: Made by Suckrolux, modified by Nerds.
   isStaticItem: 0

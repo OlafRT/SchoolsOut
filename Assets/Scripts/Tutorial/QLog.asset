@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: QLog
   m_EditorClassIdentifier: 
-  line: Click the notebook on the left or press "L" to open the quest log!
-  voice: {fileID: 0}
+  line: "Click the notebook on the left, or press L, to open your quest log. That\u2019s
+    where all your problems get written down!"
+  voice: {fileID: 8300000, guid: c639826f3b6fbda47871ea28806ac485, type: 3}
   condition: 9
   showExclamationWhileHidden: 1

@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: Interact
   m_EditorClassIdentifier: 
-  line: Press "Space" when prompted to interact with the world!
-  voice: {fileID: 0}
+  line: When the game tells ya, press Space to interact with stuff. Real advanced
+    technology, I know.
+  voice: {fileID: 8300000, guid: aefcf7da654954f4195ef1015922ab2c, type: 3}
   condition: 4
   showExclamationWhileHidden: 1

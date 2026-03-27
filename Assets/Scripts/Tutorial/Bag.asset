@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: Bag
   m_EditorClassIdentifier: 
-  line: Click the bag icon on the left or press "B" to access your backpack!
-  voice: {fileID: 0}
+  line: "Click the bag on the left, or press B, to open your backpack. That\u2019s
+    where your junk lives!"
+  voice: {fileID: 8300000, guid: 16551f764920bee419f3283c6743b37a, type: 3}
   condition: 8
   showExclamationWhileHidden: 1

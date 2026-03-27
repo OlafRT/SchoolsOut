@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: AutoAttack
   m_EditorClassIdentifier: 
-  line: Press "R" to toggle auto attack on or off! Try it now!
-  voice: {fileID: 0}
+  line: Press R to toggle auto attack on or off. Give it a poke and see what happens!
+  voice: {fileID: 8300000, guid: d72ea954db56b4b49aed5478094a0ef6, type: 3}
   condition: 7
   showExclamationWhileHidden: 1

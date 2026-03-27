@@ -225,6 +225,9 @@ public class QuestManager : MonoBehaviour
     {
         RebindSceneReferences();
         OnChanged?.Invoke();
+        // Refresh world objects that start disabled — they can't self-subscribe
+        // so they won't respond to OnChanged. This covers respawns and scene reloads.
+        RefreshActivatedObjects();
     }
 
     void RebindSceneReferences()

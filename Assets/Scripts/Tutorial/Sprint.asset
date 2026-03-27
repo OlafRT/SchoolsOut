@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: Sprint
   m_EditorClassIdentifier: 
-  line: Hold "Shift" to sprint!
-  voice: {fileID: 0}
+  line: Hold Shift to sprint! Hustle, sunshine!
+  voice: {fileID: 8300000, guid: d30d48ae95aadad46a65955712367125, type: 3}
   condition: 3
   showExclamationWhileHidden: 1

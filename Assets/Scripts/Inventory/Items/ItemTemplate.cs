@@ -33,6 +33,12 @@ public class ItemTemplate : ScriptableObject {
     public bool isEquippable = true;
     public EquipSlot equipSlot;
 
+    [Header("Class Restriction")]
+    [Tooltip("Tick to restrict this item to a specific class. Leave unticked for any class to equip.")]
+    public bool hasClassRestriction = false;
+    [Tooltip("Only used if hasClassRestriction is ticked.")]
+    public PlayerStats.PlayerClass requiredClass = PlayerStats.PlayerClass.Nerd;
+
     [Header("Allowed Affixes")]
     public List<AffixType> allowedAffixes = new(){
         AffixType.Athlete,

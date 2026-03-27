@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: Movement
   m_EditorClassIdentifier: 
-  line: Use W, A, S, D to move around!
-  voice: {fileID: 0}
+  line: "Use W, A, S, D to get them legs workin\u2019!"
+  voice: {fileID: 8300000, guid: 51fed802778bc864bb71303b5b1842d8, type: 3}
   condition: 1
   showExclamationWhileHidden: 1

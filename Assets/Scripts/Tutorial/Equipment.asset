@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: Equipment
   m_EditorClassIdentifier: 
-  line: Click your portrait in the top left or press "I" to access your equipment!
-  voice: {fileID: 0}
+  line: Click your portrait up top, or press I, to open your equipment. Time to look
+    dangerous!
+  voice: {fileID: 8300000, guid: 57f7698d268cf69488b20ee2ccfff6a0, type: 3}
   condition: 5
   showExclamationWhileHidden: 1

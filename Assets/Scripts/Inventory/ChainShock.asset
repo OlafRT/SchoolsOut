@@ -19,6 +19,8 @@ MonoBehaviour:
   itemType: 2
   isEquippable: 1
   equipSlot: 0
+  hasClassRestriction: 1
+  requiredClass: 1
   allowedAffixes: 0100000002000000030000000400000005000000
   description: Written on a sheet of toilet paper with something... brown? (Right
     click to use.)

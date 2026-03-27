@@ -11,7 +11,7 @@ using System.Collections.Generic;
 ///      • there are fewer than healthyAllyMinimum healthy same-faction allies nearby.
 ///   2. On trigger: pauses NPCAI, flees ~fleeDistanceTiles tiles directly away from
 ///      the player (fans out 45° at a time until a path is found).
-///   3. Once arrived: plays the "Phone" animator trigger and waits phoneAnimDuration.
+///   3. Once arrived: sets the IsOnPhone animator bool and waits for the OnPhoneCallComplete animation event.
 ///   4. Spawns backupNPCPrefab on a free tile nearby.
 ///   5. Optionally re-enables NPCAI so she can resume the fight.
 /// </summary>
@@ -56,12 +56,13 @@ public class NPCCallForBackup : MonoBehaviour
 
     // ── Phone Animation ───────────────────────────────────────────────────────
     [Header("Phone Animation")]
-    [Tooltip("Animator trigger name for the phone-call animation. "
-           + "Matches the phoneTriggerName already used by NPCAI for idle variants.")]
-    public string phoneTriggerName = "Phone";
+    [Tooltip("Animator BOOL parameter that drives the phone-call state. "
+           + "Set to true to enter, false to cancel. Add an Animation Event on the "
+           + "last frame of the clip that calls OnPhoneCallComplete().")]
+    public string phoneBoolName = "IsOnPhone";
 
-    [Tooltip("How long the phone animation plays before the backup NPC spawns.")]
-    public float phoneAnimDuration = 2.5f;
+    [Tooltip("If she takes any damage during the phone call, cancel it and resume fighting.")]
+    public bool cancelOnHit = true;
 
     // ── Sounds ────────────────────────────────────────────────────────────────
     [Header("Sounds")]
@@ -91,6 +92,10 @@ public class NPCCallForBackup : MonoBehaviour
     bool  abilityUsed    = false; // one-shot per NPC lifetime
     bool  isExecuting    = false;
     float nextCheckTime  = 0f;
+
+    // Animation event / cancellation state
+    bool phoneCallComplete = false;
+    int  hpAtPhoneStart    = 0;
 
     // Bug 3 fix: shared across all instances so only ONE girl flees at a time.
     // When any girl registers herself here, all others see a non-zero count and skip.
@@ -220,13 +225,12 @@ public class NPCCallForBackup : MonoBehaviour
         // ── Step 4: Stop movement and suspend AI decisions.
         // SuspendDecisions() calls mover.HardStop() internally, so IsMoving
         // goes false. UpdateAnimatorLocomotion() is still running each frame and
-        // will now set IsMoving=false + IsRunning=false naturally — no manual
-        // bool-zeroing needed. The animator transitions to Idle on its own.
+        // will now set IsMoving=false + IsRunning=false naturally.
         ai.StopFlee();
         ai.SuspendDecisions(true);
 
         // Give the animator 2 frames to process the locomotion bool change
-        // and fully exit the run/walk state before we fire the trigger.
+        // and fully exit the run/walk state before we start the phone call.
         yield return null;
         yield return null;
 
@@ -239,35 +243,78 @@ public class NPCCallForBackup : MonoBehaviour
 
         // ── Step 5: Play phone-call animation ──
         var anim = (ai && ai.animator) ? ai.animator : GetComponentInChildren<Animator>();
-        if (anim)
-        {
-            anim.ResetTrigger(phoneTriggerName);
-            anim.SetTrigger(phoneTriggerName);
-        }
+
+        // Disable root motion so the phone animation can't slide her around.
+        bool prevRootMotion = false;
+        if (anim) { prevRootMotion = anim.applyRootMotion; anim.applyRootMotion = false; }
+
+        // Use a BOOL (not a trigger) so we can cancel cleanly by setting it false.
+        // The animation state machine should transition: Idle -> IsOnPhone=true -> Phone clip.
+        // An Animation Event on the last frame of the clip calls OnPhoneCallComplete().
+        phoneCallComplete = false;
+        hpAtPhoneStart    = myHealth ? myHealth.currentHP : 0;
+
+        if (anim && !string.IsNullOrEmpty(phoneBoolName))
+            anim.SetBool(phoneBoolName, true);
 
         // Play the phone sound in sync with the animation.
         if (phoneSound)
             AudioSource.PlayClipAtPoint(phoneSound, transform.position, phoneSoundVolume);
 
-        yield return new WaitForSeconds(phoneAnimDuration);
-
-        if (myHealth && myHealth.IsDead)
+        // ── Step 6: Wait for the animation event (or cancel on hit / death) ──
+        while (!phoneCallComplete)
         {
-            ai.SuspendDecisions(false);
-            s_currentlyFleeing.Remove(this);
-            yield break;
+            if (myHealth && myHealth.IsDead)
+            {
+                EndPhoneCall(anim, prevRootMotion, spawnBackup: false);
+                yield break;
+            }
+
+            if (cancelOnHit && myHealth && myHealth.currentHP < hpAtPhoneStart)
+            {
+                // She was hit — cancel the call, resume fighting immediately.
+                EndPhoneCall(anim, prevRootMotion, spawnBackup: false);
+                yield break;
+            }
+
+            yield return null;
         }
 
-        // ── Step 6: Spawn the backup NPC on a free adjacent tile ──
-        SpawnBackup();
+        // Animation event fired — phone call completed successfully.
+        EndPhoneCall(anim, prevRootMotion, spawnBackup: true);
+    }
 
-        // ── Step 7: Restore AI ──
+    // Called by the animation event on the last frame of the phone clip,
+    // AND internally when cancelling. Keeps all the cleanup in one place.
+    void EndPhoneCall(Animator anim, bool prevRootMotion, bool spawnBackup)
+    {
+        // Exit the phone animation state.
+        if (anim && !string.IsNullOrEmpty(phoneBoolName))
+            anim.SetBool(phoneBoolName, false);
+
+        if (anim) anim.applyRootMotion = prevRootMotion;
+
+        if (spawnBackup)
+        {
+            // ── Step 7: Spawn the backup NPC ──
+            SpawnBackup();
+        }
+
+        // ── Step 8: Restore AI ──
         ai.SuspendDecisions(false);
         mover.SetExternalSpeedMultiplier(ai ? ai.chaseSpeedMultiplier : 1f);
-        // NPCAI is still enabled and hostile — she resumes chasing the player.
 
         s_currentlyFleeing.Remove(this);
         isExecuting = false;
+    }
+
+    /// <summary>
+    /// Call this from an Animation Event placed on the LAST frame of the phone
+    /// call clip. This is what triggers the backup NPC to spawn.
+    /// </summary>
+    public void OnPhoneCallComplete()
+    {
+        phoneCallComplete = true;
     }
 
     // ── Flee Goal ─────────────────────────────────────────────────────────────

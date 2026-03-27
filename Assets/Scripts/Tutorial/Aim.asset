@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fd8a3a6b6be5cd4b80c1d4674763d3e, type: 3}
   m_Name: Aim
   m_EditorClassIdentifier: 
-  line: Hold Right Click and move your mouse to aim!
-  voice: {fileID: 0}
+  line: Hold Right Click and move your mouse to look around! Keep that little head
+    on a swivel!
+  voice: {fileID: 8300000, guid: 7581e91c80bc3d64895d9c26f50dc1d2, type: 3}
   condition: 2
   showExclamationWhileHidden: 1
