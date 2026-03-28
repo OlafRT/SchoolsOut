@@ -20,6 +20,15 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     public event Action OnDied;
 
     private BlockAbility block;
+    private AudioSource _audioSource;
+    private Animator _animator;
+
+    [Header("Hurt Sound")]
+    [Tooltip("Played when the player takes damage.")]
+    public AudioClip hurtSfx;
+    [Range(0f, 1f)] public float hurtVolume = 0.8f;
+    [Tooltip("Random pitch variation range. 0 = no variation, 0.15 = subtle.")]
+    public float hurtPitchVariation = 0.12f;
 
     void Update()
     {
@@ -42,6 +51,13 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     {
         if (!stats) stats = GetComponent<PlayerStats>();
         block = GetComponent<BlockAbility>();
+
+        _audioSource = gameObject.AddComponent<AudioSource>();
+        _audioSource.spatialBlend = 0f;  // 2D — heard at full volume regardless of position
+        _audioSource.playOnAwake  = false;
+
+        // Find animator on children (the model is a child of the player root)
+        _animator = GetComponentInChildren<Animator>(true);
 
         currentHP = stats ? stats.MaxHP : 100;
         if (stats) stats.OnStatsChanged += RecomputeMaxHP;
@@ -89,7 +105,9 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
         // UI + FX
         PlayerHUD.TryFlashDamage();                 
-        CameraShaker.Instance?.Shake(0.12f, 0.25f); 
+        CameraShaker.Instance?.Shake(0.12f, 0.25f);
+        PlayHurtSfx();
+        TriggerHitAnimation();
         NotifyHUD();
 
         if (currentHP <= 0)
@@ -138,6 +156,21 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
         currentHP = 0;
         NotifyHUD();
+    }
+
+    void TriggerHitAnimation()
+    {
+        if (!_animator) return;
+        // Alternate randomly between Hit1 and Hit2 so it doesn't look repetitive
+        string trigger = UnityEngine.Random.value < 0.5f ? "Hit1" : "Hit2";
+        _animator.SetTrigger(trigger);
+    }
+
+    void PlayHurtSfx()
+    {
+        if (!hurtSfx || !_audioSource) return;
+        _audioSource.pitch = 1f + UnityEngine.Random.Range(-hurtPitchVariation, hurtPitchVariation);
+        _audioSource.PlayOneShot(hurtSfx, hurtVolume);
     }
 
     void NotifyHUD() => PlayerHUD.TryUpdateHealth(currentHP, stats ? stats.MaxHP : 100);

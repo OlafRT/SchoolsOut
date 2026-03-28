@@ -25190,7 +25190,7 @@ Animator:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 746891667}
-  m_Enabled: 1
+  m_Enabled: 0
   m_Avatar: {fileID: 0}
   m_Controller: {fileID: 9100000, guid: 38e26a315c870e24f9a934ad26fcf30f, type: 2}
   m_CullingMode: 0
@@ -25243,7 +25243,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: UNAVAILABLE FOR THE MOMENT
+  m_text: CURRENTLY UNAVAILABLE
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b5e72b7199ecf0647b0b031b12224e57, type: 2}
   m_sharedMaterial: {fileID: -5094162802204412048, guid: b5e72b7199ecf0647b0b031b12224e57,
@@ -26209,8 +26209,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
-  m_Color: {r: 0.03529412, g: 0.11372549, b: 0.05490196, a: 0.47058824}
+  m_Material: {fileID: 2100000, guid: dcbd6ff24998fef4497d64760c08c2a8, type: 2}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.47058824}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -26875,9 +26875,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
-  m_Color: {r: 0.035294123, g: 0.07465039, b: 0.11372549, a: 0.47058824}
-  m_RaycastTarget: 1
+  m_Material: {fileID: 2100000, guid: dcbd6ff24998fef4497d64760c08c2a8, type: 2}
+  m_Color: {r: 0.035294123, g: 0.07465039, b: 0.11372549, a: 1}
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:

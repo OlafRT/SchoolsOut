@@ -13,6 +13,8 @@ public class SaveGameButton : MonoBehaviour
 
     [Tooltip("Optional — shown briefly after saving.")]
     [SerializeField] private ScreenToast toast;
+    [Tooltip("Optional — floppy icon or similar that briefly appears after saving.")]
+    [SerializeField] private SaveIndicator saveIndicator;
 
     void Start()
     {
@@ -21,6 +23,10 @@ public class SaveGameButton : MonoBehaviour
 
     public void SaveGame()
     {
+        // Show the indicator immediately regardless — even in the editor
+        // without a GameSaveManager present during testing.
+        saveIndicator?.Show();
+
         if (GameSaveManager.I == null) return;
 
         int slot = GameSaveManager.I.ActiveSlot;

@@ -104,8 +104,8 @@ Material:
     - _AlphaToMask: 0
     - _Blend: 1
     - _BlendModePreserveSpecular: 1
-    - _BlurRadius: 3
-    - _BlurSamples: 4.5
+    - _BlurRadius: 2.72
+    - _BlurSamples: 2.26
     - _BumpScale: 1
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
