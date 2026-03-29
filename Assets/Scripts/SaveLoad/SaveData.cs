@@ -59,6 +59,7 @@ public class PlayerStatsSaveData
     public int   iq;
     public int   toughness;
     public float critChance;
+    public int   currentHP;   // saved so health is restored exactly on load
 }
 
 // ── Player position ───────────────────────────────────────────────────────────

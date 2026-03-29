@@ -45,6 +45,13 @@ public class XPBarUI : MonoBehaviour
         RefreshImmediate();
     }
 
+    void Start()
+    {
+        // Refresh one frame after OnEnable — by now the stat snapshot
+        // will have been applied (GameSaveManager waits one frame before applying).
+        RefreshImmediate();
+    }
+
     void OnDisable()
     {
         HookEvents(false);

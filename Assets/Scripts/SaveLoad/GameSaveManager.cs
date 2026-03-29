@@ -128,6 +128,7 @@ public class GameSaveManager : MonoBehaviour
             eqM = bm; eqI = bi; eqT = bt; eqC = bc / 100f;
         }
 
+        var snapHealth = _stats.GetComponent<PlayerHealth>();
         _statSnapshot = new PlayerStatsSaveData
         {
             playerClass = _stats.playerClass.ToString(),
@@ -138,6 +139,7 @@ public class GameSaveManager : MonoBehaviour
             iq          = _stats.iq        - eqI,
             toughness   = _stats.toughness - eqT,
             critChance  = Mathf.Clamp01(_stats.critChance - eqC),
+            currentHP   = snapHealth ? snapHealth.currentHP : 0,
         };
 
         if (_abilities)
@@ -181,6 +183,17 @@ public class GameSaveManager : MonoBehaviour
 
         if (_abilities && _abilitiesSnapshot != null)
             _abilities.learnedAbilities = new System.Collections.Generic.List<string>(_abilitiesSnapshot.learnedAbilities);
+
+        // Restore HP after bridge re-applies equipment (so MaxHP is correct)
+        if (_statSnapshot.currentHP > 0)
+        {
+            var health = _stats.GetComponent<PlayerHealth>();
+            if (health)
+            {
+                health.currentHP = Mathf.Clamp(_statSnapshot.currentHP, 0, health.stats ? health.stats.MaxHP : _statSnapshot.currentHP);
+                PlayerHUD.TryUpdateHealth(health.currentHP, health.stats ? health.stats.MaxHP : health.currentHP);
+            }
+        }
 
         _stats.RaiseStatsChanged();
 
@@ -343,6 +356,8 @@ public class GameSaveManager : MonoBehaviour
             eqM = bm; eqI = bi; eqT = bt; eqC = bc / 100f;
         }
 
+        var health = _stats.GetComponent<PlayerHealth>();
+
         d.playerStats = new PlayerStatsSaveData
         {
             playerClass = _stats.playerClass.ToString(),
@@ -353,6 +368,7 @@ public class GameSaveManager : MonoBehaviour
             iq          = _stats.iq        - eqI,
             toughness   = _stats.toughness - eqT,
             critChance  = Mathf.Clamp01(_stats.critChance - eqC),
+            currentHP   = health ? health.currentHP : 0,
         };
     }
 
@@ -494,6 +510,17 @@ public class GameSaveManager : MonoBehaviour
         if (bridge) bridge.enabled = true;
 
         if (_abilities) _abilities.playerLevel = s.level;
+
+        // Restore HP after equipment bonuses are re-applied so MaxHP is correct
+        if (s.currentHP > 0)
+        {
+            var health = _stats.GetComponent<PlayerHealth>();
+            if (health)
+            {
+                health.currentHP = Mathf.Clamp(s.currentHP, 0, health.stats ? health.stats.MaxHP : s.currentHP);
+                PlayerHUD.TryUpdateHealth(health.currentHP, health.stats ? health.stats.MaxHP : health.currentHP);
+            }
+        }
 
         _stats.RaiseStatsChanged();
     }
