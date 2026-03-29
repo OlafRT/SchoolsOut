@@ -24,5 +24,6 @@ MonoBehaviour:
   itemAmount: 1
   objectives:
   - type: 1
+    collectTemplate: {fileID: 11400000, guid: 4b2ed8fcbb2192d4895a26c0f4eed2d6, type: 2}
     targetId: Stacys Ring
     requiredCount: 1

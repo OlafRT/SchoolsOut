@@ -24,6 +24,6 @@ MonoBehaviour:
   itemAmount: 1
   objectives:
   - type: 1
-    collectTemplate: {fileID: 0}
-    targetId: TP
+    collectTemplate: {fileID: 11400000, guid: ce333b1ec4e655f49b81984152be7627, type: 2}
+    targetId: Toilet Paper
     requiredCount: 1

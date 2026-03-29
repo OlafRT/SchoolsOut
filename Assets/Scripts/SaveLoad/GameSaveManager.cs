@@ -2,15 +2,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Central singleton that handles all saving and loading.
 // Persists across scenes via DontDestroyOnLoad.
-//
-// CALLING SAVE / LOAD FROM OTHER SCRIPTS
-// ───────────────────────────────────────
-//   GameSaveManager.I.Save(slotIndex);      // 0, 1, 2, or 3
-//   GameSaveManager.I.Load(slotIndex);
-//   GameSaveManager.I.HasSave(slotIndex);   // → bool
-//   GameSaveManager.I.NewGame();
-//   GameSaveManager.I.Continue();
-// ─────────────────────────────────────────────────────────────────────────────
 
 using System;
 using System.Collections.Generic;
@@ -60,6 +51,11 @@ public class GameSaveManager : MonoBehaviour
     // Pending save data to apply once the target scene finishes loading
     private GameSaveData _pendingLoad;
 
+    // Lightweight snapshot carried between scenes so stats/XP/level
+    // survive scene transitions without requiring a manual save.
+    private PlayerStatsSaveData _statSnapshot;
+    private PlayerAbilitiesSaveData _abilitiesSnapshot;
+
     /// <summary>
     /// The slot this play session belongs to.
     /// Set automatically when loading a slot or starting a new game.
@@ -76,13 +72,17 @@ public class GameSaveManager : MonoBehaviour
         if (I != null && I != this) { Destroy(gameObject); return; }
         I = this;
         DontDestroyOnLoad(gameObject);
-        SceneManager.sceneLoaded += OnSceneLoaded;
+        SceneManager.sceneLoaded   += OnSceneLoaded;
+        SceneManager.sceneUnloaded += OnSceneUnloaded;
     }
 
     void OnDestroy()
     {
         if (I == this)
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+        {
+            SceneManager.sceneLoaded   -= OnSceneLoaded;
+            SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        }
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -93,8 +93,90 @@ public class GameSaveManager : MonoBehaviour
         {
             string target = _pendingLoad.playerPosition?.sceneName;
             if (string.IsNullOrEmpty(target) || scene.name == target)
+            {
+                // A full load is happening — clear the snapshot so it
+                // doesn't overwrite the loaded stats
+                _statSnapshot       = null;
+                _abilitiesSnapshot  = null;
                 ApplyPendingLoad();
+                return;
+            }
         }
+
+        // No full load — apply the between-scene snapshot if we have one
+        ApplyStatSnapshot();
+    }
+
+    void OnSceneUnloaded(Scene scene)
+    {
+        // Capture stats before the player is destroyed with the scene
+        RebindRuntimeRefs();
+        TakeStatSnapshot();
+    }
+
+    void TakeStatSnapshot()
+    {
+        if (!_stats) return;
+
+        // Strip equipment bonuses — same logic as WriteStats
+        int eqM = 0, eqI = 0, eqT = 0; float eqC = 0f;
+        if (_stats.GetComponent<StatsEquipmentBridge>() != null && equipment != null)
+        {
+            var (bm, bi, bc, bt) = equipment.GetTotalBonuses();
+            eqM = bm; eqI = bi; eqT = bt; eqC = bc / 100f;
+        }
+
+        _statSnapshot = new PlayerStatsSaveData
+        {
+            playerClass = _stats.playerClass.ToString(),
+            level       = _stats.level,
+            currentXP   = _stats.currentXP,
+            xpToNext    = _stats.xpToNext,
+            muscles     = _stats.muscles   - eqM,
+            iq          = _stats.iq        - eqI,
+            toughness   = _stats.toughness - eqT,
+            critChance  = Mathf.Clamp01(_stats.critChance - eqC),
+        };
+
+        if (_abilities)
+            _abilitiesSnapshot = new PlayerAbilitiesSaveData
+            {
+                learnedAbilities = new System.Collections.Generic.List<string>(_abilities.learnedAbilities),
+            };
+
+        Debug.Log($"[SaveSystem] Stat snapshot taken: Level {_statSnapshot.level} {_statSnapshot.playerClass}");
+    }
+
+    void ApplyStatSnapshot()
+    {
+        if (_statSnapshot == null) return;
+
+        // Wait until the player exists in the new scene
+        if (!_stats) return;
+
+        // Use the same ReadStats logic
+        var bridge = _stats.GetComponent<StatsEquipmentBridge>();
+        if (bridge) bridge.enabled = false;
+
+        if (System.Enum.TryParse<PlayerStats.PlayerClass>(_statSnapshot.playerClass, out var cls))
+            _stats.playerClass = cls;
+
+        _stats.level      = _statSnapshot.level;
+        _stats.currentXP  = _statSnapshot.currentXP;
+        _stats.xpToNext   = _statSnapshot.xpToNext;
+        _stats.muscles    = _statSnapshot.muscles;
+        _stats.iq         = _statSnapshot.iq;
+        _stats.toughness  = _statSnapshot.toughness;
+        _stats.critChance = _statSnapshot.critChance;
+
+        if (bridge) bridge.enabled = true;
+
+        if (_abilities && _abilitiesSnapshot != null)
+            _abilities.learnedAbilities = new System.Collections.Generic.List<string>(_abilitiesSnapshot.learnedAbilities);
+
+        _stats.RaiseStatsChanged();
+
+        Debug.Log($"[SaveSystem] Stat snapshot applied: Level {_statSnapshot.level} {_statSnapshot.playerClass}");
     }
 
     void RebindRuntimeRefs()
@@ -293,7 +375,7 @@ public class GameSaveManager : MonoBehaviour
         var inv = new InventoryData { capacity = inventory.capacity };
         foreach (var s in inventory.Slots)
         {
-            var sd = new SlotData { occupied = !s.IsEmpty, count = s.count };
+            var sd = new SlotData { occupied = !s.IsEmpty };
             if (sd.occupied) sd.item = ItemToData(s.item);
             inv.slots.Add(sd);
         }
@@ -376,10 +458,6 @@ public class GameSaveManager : MonoBehaviour
         ReadWorldObjects(data);
         ReadPosition(data);
 
-        // Refresh all QuestActivatedObjects now that quest state is restored —
-        // without this, objects stay in their scene-default active state after a load.
-        RefreshActivatedObjects();
-
         Debug.Log($"[SaveSystem] Load complete. Scene: {SceneManager.GetActiveScene().name}");
     }
 
@@ -434,7 +512,7 @@ public class GameSaveManager : MonoBehaviour
 
         var list = new List<ItemStack>();
         foreach (var sd in d.inventory.slots)
-            list.Add(sd.occupied && sd.item != null ? new ItemStack(ItemFromData(sd.item), Mathf.Max(1, sd.count)) : new ItemStack(null, 0));
+            list.Add(sd.occupied && sd.item != null ? new ItemStack(ItemFromData(sd.item), 1) : new ItemStack(null, 0));
 
         var field = typeof(Inventory).GetField("slots",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -525,15 +603,9 @@ public class GameSaveManager : MonoBehaviour
         value          = it.value,
     };
 
-    ItemInstance ItemFromData(ItemInstanceData d)
+    ItemInstance ItemFromData(ItemInstanceData d) => new ItemInstance
     {
-        var db = GetItemDatabase();
-        var tpl = db?.Get(d.templateId);
-        if (tpl == null && !string.IsNullOrEmpty(d.templateId))
-            Debug.LogWarning($"[SaveSystem] Item template '{d.templateId}' not found in ItemDatabase — item will be empty.");
-        return new ItemInstance
-        {
-        template       = tpl,
+        template       = GetItemDatabase()?.Get(d.templateId),
         itemLevel      = d.itemLevel,
         requiredLevel  = d.requiredLevel,
         rarity         = d.rarity,
@@ -543,8 +615,7 @@ public class GameSaveManager : MonoBehaviour
         bonusCrit      = d.bonusCrit,
         bonusToughness = d.bonusToughness,
         value          = d.value,
-        };
-    }
+    };
 
     // ═══════════════════════════════════════════════════════════════════════════
     //  UTILITIES
@@ -575,13 +646,5 @@ public class GameSaveManager : MonoBehaviour
         int    level = d.playerStats?.level ?? 0;
         string scene = d.playerPosition?.sceneName ?? "?";
         return $"Level {level} {cls}  –  {scene}";
-    }
-
-    static void RefreshActivatedObjects()
-    {
-        var all = FindObjectsByType<QuestActivatedObject>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None);
-        foreach (var obj in all)
-            obj.ApplyQuestState();
     }
 }
