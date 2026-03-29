@@ -16,9 +16,10 @@ public class EquipmentStatsPanel : MonoBehaviour
 
     void OnEnable()
     {
-        if (!player) player = FindObjectOfType<PlayerStats>();
+        // Always re-find — the Inspector reference becomes stale after a scene change
+        // because the old PlayerStats GameObject was destroyed with the previous scene.
+        player = FindFirstObjectByType<PlayerStats>();
 
-        // subscribe
         if (player)
         {
             player.OnStatsChanged += Refresh;
@@ -31,10 +32,12 @@ public class EquipmentStatsPanel : MonoBehaviour
 
     void OnDisable()
     {
+        // Use the cached reference — it may already be null if scene unloaded
         if (player)
         {
             player.OnStatsChanged -= Refresh;
             player.OnLeveledUp -= _ => Refresh();
+            player = null;  // clear so OnEnable always re-finds fresh
         }
         if (equipment) equipment.OnEquipmentChanged -= Refresh;
     }

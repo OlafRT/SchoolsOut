@@ -57696,7 +57696,7 @@ MonoBehaviour:
   sfxSource: {fileID: 1395467037}
   endClips:
   - {fileID: 8300000, guid: 85ff79d779a1c49408a28ee9d67e4f70, type: 3}
-  oneShotVolumeBoost: 2
+  oneShotVolumeBoost: 1.5
   endWaitSeconds: 11
   objectToEnableAtEnd: {fileID: 8025670515778160978}
   reEnableBicycleControllerAtEnd: 0

@@ -27,12 +27,6 @@ public class XPBarUI : MonoBehaviour
 
     void Awake()
     {
-        if (!stats)
-        {
-            var player = GameObject.FindGameObjectWithTag("Player");
-            if (player) stats = player.GetComponent<PlayerStats>();
-        }
-
         if (!fillImage)
         {
             var child = transform.Find("Fill");
@@ -42,6 +36,11 @@ public class XPBarUI : MonoBehaviour
 
     void OnEnable()
     {
+        // Always re-find — the cached reference goes stale after a scene change
+        // because the previous PlayerStats was destroyed with the old scene.
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player) stats = player.GetComponent<PlayerStats>();
+
         HookEvents(true);
         RefreshImmediate();
     }
@@ -49,6 +48,7 @@ public class XPBarUI : MonoBehaviour
     void OnDisable()
     {
         HookEvents(false);
+        stats = null; // clear so OnEnable always re-finds fresh
     }
 
     void HookEvents(bool on)

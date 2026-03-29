@@ -103,8 +103,10 @@ public class GameSaveManager : MonoBehaviour
             }
         }
 
-        // No full load — apply the between-scene snapshot if we have one
-        ApplyStatSnapshot();
+        // No full load — delay one frame so Start() runs on all scene objects
+        // (UI panels subscribe to OnStatsChanged in OnEnable/Start, and we need
+        // them subscribed before we raise the event)
+        StartCoroutine(ApplyStatSnapshotNextFrame());
     }
 
     void OnSceneUnloaded(Scene scene)
@@ -147,11 +149,17 @@ public class GameSaveManager : MonoBehaviour
         Debug.Log($"[SaveSystem] Stat snapshot taken: Level {_statSnapshot.level} {_statSnapshot.playerClass}");
     }
 
+    System.Collections.IEnumerator ApplyStatSnapshotNextFrame()
+    {
+        yield return null; // wait one frame for Start() to run on scene objects
+        RebindRuntimeRefs(); // re-find player now that Start() has run
+        ApplyStatSnapshot();
+    }
+
     void ApplyStatSnapshot()
     {
         if (_statSnapshot == null) return;
 
-        // Wait until the player exists in the new scene
         if (!_stats) return;
 
         // Use the same ReadStats logic
