@@ -10,7 +10,7 @@ using System.Collections.Generic;
 ///  - Thunder audio delayed by strike distance (speed of sound)
 ///  - Player damage on lightning hit
 ///  - Puddle decals that spawn/fade based on wetness
-///  - Terrain layer smoothness driven by wetness
+///  - Global wetness shader value + optional per-material override
 ///  - Post-rain drying delay + configurable dry speed
 /// </summary>
 [DisallowMultipleComponent]
@@ -201,20 +201,15 @@ public class WeatherController : MonoBehaviour
     [Tooltip("Sends _GlobalWetness to all shaders that read it each frame.")]
     public bool  sendWetnessToShader = true;
 
-    [Header("Terrain Smoothness (Wetness)")]
-    [Tooltip("The Terrain whose layers become shinier when wet. " +
-             "Runtime clones are created so the project asset is never modified.")]
-    public Terrain targetTerrain;
-
-    [Tooltip("Smoothness for terrain layers when completely dry (wetness = 0).")]
-    [Range(0f, 1f)] public float drySmoothness = 0.1f;
-
-    [Tooltip("Smoothness for terrain layers when completely wet (wetness = 1).")]
-    [Range(0f, 1f)] public float wetSmoothness  = 0.78f;
-
-    [Header("Optional Extra Material (legacy)")]
+    [Header("Optional Extra Material")]
+    [Tooltip("A material with a float wetness property (e.g. a custom wet ground shader).")]
     public Material terrainMaterialInstance;
     public string   terrainWetnessProperty = "_Wetness";
+
+    [Header("Terrain (optional)")]
+    [Tooltip("Used only to sample terrain height so lightning bolts land flush with the ground " +
+             "on hilly terrain. Does not modify the terrain or its layers in any way.")]
+    public Terrain targetTerrain;
 
     // ═══════════════════════════════════════════
     //  Private Runtime State
@@ -233,11 +228,6 @@ public class WeatherController : MonoBehaviour
     // Rain audio
     private float targetRainVolume;
 
-    // Terrain layers
-    private TerrainLayer[] originalTerrainLayers; // saved so we can restore on exit
-    private TerrainLayer[] runtimeTerrainLayers;
-    private float[]        baseLayerSmoothness;
-
     // Puddles
     private readonly List<GameObject> activePuddles = new List<GameObject>();
     private float nextPuddleSpawnTime;
@@ -254,7 +244,6 @@ public class WeatherController : MonoBehaviour
     // ═══════════════════════════════════════════
     private void Start()
     {
-        InitTerrainLayers();
         InitRainParticles();
         InitRainAudio();
         ApplyWeatherVisualsImmediately(currentWeather);
@@ -271,23 +260,6 @@ public class WeatherController : MonoBehaviour
         UpdatePuddles();
     }
 
-    private void OnDestroy()
-    {
-        // IMPORTANT: TerrainData is a project asset. We must restore the original
-        // layer references before Play Mode exits, otherwise the asset is left
-        // pointing at destroyed runtime clones and the layers appear missing.
-        if (targetTerrain && originalTerrainLayers != null)
-            targetTerrain.terrainData.terrainLayers = originalTerrainLayers;
-
-        // Clean up the runtime clone instances we created
-        if (runtimeTerrainLayers != null)
-            foreach (var layer in runtimeTerrainLayers)
-                if (layer) Destroy(layer);
-
-        runtimeTerrainLayers  = null;
-        originalTerrainLayers = null;
-    }
-
     // ═══════════════════════════════════════════
     //  Initialisation Helpers
     // ═══════════════════════════════════════════
@@ -295,11 +267,18 @@ public class WeatherController : MonoBehaviour
     private void InitRainParticles()
     {
         if (!rainParticleSystem) return;
+
+        // Stop and wipe any particles that were baked into the component in the Editor.
+        // Without this, the system briefly emits at its configured rate for one frame
+        // before the script zeroes it out, causing a visible burst on scene start.
+        rainParticleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
         var em = rainParticleSystem.emission;
-        em.rateOverTime = 0f;
+        em.rateOverTime    = 0f;
         targetEmissionRate = 0f;
-        // Keep the system 'playing' at 0 emission so it's instantly ready to ramp up
-        if (!rainParticleSystem.isPlaying) rainParticleSystem.Play();
+
+        // Play at zero emission so it is instantly ready to ramp up when rain starts
+        rainParticleSystem.Play();
     }
 
     private void InitRainAudio()
@@ -308,30 +287,6 @@ public class WeatherController : MonoBehaviour
         rainAudioSource.volume = 0f;
         targetRainVolume = 0f;
         if (!rainAudioSource.isPlaying) rainAudioSource.Play();
-    }
-
-    private void InitTerrainLayers()
-    {
-        if (!targetTerrain) return;
-        var td        = targetTerrain.terrainData;
-        var originals = td.terrainLayers;
-        if (originals == null || originals.Length == 0) return;
-
-        // Keep a copy of the original references so OnDestroy can put them back
-        originalTerrainLayers = originals;
-
-        runtimeTerrainLayers = new TerrainLayer[originals.Length];
-        baseLayerSmoothness  = new float[originals.Length];
-
-        for (int i = 0; i < originals.Length; i++)
-        {
-            if (!originals[i]) { runtimeTerrainLayers[i] = null; continue; }
-            runtimeTerrainLayers[i]            = Object.Instantiate(originals[i]);
-            baseLayerSmoothness[i]             = originals[i].smoothness;
-            runtimeTerrainLayers[i].smoothness = drySmoothness;
-        }
-
-        td.terrainLayers = runtimeTerrainLayers;
     }
 
     // ═══════════════════════════════════════════
@@ -475,18 +430,9 @@ public class WeatherController : MonoBehaviour
         if (sendWetnessToShader)
             Shader.SetGlobalFloat("_GlobalWetness", wetness);
 
-        // Legacy per-material override
+        // Optional per-material override
         if (terrainMaterialInstance && terrainMaterialInstance.HasProperty(terrainWetnessProperty))
             terrainMaterialInstance.SetFloat(terrainWetnessProperty, wetness);
-
-        // Terrain layer smoothness — blend each layer from its own dry value toward wetSmoothness
-        if (runtimeTerrainLayers == null) return;
-        for (int i = 0; i < runtimeTerrainLayers.Length; i++)
-        {
-            if (runtimeTerrainLayers[i] == null) continue;
-            float dry = Mathf.Lerp(baseLayerSmoothness[i], drySmoothness, 0.5f);
-            runtimeTerrainLayers[i].smoothness = Mathf.Lerp(dry, wetSmoothness, wetness);
-        }
     }
 
     // ── Puddle Decals ────────────────────────────────────────────────────────

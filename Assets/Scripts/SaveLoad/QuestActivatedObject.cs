@@ -42,20 +42,29 @@ public class QuestActivatedObject : MonoBehaviour
 
     public void ApplyQuestState()
     {
-        if (string.IsNullOrEmpty(questId)) return;
         var qm = QuestManager.I;
         if (qm == null) return;
 
-        // If the "off" quest condition is met, that takes priority
+        // Bail only if there's genuinely nothing to evaluate
+        if (string.IsNullOrEmpty(questId) && string.IsNullOrEmpty(offQuestId)) return;
+
+        // Off condition takes priority
         if (!string.IsNullOrEmpty(offQuestId) && EvaluateCondition(qm, offQuestId, offCondition))
         {
             gameObject.SetActive(false);
             return;
         }
 
+        // If there's no on-condition, default to active
+        if (string.IsNullOrEmpty(questId))
+        {
+            gameObject.SetActive(true);
+            return;
+        }
+
         gameObject.SetActive(EvaluateCondition(qm, questId, condition));
     }
-
+    
     bool EvaluateCondition(QuestManager qm, string id, ActivationCondition cond)
     {
         bool active    = qm.HasActive(id);

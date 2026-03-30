@@ -19,18 +19,33 @@ MonoBehaviour:
   itemType: 2
   isEquippable: 1
   equipSlot: 2
+  hasClassRestriction: 0
+  requiredClass: 1
   allowedAffixes: 010000000400000003000000000000000200000005000000
   description: A gold ring with a massive diamond. Could it be real?
   isStaticItem: 1
   overrideName: Stacys Diamond Ring
   fixedItemLevel: 3
-  fixedRequiredLevel: 2
+  fixedRequiredLevel: 4
   fixedRarity: 3
   fixedMuscles: 3
-  fixedIQ: 3
+  fixedIQ: 4
   fixedCrit: 5
-  fixedToughness: 2
+  fixedToughness: 3
   fixedValue: 25
   forcedAffix: 0
+  isConsumable: 0
+  consumableKind: 0
+  foodTotalHeal: 20
+  foodDurationSeconds: 8
+  foodConsumeOnStart: 1
+  foodPropId: 
+  healAmount: 30
+  buffStat: 0
+  buffAmount: 2
+  buffDurationSeconds: 30
+  teachesAbilityName: 
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
   isStackable: 0
   maxStackSize: 20
