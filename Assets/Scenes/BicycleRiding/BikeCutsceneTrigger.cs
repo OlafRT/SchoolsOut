@@ -12,8 +12,8 @@ public class BikeCutsceneTrigger : MonoBehaviour
     [Tooltip("The bike root transform that should be moved along the path.")]
     public Transform bikeRoot;
 
-    [Tooltip("The script on the player that should be disabled when cutscene starts.")]
-    public MonoBehaviour bicycleControllerToDisable; // drag BicycleController here
+    [Tooltip("The BicycleController on the player. We put it into cutscene mode (keeps crank animated) instead of disabling it.")]
+    public BicycleController bicycleController; // direct reference — no more MonoBehaviour cast needed
 
     [Tooltip("Optional: if the bike has a Rigidbody, we'll move it using MovePosition for smooth physics-friendly motion.")]
     public Rigidbody bikeRigidbody;
@@ -51,7 +51,7 @@ public class BikeCutsceneTrigger : MonoBehaviour
     public AudioClip[] endClips;
     [Header("Audio Boost")]
     [Range(0.1f, 5f)]
-    public float oneShotVolumeBoost = 1.6f; // 1 = normal, 2 = double, etc.
+    public float oneShotVolumeBoost = 1.6f;
 
     [Tooltip("Wait this long AFTER fade/sounds before enabling the object.")]
     public float endWaitSeconds = 1.5f;
@@ -83,7 +83,6 @@ public class BikeCutsceneTrigger : MonoBehaviour
 
     void Reset()
     {
-        // Auto-ensure collider is trigger if present
         var col = GetComponent<Collider>();
         if (col) col.isTrigger = true;
     }
@@ -92,11 +91,7 @@ public class BikeCutsceneTrigger : MonoBehaviour
     {
         if (hasTriggered && triggerOnlyOnce) return;
 
-        // If playerRoot not assigned, treat whatever entered as player
         if (!playerRoot) playerRoot = other.transform;
-
-        // Optional: basic tag check (uncomment if you want)
-        // if (!other.CompareTag("Player")) return;
 
         hasTriggered = true;
         StartCoroutine(CutsceneRoutine());
@@ -106,7 +101,6 @@ public class BikeCutsceneTrigger : MonoBehaviour
     {
         onCutsceneStart?.Invoke();
 
-        // Safety checks
         if (!bikeRoot)
         {
             Debug.LogError("[BikeCutsceneTrigger] bikeRoot is not assigned.");
@@ -122,23 +116,32 @@ public class BikeCutsceneTrigger : MonoBehaviour
         // Hide all dialogue at start (clean slate)
         if (forceHideAllDialogue && dialogueSteps != null)
         {
-            for (int i = 0; i < dialogueSteps.Length; i++)
+            foreach (var step in dialogueSteps)
+                if (step.uiObject) step.uiObject.SetActive(false);
+        }
+
+        // Hand control to the cutscene.
+        // CutsceneMode = true keeps the component alive so FixedUpdate still runs —
+        // that's what drives the crank animation. It just skips input and physics.
+        if (bicycleController)
+        {
+            bicycleController.cutsceneMode = true;
+
+            // Zero out any momentum left from the player so movement is fully cutscene-driven
+            if (bikeRigidbody)
             {
-                if (dialogueSteps[i].uiObject) dialogueSteps[i].uiObject.SetActive(false);
+                bikeRigidbody.velocity        = Vector3.zero;
+                bikeRigidbody.angularVelocity = Vector3.zero;
             }
         }
 
-        // Disable player bicycle controller
-        if (bicycleControllerToDisable)
-            bicycleControllerToDisable.enabled = false;
-
-        // If bike has rigidbody, take control
+        // If bike has rigidbody, make it kinematic so cutscene positions it cleanly
         bool hadRb = bikeRigidbody != null;
         bool prevKinematic = false;
         if (hadRb)
         {
             prevKinematic = bikeRigidbody.isKinematic;
-            bikeRigidbody.isKinematic = true; // cutscene control
+            bikeRigidbody.isKinematic = true;
         }
 
         // Start dialogue sequence in parallel
@@ -146,66 +149,57 @@ public class BikeCutsceneTrigger : MonoBehaviour
         if (dialogueSteps != null && dialogueSteps.Length > 0)
             dialogueCo = StartCoroutine(DialogueSequence());
 
-        // Move bike along points
+        // Move bike along points (crank spins the whole time thanks to cutsceneMode)
         yield return StartCoroutine(MoveAlongPoints());
 
         onReachedFinalPoint?.Invoke();
 
-        // End: hide dialogue
+        // Hide dialogue
         if (forceHideAllDialogue && dialogueSteps != null)
         {
-            for (int i = 0; i < dialogueSteps.Length; i++)
-            {
-                if (dialogueSteps[i].uiObject) dialogueSteps[i].uiObject.SetActive(false);
-            }
+            foreach (var step in dialogueSteps)
+                if (step.uiObject) step.uiObject.SetActive(false);
         }
 
-        // Stop dialogue coroutine if still running
         if (dialogueCo != null)
             StopCoroutine(dialogueCo);
 
         // Fade to black
         if (fadeGroup)
-        {
             yield return StartCoroutine(FadeCanvasGroup(fadeGroup, fadeGroup.alpha, 1f, fadeDuration));
-        }
 
-        // Wait X seconds
         if (endWaitSeconds > 0f)
             yield return new WaitForSeconds(endWaitSeconds);
 
-        // Enable object
         if (objectToEnableAtEnd)
             objectToEnableAtEnd.SetActive(true);
 
-        // Restore bike rigidbody state
+        // Restore rigidbody state
         if (hadRb)
             bikeRigidbody.isKinematic = prevKinematic;
 
-        // Optionally give control back
-        if (reEnableBicycleControllerAtEnd && bicycleControllerToDisable)
-            bicycleControllerToDisable.enabled = true;
+        // Return control to the player (or leave in cutscene mode if not re-enabling)
+        if (bicycleController)
+        {
+            if (reEnableBicycleControllerAtEnd)
+                bicycleController.cutsceneMode = false;  // player can ride again
+            // else: leave cutsceneMode = true so the player stays locked post-cutscene
+        }
 
         onCutsceneEnd?.Invoke();
 
-        // Optional: disable the trigger object so it can't fire again
         if (triggerOnlyOnce)
             gameObject.SetActive(false);
     }
 
     IEnumerator DialogueSequence()
     {
-        // Shows each UI object for its duration, one at a time
         for (int i = 0; i < dialogueSteps.Length; i++)
         {
-            // hide all others (so only one is shown)
             if (forceHideAllDialogue)
             {
                 for (int j = 0; j < dialogueSteps.Length; j++)
-                {
-                    if (dialogueSteps[j].uiObject)
-                        dialogueSteps[j].uiObject.SetActive(false);
-                }
+                    if (dialogueSteps[j].uiObject) dialogueSteps[j].uiObject.SetActive(false);
             }
 
             var step = dialogueSteps[i];
@@ -223,24 +217,17 @@ public class BikeCutsceneTrigger : MonoBehaviour
             Transform p = points[i];
             if (!p) continue;
 
-            // When we are about to move to the FINAL point,
-            // start fade + play sounds while we travel there.
             if (!fadeStarted && i == points.Length - 1)
             {
                 fadeStarted = true;
 
-                // Fade begins now (while still moving)
                 if (fadeGroup)
                     StartCoroutine(FadeCanvasGroup(fadeGroup, fadeGroup.alpha, 1f, fadeDuration));
 
-                // Play the sound(s) at the same time as fade starts
                 if (sfxSource && endClips != null)
                 {
-                    for (int c = 0; c < endClips.Length; c++)
-                    {
-                        if (endClips[c])
-                            sfxSource.PlayOneShot(endClips[c], oneShotVolumeBoost);
-                    }
+                    foreach (var clip in endClips)
+                        if (clip) sfxSource.PlayOneShot(clip, oneShotVolumeBoost);
                 }
             }
 
@@ -250,16 +237,14 @@ public class BikeCutsceneTrigger : MonoBehaviour
 
     IEnumerator MoveTo(Vector3 targetPos)
     {
-        // Move until within arriveDistance
         while ((bikeRoot.position - targetPos).sqrMagnitude > arriveDistance * arriveDistance)
         {
             Vector3 current = bikeRoot.position;
             Vector3 next = Vector3.MoveTowards(current, targetPos, moveSpeed * Time.deltaTime);
 
-            // Rotation (optional)
             if (rotateToPath)
             {
-                Vector3 dir = (targetPos - current);
+                Vector3 dir = targetPos - current;
                 dir.y = 0f;
                 if (dir.sqrMagnitude > 0.0001f)
                 {
@@ -268,21 +253,14 @@ public class BikeCutsceneTrigger : MonoBehaviour
                 }
             }
 
-            if (bikeRigidbody)
-            {
-                bikeRigidbody.MovePosition(next);
-            }
-            else
-            {
-                bikeRoot.position = next;
-            }
+            if (bikeRigidbody) bikeRigidbody.MovePosition(next);
+            else                bikeRoot.position = next;
 
             yield return null;
         }
 
-        // Snap at the end
         if (bikeRigidbody) bikeRigidbody.MovePosition(targetPos);
-        else bikeRoot.position = targetPos;
+        else               bikeRoot.position = targetPos;
     }
 
     IEnumerator FadeCanvasGroup(CanvasGroup cg, float from, float to, float duration)
@@ -292,13 +270,12 @@ public class BikeCutsceneTrigger : MonoBehaviour
         duration = Mathf.Max(0.01f, duration);
         float t = 0f;
         cg.blocksRaycasts = true;
-        cg.interactable = true;
+        cg.interactable   = true;
 
         while (t < duration)
         {
             t += Time.deltaTime;
-            float a = Mathf.Lerp(from, to, t / duration);
-            cg.alpha = a;
+            cg.alpha = Mathf.Lerp(from, to, t / duration);
             yield return null;
         }
 

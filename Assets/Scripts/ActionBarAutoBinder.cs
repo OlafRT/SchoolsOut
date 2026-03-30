@@ -4,6 +4,8 @@ using System.Collections.Generic;
 
 public class ActionBarAutoBinder : MonoBehaviour
 {
+    // Cached ref so we can subscribe/unsubscribe cleanly
+    PlayerStats _stats;
     [Tooltip("The player that has the ability components (StrikeAbility, BombAbility, etc).")]
     public GameObject player;
 
@@ -16,6 +18,19 @@ public class ActionBarAutoBinder : MonoBehaviour
     void Start()
     {
         Refresh();
+    }
+
+    void OnEnable()
+    {
+        // Re-find stats each time — reference goes stale after scene changes
+        _stats = player ? player.GetComponent<PlayerStats>() : null;
+        if (_stats) _stats.OnStatsChanged += Refresh;
+    }
+
+    void OnDisable()
+    {
+        if (_stats) _stats.OnStatsChanged -= Refresh;
+        _stats = null;
     }
 
     public void Refresh()

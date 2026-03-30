@@ -56483,6 +56483,51 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.9360656, y: 5.3269687, z: 0.93606645}
   m_Center: {x: -0.00000008940696, y: 0.3257093, z: -0.0000019073486}
+--- !u!1 &1378228236
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1378228238}
+  - component: {fileID: 1378228237}
+  m_Layer: 5
+  m_Name: ShadowDistance
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1378228237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1378228236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb7e747d8dbc03644a6f0c7b3b8e7f03, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneShadowDistance: 110
+--- !u!4 &1378228238
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1378228236}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 960, y: 540, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1380595752
 GameObject:
   m_ObjectHideFlags: 0
@@ -57676,7 +57721,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerRoot: {fileID: 1876606561}
   bikeRoot: {fileID: 1756039043}
-  bicycleControllerToDisable: {fileID: 1876606562}
+  bicycleController: {fileID: 1876606562}
   bikeRigidbody: {fileID: 1876606563}
   points:
   - {fileID: 142773402}
@@ -72145,9 +72190,12 @@ MonoBehaviour:
   mouseYSens: 90
   minPitch: -20
   maxPitch: 60
+  bikePosSmoothTime: 0.2
   focusSmoothTime: 0.08
   positionSmoothTime: 0.06
   rotationLerp: 18
+  lookAheadDistance: 0.6
+  lookAheadSmoothTime: 0.18
   collisionMask:
     serializedVersion: 2
     m_Bits: 1
@@ -72157,6 +72205,7 @@ MonoBehaviour:
   alignSpeed: 4
   alignStartSpeed: 2
   alignBlendMaxSpeed: 10
+  alignYawSmoothTime: 0.2
   cam: {fileID: 1395467033}
   baseFOV: 60
   fovAtTopSpeed: 72
@@ -76438,6 +76487,9 @@ MonoBehaviour:
   enableDeathUI: 1
   deathUI: {fileID: 871148642}
   stopSpeedToDie: 0.08
+  cutsceneMode: 0
+  cutscenePedalCadence: 680
+  cutscenePedalRampSpeed: 900
   inhaleRefillAmount: 35
   boostMultiplier: 1.25
   boostSeconds: 2
@@ -76547,6 +76599,7 @@ MonoBehaviour:
   destroyOnParticlesEnd: 1
   levelUpEffectLifetime: 2
   effectTimeoutCap: 8
+  progressAsset: {fileID: 11400000, guid: 2975817243407394fb5a7a1ec0ea0a12, type: 2}
   simulateLevelUpOnStart: 0
   testLevelUpKey: 291
 --- !u!114 &1876606568
@@ -103360,3 +103413,4 @@ SceneRoots:
   - {fileID: 543450652199951811}
   - {fileID: 7924368714465185442}
   - {fileID: 1401397852}
+  - {fileID: 1378228238}

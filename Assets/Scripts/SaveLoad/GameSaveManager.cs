@@ -22,10 +22,12 @@ public class GameSaveManager : MonoBehaviour
 
     // ── Inspector ─────────────────────────────────────────────────────────────
     [Header("ScriptableObject Assets  (assign in Inspector)")]
-    public Inventory      inventory;
-    public EquipmentState equipment;
-    public PlayerWallet   wallet;
-    public QuestDatabase  questDatabase;
+    public Inventory        inventory;
+    public EquipmentState   equipment;
+    public PlayerWallet     wallet;
+    public QuestDatabase    questDatabase;
+    [Tooltip("The PlayerProgress ScriptableObject asset — same one assigned to PlayerStats.")]
+    public PlayerProgressSO playerProgress;
 
     // ItemDatabase loads itself from Resources — no Inspector assignment needed.
     // Place your ItemDatabase asset at:  Assets/Resources/ItemDatabase.asset
@@ -72,16 +74,14 @@ public class GameSaveManager : MonoBehaviour
         if (I != null && I != this) { Destroy(gameObject); return; }
         I = this;
         DontDestroyOnLoad(gameObject);
-        SceneManager.sceneLoaded   += OnSceneLoaded;
-        SceneManager.sceneUnloaded += OnSceneUnloaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     void OnDestroy()
     {
         if (I == this)
         {
-            SceneManager.sceneLoaded   -= OnSceneLoaded;
-            SceneManager.sceneUnloaded -= OnSceneUnloaded;
+            SceneManager.sceneLoaded -= OnSceneLoaded;
         }
     }
 
@@ -109,12 +109,6 @@ public class GameSaveManager : MonoBehaviour
         StartCoroutine(ApplyStatSnapshotNextFrame());
     }
 
-    void OnSceneUnloaded(Scene scene)
-    {
-        // Capture stats before the player is destroyed with the scene
-        RebindRuntimeRefs();
-        TakeStatSnapshot();
-    }
 
     void TakeStatSnapshot()
     {
@@ -154,7 +148,8 @@ public class GameSaveManager : MonoBehaviour
     System.Collections.IEnumerator ApplyStatSnapshotNextFrame()
     {
         yield return null; // wait one frame for Start() to run on scene objects
-        RebindRuntimeRefs(); // re-find player now that Start() has run
+        // Do NOT call RebindRuntimeRefs() here — it would overwrite the
+        // cross-scene snapshot by calling TakeStatSnapshot() with level 1.
         ApplyStatSnapshot();
     }
 
@@ -197,31 +192,57 @@ public class GameSaveManager : MonoBehaviour
 
         _stats.RaiseStatsChanged();
 
+        // NOTE: Do NOT clear the snapshot here.
+        // It persists until the player makes actual progress (OnPlayerStatsChanged),
+        // which keeps it correct across multiple scene transitions (e.g. bicycle → forest).
+        // A full save/load clears it separately.
         Debug.Log($"[SaveSystem] Stat snapshot applied: Level {_statSnapshot.level} {_statSnapshot.playerClass}");
     }
 
+    PlayerStats _subscribedStats;  // track what we're subscribed to
+
     void RebindRuntimeRefs()
     {
-        // Include inactive objects — handles players that are briefly disabled
-        // during scene setup or spawned after sceneLoaded fires.
         var allStats = FindObjectsByType<PlayerStats>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        _stats = allStats.Length > 0 ? allStats[0] : null;
+        var newStats = allStats.Length > 0 ? allStats[0] : null;
 
-        // Fallback: find by "Player" tag if component search failed
-        if (!_stats)
+        if (!newStats)
         {
             var go = GameObject.FindWithTag("Player");
-            if (go) _stats = go.GetComponent<PlayerStats>();
+            if (go) newStats = go.GetComponent<PlayerStats>();
+        }
+
+        // Unsubscribe from old, subscribe to new
+        if (_subscribedStats && _subscribedStats != newStats)
+            _subscribedStats.OnStatsChanged -= OnPlayerStatsChanged;
+
+        _stats = newStats;
+
+        if (_stats && _stats != _subscribedStats)
+        {
+            _stats.OnStatsChanged += OnPlayerStatsChanged;
+            _subscribedStats = _stats;
+
+            // Only take a snapshot if we don't already have one from a previous
+            // scene. Overwriting here would replace a level 2 snapshot with the
+            // new scene's level 1 default before it can be applied.
+            if (_statSnapshot == null)
+                TakeStatSnapshot();
         }
 
         if (!_stats)
-            Debug.LogWarning("[SaveSystem] PlayerStats not found — stats and position will not be saved. " +
-                "Ensure the player GameObject has the 'Player' tag.");
+            Debug.LogWarning("[SaveSystem] PlayerStats not found. Ensure the player has the 'Player' tag.");
 
         var allAbilities = FindObjectsByType<PlayerAbilities>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         _abilities = allAbilities.Length > 0 ? allAbilities[0] : null;
 
         _quests = QuestManager.I;
+    }
+
+    void OnPlayerStatsChanged()
+    {
+        // Keep snapshot always up to date — this fires on XP gain, level up, equip, etc.
+        TakeStatSnapshot();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -291,10 +312,31 @@ public class GameSaveManager : MonoBehaviour
         else NewGame();
     }
 
+    /// <summary>
+    /// Called when GameSession starts a new game externally (handles its own scene load).
+    /// Clears the snapshot and claims a save slot without loading a scene.
+    /// </summary>
+    public void NotifyNewGame()
+    {
+        _pendingLoad       = null;
+        _statSnapshot      = null;
+        _abilitiesSnapshot = null;
+        if (playerProgress != null) playerProgress.ResetForNewGame();
+
+        // Claim the first empty slot for this new session
+        ActiveSlot = 0;
+        for (int i = 0; i < SlotCount; i++)
+        {
+            if (!HasSave(i)) { ActiveSlot = i; break; }
+        }
+    }
+
     /// <summary>Loads the default game scene without restoring any save data.</summary>
     public void NewGame()
     {
-        _pendingLoad = null;
+        _pendingLoad       = null;
+        _statSnapshot      = null;   // start fresh — don't carry old stats into a new game
+        _abilitiesSnapshot = null;
 
         // Claim the first empty slot for this new session.
         // If all slots are full, fall back to slot 0 (oldest save gets overwritten).
@@ -344,20 +386,41 @@ public class GameSaveManager : MonoBehaviour
 
     void WriteStats(GameSaveData d)
     {
+        // Prefer reading from the ScriptableObject asset — it's always current
+        // because PlayerStats.PushToAsset() keeps it in sync.
+        // Fall back to reading _stats directly if the asset isn't assigned.
+        if (playerProgress != null && playerProgress.hasData)
+        {
+            // The asset stores BASE values (PlayerStats writes base values,
+            // StatsEquipmentBridge adds bonuses on top without writing back).
+            // We can save directly from the asset.
+            var health = _stats ? _stats.GetComponent<PlayerHealth>() : null;
+            d.playerStats = new PlayerStatsSaveData
+            {
+                playerClass = playerProgress.playerClass,
+                level       = playerProgress.level,
+                currentXP   = playerProgress.currentXP,
+                xpToNext    = playerProgress.xpToNext,
+                muscles     = playerProgress.muscles,
+                iq          = playerProgress.iq,
+                toughness   = playerProgress.toughness,
+                critChance  = playerProgress.critChance,
+                currentHP   = health ? health.currentHP : playerProgress.currentHP,
+            };
+            return;
+        }
+
+        // Fallback: read from MonoBehaviour directly
         if (!_stats) return;
 
-        // Strip equipment bonuses so we store only the BASE values.
-        // StatsEquipmentBridge will re-add the bonuses when it re-enables on load.
-        int eqM = 0, eqI = 0, eqT = 0;
-        float eqC = 0f;
+        int eqM = 0, eqI = 0, eqT = 0; float eqC = 0f;
         if (_stats.GetComponent<StatsEquipmentBridge>() != null && equipment != null)
         {
             var (bm, bi, bc, bt) = equipment.GetTotalBonuses();
             eqM = bm; eqI = bi; eqT = bt; eqC = bc / 100f;
         }
 
-        var health = _stats.GetComponent<PlayerHealth>();
-
+        var hlth = _stats.GetComponent<PlayerHealth>();
         d.playerStats = new PlayerStatsSaveData
         {
             playerClass = _stats.playerClass.ToString(),
@@ -368,7 +431,7 @@ public class GameSaveManager : MonoBehaviour
             iq          = _stats.iq        - eqI,
             toughness   = _stats.toughness - eqT,
             critChance  = Mathf.Clamp01(_stats.critChance - eqC),
-            currentHP   = health ? health.currentHP : 0,
+            currentHP   = hlth ? hlth.currentHP : 0,
         };
     }
 
@@ -523,6 +586,21 @@ public class GameSaveManager : MonoBehaviour
         }
 
         _stats.RaiseStatsChanged();
+
+        // Sync the ScriptableObject so subsequent scenes read the correct values
+        if (playerProgress != null)
+        {
+            playerProgress.playerClass = s.playerClass ?? "Nerd";
+            playerProgress.level       = s.level;
+            playerProgress.currentXP   = s.currentXP;
+            playerProgress.xpToNext    = s.xpToNext;
+            playerProgress.muscles     = s.muscles;
+            playerProgress.iq          = s.iq;
+            playerProgress.toughness   = s.toughness;
+            playerProgress.critChance  = s.critChance;
+            playerProgress.currentHP   = s.currentHP;
+            playerProgress.hasData     = true;
+        }
     }
 
     void ReadPosition(GameSaveData d)

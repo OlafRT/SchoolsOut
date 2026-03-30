@@ -53,9 +53,11 @@ public class GameSession : MonoBehaviour
     {
         SelectedClass = pick;
 
-        // Decide which scene to load based on class
-        string targetScene = GetSceneNameForClass(pick);
+        // Tell the save system this is a fresh session so it claims an empty
+        // slot and clears any cross-scene stat snapshot from a previous run.
+        GameSaveManager.I?.NotifyNewGame();
 
+        string targetScene = GetSceneNameForClass(pick);
         StartCoroutine(LoadGameCo(targetScene));
     }
 

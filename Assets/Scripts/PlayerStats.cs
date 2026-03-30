@@ -38,6 +38,11 @@ public class PlayerStats : MonoBehaviour
     public float levelUpEffectLifetime = 2.0f;
     public float effectTimeoutCap = 8f;
 
+    [Header("Progress Asset")]
+    [Tooltip("Assign the PlayerProgress ScriptableObject asset. " +
+             "Stats are read from it on scene start and written back whenever they change.")]
+    public PlayerProgressSO progressAsset;
+
     [Header("Testing / Debug")]
     [Tooltip("Automatically trigger LevelUp() on scene start for testing.")]
     public bool simulateLevelUpOnStart = false;
@@ -51,7 +56,25 @@ public class PlayerStats : MonoBehaviour
 
     void Awake()
     {
-        xpToNext = ComputeXpToNext(level);
+        if (progressAsset != null && progressAsset.hasData)
+        {
+            // Restore from the persistent asset — works across scene transitions
+            // exactly like inventory/equipment do, no snapshot needed.
+            if (System.Enum.TryParse<PlayerClass>(progressAsset.playerClass, out var cls))
+                playerClass = cls;
+
+            level      = progressAsset.level;
+            currentXP  = progressAsset.currentXP;
+            xpToNext   = progressAsset.xpToNext;
+            muscles    = progressAsset.muscles;
+            iq         = progressAsset.iq;
+            toughness  = progressAsset.toughness;
+            critChance = progressAsset.critChance;
+        }
+        else
+        {
+            xpToNext = ComputeXpToNext(level);
+        }
     }
 
     void Start()
@@ -111,12 +134,34 @@ public class PlayerStats : MonoBehaviour
         SpawnLevelUpEffect();
 
         OnLeveledUp?.Invoke(level);
+        PushToAsset();
+        PushToAsset();
         OnStatsChanged?.Invoke();
     }
 
     public void RaiseStatsChanged()
     {
+        PushToAsset();
         OnStatsChanged?.Invoke();
+    }
+
+    // Write current stats into the ScriptableObject so the next scene can read them.
+    void PushToAsset()
+    {
+        if (progressAsset == null) return;
+        progressAsset.playerClass = playerClass.ToString();
+        progressAsset.level       = level;
+        progressAsset.currentXP   = currentXP;
+        progressAsset.xpToNext    = xpToNext;
+        progressAsset.muscles     = muscles;
+        progressAsset.iq          = iq;
+        progressAsset.toughness   = toughness;
+        progressAsset.critChance  = critChance;
+        progressAsset.hasData     = true;
+
+        // Also store current HP if PlayerHealth is present
+        var health = GetComponent<PlayerHealth>();
+        if (health) progressAsset.currentHP = health.currentHP;
     }
 
     void SpawnLevelUpEffect()
@@ -207,4 +252,3 @@ public class PlayerStats : MonoBehaviour
         return ComputeDamage(baseDamage, school, false, out _);
     }
 }
-

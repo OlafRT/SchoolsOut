@@ -164,6 +164,18 @@ public class BicycleController : MonoBehaviour
     [SerializeField] float stopSpeedToDie = 0.08f; // how slow before we fade in UI
     bool deathTriggered;
 
+    // ── Cutscene / Auto-Pedal ────────────────────────────────────────────────
+    [Header("Cutscene / Auto-Pedal")]
+    [Tooltip("Set by BikeCutsceneTrigger. Skips all player input & physics; animates crank at full speed.")]
+    public bool cutsceneMode = false;
+
+    [Tooltip("Cadence (deg/s) to ramp toward during auto-pedal. maxCadence = 700 by default.")]
+    public float cutscenePedalCadence = 680f;
+
+    [Tooltip("How fast cadence ramps up from 0 to the target when cutscene starts (deg/s²).")]
+    public float cutscenePedalRampSpeed = 900f;
+    // ────────────────────────────────────────────────────────────────────────
+
     [Header("Inhaler Effect")]
     public float inhaleRefillAmount = 35f;
     public float boostMultiplier = 1.25f;     // multiplies pedalImpulseAccel & maxSpeed
@@ -221,6 +233,9 @@ public class BicycleController : MonoBehaviour
 
     void Update()
     {
+        // Cutscene owns the character — skip all player input
+        if (cutsceneMode) return;
+
         if (Input.GetKeyDown(KeyCode.W))
         {
             WPressedThisFrame = true;
@@ -275,6 +290,17 @@ public class BicycleController : MonoBehaviour
 
     void FixedUpdate()
     {
+        // In cutscene mode: skip physics entirely, just animate the crank at full tilt
+        if (cutsceneMode)
+        {
+            cadenceDegPerSec = Mathf.MoveTowards(
+                cadenceDegPerSec, cutscenePedalCadence,
+                cutscenePedalRampSpeed * Time.fixedDeltaTime);
+            AnimateCrankAndPedals(cadenceDegPerSec);
+            HandleWheelSpin(); // wheels spin to match however the cutscene moves the bike
+            return;
+        }
+
         tapTimer -= Time.fixedDeltaTime;
 
         HandleMovement();
@@ -287,6 +313,7 @@ public class BicycleController : MonoBehaviour
 
     void LateUpdate()
     {
+        if (cutsceneMode) return; // audio driven by cutscene/dialogue, not riding SFX
         UpdateAudioAndFX();
     }
 
@@ -452,11 +479,10 @@ public class BicycleController : MonoBehaviour
         if (rearWheel)  rearWheel.localRotation  = Quaternion.Euler(wheelDeg, 0f, 0f);
     }
 
-    void HandleCrankAndPedals()
+    // Pure visual: spins the crank and repositions pedals at the given cadence.
+    // Called from both normal play (via HandleCrankAndPedals) and cutscene auto-pedal.
+    void AnimateCrankAndPedals(float cadence)
     {
-        // base decay (extra braking decay is applied in HandleMovement)
-        cadenceDegPerSec = Mathf.MoveTowards(cadenceDegPerSec, 0f, cadenceDecay * Time.fixedDeltaTime);
-
         if (crankCenter)
         {
             Vector3 localAxis =
@@ -464,7 +490,7 @@ public class BicycleController : MonoBehaviour
                 crankSpinAxis == Axis.Y ? Vector3.up :
                                           Vector3.forward;
 
-            crankDeg += cadenceDegPerSec * Time.fixedDeltaTime;
+            crankDeg += cadence * Time.fixedDeltaTime;
             crankCenter.localRotation = Quaternion.AngleAxis(crankDeg, localAxis);
         }
 
@@ -479,6 +505,13 @@ public class BicycleController : MonoBehaviour
             rightPedal.position = crankArmRight.position;
             rightPedal.rotation = transform.rotation * rightDefaultLocalRot;
         }
+    }
+
+    void HandleCrankAndPedals()
+    {
+        // base decay (extra braking decay is applied in HandleMovement)
+        cadenceDegPerSec = Mathf.MoveTowards(cadenceDegPerSec, 0f, cadenceDecay * Time.fixedDeltaTime);
+        AnimateCrankAndPedals(cadenceDegPerSec);
     }
 
     // ----------------- AUDIO & FX -----------------

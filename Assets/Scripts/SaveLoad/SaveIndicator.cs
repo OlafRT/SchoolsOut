@@ -1,30 +1,4 @@
 // SaveIndicator.cs
-// ─────────────────────────────────────────────────────────────────────────────
-// Attach to the root of your save indicator — the parent that holds both
-// the 3D floppy disk and the TMP text child.
-//
-// ANIMATOR SETUP
-// ──────────────
-//   Create an Animator on the floppy disk GameObject with two states:
-//     • "Idle"    — default state, disk is still
-//     • "Spin"    — the spin/rotation animation
-//   Add a Trigger parameter called "PlaySpin".
-//   In the Idle state, add a transition to Spin triggered by PlaySpin.
-//   The Spin state transitions back to Idle when it finishes (has exit time).
-//
-// HIERARCHY SUGGESTION
-// ────────────────────
-//   SaveIndicatorRoot     ← this script goes here
-//   ├── FloppyDisk        ← Animator + 3D mesh
-//   └── SaveText          ← TMP_Text, starts disabled
-//
-// SETUP
-// ─────
-//   1. Attach this script to SaveIndicatorRoot
-//   2. Assign floppyAnimator, saveText in the Inspector
-//   3. Leave SaveIndicatorRoot DISABLED in the scene — the script manages it
-//   4. Drag SaveIndicatorRoot into SaveGameButton's Save Indicator slot
-// ─────────────────────────────────────────────────────────────────────────────
 
 using System.Collections;
 using UnityEngine;
@@ -65,6 +39,15 @@ public class SaveIndicator : MonoBehaviour
         if (saveText) saveText.gameObject.SetActive(false);
 
         // Hide all renderers and the text so the disk is invisible until needed
+        SetVisible(false);
+    }
+
+    void OnDisable()
+    {
+        // Panel was hidden mid-animation — stop and reset cleanly
+        if (_co != null) { StopCoroutine(_co); _co = null; }
+        if (saveText) saveText.gameObject.SetActive(false);
+        if (textCanvasGroup) textCanvasGroup.alpha = 0f;
         SetVisible(false);
     }
 
