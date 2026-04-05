@@ -10,18 +10,26 @@ public class EquipmentVisualLibrary : MonoBehaviour
     {
         public ItemTemplate template;
         public EquipSlot slot;
-        [Header("Scene Objects to toggle")]
-        public GameObject nerdObject;
-        public GameObject jockObject;
+
+        [Header("Scene Objects to ENABLE")]
+        [Tooltip("All GameObjects to enable when a Nerd equips this item.")]
+        public List<GameObject> nerdObjects = new();
+
+        [Tooltip("All GameObjects to enable when a Jock equips this item.")]
+        public List<GameObject> jockObjects = new();
+
+        [Header("Scene Objects to DISABLE")]
+        [Tooltip("Objects to disable when a Nerd equips this item. Useful for hiding default visuals like a starter backpack.")]
+        public List<GameObject> nerdDisableObjects = new();
+
+        [Tooltip("Objects to disable when a Jock equips this item.")]
+        public List<GameObject> jockDisableObjects = new();
     }
 
     public List<Entry> entries = new();
 
     Dictionary<ItemTemplate, Entry> _map;
 
-    // Build (or rebuild) the lookup and hide all visuals.
-    // Called lazily on first TryGet so it's always ready regardless
-    // of which component's Awake/OnEnable runs first.
     void EnsureMap()
     {
         if (_map != null) return;
@@ -29,12 +37,17 @@ public class EquipmentVisualLibrary : MonoBehaviour
         _map = new Dictionary<ItemTemplate, Entry>();
         foreach (var e in entries)
         {
-            if (e != null && e.template != null && !_map.ContainsKey(e.template))
+            if (e == null || e.template == null) continue;
+
+            if (!_map.ContainsKey(e.template))
                 _map.Add(e.template, e);
 
-            // start hidden
-            if (e?.nerdObject) e.nerdObject.SetActive(false);
-            if (e?.jockObject) e.jockObject.SetActive(false);
+            // Start explicit item visuals hidden.
+            foreach (var go in e.nerdObjects) if (go) go.SetActive(false);
+            foreach (var go in e.jockObjects) if (go) go.SetActive(false);
+
+            // Do NOT touch disable objects here.
+            // Those may be default visuals that should remain active until something equips over them.
         }
     }
 
@@ -47,6 +60,7 @@ public class EquipmentVisualLibrary : MonoBehaviour
             e = found;
             return true;
         }
+
         e = null;
         return false;
     }

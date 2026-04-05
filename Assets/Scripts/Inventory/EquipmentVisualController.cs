@@ -5,61 +5,119 @@ using UnityEngine;
 public class EquipmentVisualController : MonoBehaviour
 {
     [Header("Refs")]
-    public EquipmentState equipment;            // PlayerEquipment ScriptableObject
-    public PlayerStats player;                  // your PlayerStats (for class + level)
-    public EquipmentVisualLibrary library;      // the component with Nerd/Jock GOs
+    public EquipmentState equipment;
+    public PlayerStats player;
+    public EquipmentVisualLibrary library;
 
-    readonly Dictionary<EquipSlot, GameObject> _activeForSlot = new();
+    class ActiveVisualState
+    {
+        public readonly List<GameObject> enabledObjects = new();
+        public readonly List<GameObject> disabledObjects = new();
+    }
+
+    readonly Dictionary<EquipSlot, ActiveVisualState> _activeForSlot = new();
 
     void OnEnable()
     {
         if (!library) library = GetComponent<EquipmentVisualLibrary>();
+
         if (equipment) equipment.OnEquipmentChanged += RefreshAll;
-        if (player)    player.OnStatsChanged        += RefreshAll; // covers class swaps too
+        if (player) player.OnStatsChanged += RefreshAll;
+
         RefreshAll();
     }
 
     void OnDisable()
     {
         if (equipment) equipment.OnEquipmentChanged -= RefreshAll;
-        if (player)    player.OnStatsChanged        -= RefreshAll;
+        if (player) player.OnStatsChanged -= RefreshAll;
     }
 
     void RefreshAll()
     {
         if (!library || !player || equipment == null) return;
 
-        // turn off what we previously enabled
+        // Undo previous visual state first
         foreach (var kv in _activeForSlot)
-            if (kv.Value) kv.Value.SetActive(false);
+        {
+            var state = kv.Value;
+            if (state == null) continue;
+
+            foreach (var go in state.enabledObjects)
+                if (go) go.SetActive(false);
+
+            foreach (var go in state.disabledObjects)
+                if (go) go.SetActive(true);
+        }
+
         _activeForSlot.Clear();
 
-        // enable proper visuals for equipped items
+        // Apply current equipment visuals
         for (int i = 0; i < equipment.equipped.Count; i++)
         {
             var entry = equipment.equipped[i];
-            var inst  = entry.item;
-            if (inst == null || inst.template == null) continue;
+            var inst = entry.item;
 
+            if (inst == null || inst.template == null) continue;
             if (!library.TryGet(inst.template, out var vis)) continue;
 
-            var go = SelectForClass(vis, player.playerClass); // <- qualified enum
-            if (go)
+            var enableObjects = SelectEnableForClass(vis, player.playerClass);
+            var disableObjects = SelectDisableForClass(vis, player.playerClass);
+
+            var state = new ActiveVisualState();
+
+            if (disableObjects != null)
             {
-                go.SetActive(true);
-                _activeForSlot[entry.slot] = go;
+                foreach (var go in disableObjects)
+                {
+                    if (!go) continue;
+                    go.SetActive(false);
+                    state.disabledObjects.Add(go);
+                }
             }
+
+            if (enableObjects != null)
+            {
+                foreach (var go in enableObjects)
+                {
+                    if (!go) continue;
+                    go.SetActive(true);
+                    state.enabledObjects.Add(go);
+                }
+            }
+
+            if (state.enabledObjects.Count > 0 || state.disabledObjects.Count > 0)
+                _activeForSlot[entry.slot] = state;
         }
     }
 
-    // Note the qualified enum type here
-    GameObject SelectForClass(EquipmentVisualLibrary.Entry vis, PlayerStats.PlayerClass cls)
+    List<GameObject> SelectEnableForClass(EquipmentVisualLibrary.Entry vis, PlayerStats.PlayerClass cls)
     {
         switch (cls)
         {
-            case PlayerStats.PlayerClass.Nerd: return vis.nerdObject;
-            case PlayerStats.PlayerClass.Jock: return vis.jockObject;
-            default:                           return vis.nerdObject ?? vis.jockObject; // fallback
+            case PlayerStats.PlayerClass.Nerd:
+                return vis.nerdObjects;
+
+            case PlayerStats.PlayerClass.Jock:
+                return vis.jockObjects;
+
+            default:
+                return vis.nerdObjects.Count > 0 ? vis.nerdObjects : vis.jockObjects;
+        }
+    }
+
+    List<GameObject> SelectDisableForClass(EquipmentVisualLibrary.Entry vis, PlayerStats.PlayerClass cls)
+    {
+        switch (cls)
+        {
+            case PlayerStats.PlayerClass.Nerd:
+                return vis.nerdDisableObjects;
+
+            case PlayerStats.PlayerClass.Jock:
+                return vis.jockDisableObjects;
+
+            default:
+                return vis.nerdDisableObjects.Count > 0 ? vis.nerdDisableObjects : vis.jockDisableObjects;
         }
     }
 }

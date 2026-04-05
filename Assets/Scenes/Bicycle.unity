@@ -76632,16 +76632,25 @@ MonoBehaviour:
   entries:
   - template: {fileID: 11400000, guid: 3e3ae291ba406344390157c5ab99d598, type: 2}
     slot: 0
-    nerdObject: {fileID: 2171912950758717536}
-    jockObject: {fileID: 0}
+    nerdObjects:
+    - {fileID: 2171912950758717536}
+    jockObjects: []
+    nerdDisableObjects: []
+    jockDisableObjects: []
   - template: {fileID: 11400000, guid: 3cc4fdad14dd5894ca9419613e87a84c, type: 2}
     slot: 4
-    nerdObject: {fileID: 7395009573181835069}
-    jockObject: {fileID: 0}
+    nerdObjects:
+    - {fileID: 7395009573181835069}
+    jockObjects: []
+    nerdDisableObjects: []
+    jockDisableObjects: []
   - template: {fileID: 11400000, guid: cb532e49a2a3ab84dac3a7c9609ce401, type: 2}
     slot: 0
-    nerdObject: {fileID: 919132148478779566}
-    jockObject: {fileID: 0}
+    nerdObjects:
+    - {fileID: 919132148478779566}
+    jockObjects: []
+    nerdDisableObjects: []
+    jockDisableObjects: []
 --- !u!82 &1876606570
 AudioSource:
   m_ObjectHideFlags: 0

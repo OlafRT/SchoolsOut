@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Vacuum
   baseName: Back-Mounted Vacuum
-  icon: {fileID: 21300000, guid: 849514acf04d9a746b77a7d774b07e5d, type: 3}
+  icon: {fileID: 21300000, guid: 01ac6120c45052c4b8926871b5899d45, type: 3}
   rarity: 2
   itemType: 2
   isEquippable: 1
@@ -23,16 +23,16 @@ MonoBehaviour:
   requiredClass: 1
   allowedAffixes: 020000000500000000000000030000000400000001000000
   description: Made by Suckrolux, modified by Nerds.
-  isStaticItem: 0
+  isStaticItem: 1
   overrideName: Back-Mounted Vacuum
-  fixedItemLevel: 10
-  fixedRequiredLevel: 10
+  fixedItemLevel: 4
+  fixedRequiredLevel: 3
   fixedRarity: 3
   fixedMuscles: 0
-  fixedIQ: 5
-  fixedCrit: 5
-  fixedToughness: 10
-  fixedValue: 50
+  fixedIQ: 4
+  fixedCrit: 3
+  fixedToughness: 3
+  fixedValue: 20
   forcedAffix: 0
   isConsumable: 0
   consumableKind: 0
