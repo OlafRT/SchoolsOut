@@ -70,7 +70,8 @@ public class NPCCallForBackup : MonoBehaviour
     public AudioClip fleeSound;
     [Range(0f, 1f)] public float fleeSoundVolume = 1f;
 
-    [Tooltip("Played when she raises the phone to call for backup.")]
+    [Tooltip("Played when she raises the phone to call for backup. " +
+             "Stopped immediately if the call is interrupted by the player hitting her.")]
     public AudioClip phoneSound;
     [Range(0f, 1f)] public float phoneSoundVolume = 1f;
 
@@ -97,6 +98,11 @@ public class NPCCallForBackup : MonoBehaviour
     bool phoneCallComplete = false;
     int  hpAtPhoneStart    = 0;
 
+    // Persistent AudioSource for the phone sound so we can stop it mid-clip
+    // if the player interrupts the call. The flee sound still uses
+    // PlayClipAtPoint since we never need to cancel that one.
+    AudioSource _phoneSrc;
+
     // Bug 3 fix: shared across all instances so only ONE girl flees at a time.
     // When any girl registers herself here, all others see a non-zero count and skip.
     static readonly HashSet<NPCCallForBackup> s_currentlyFleeing = new();
@@ -114,6 +120,13 @@ public class NPCCallForBackup : MonoBehaviour
 
         var p = GameObject.FindGameObjectWithTag("Player");
         if (p) player = p.transform;
+
+        // Persistent AudioSource used only for the phone-call clip so we can
+        // stop it immediately if the player attacks her mid-call.
+        _phoneSrc = gameObject.AddComponent<AudioSource>();
+        _phoneSrc.spatialBlend = 1f;    // 3D — sounds like it comes from her position
+        _phoneSrc.playOnAwake  = false;
+        _phoneSrc.loop         = false;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -257,9 +270,14 @@ public class NPCCallForBackup : MonoBehaviour
         if (anim && !string.IsNullOrEmpty(phoneBoolName))
             anim.SetBool(phoneBoolName, true);
 
-        // Play the phone sound in sync with the animation.
-        if (phoneSound)
-            AudioSource.PlayClipAtPoint(phoneSound, transform.position, phoneSoundVolume);
+        // Play the phone sound via the persistent AudioSource so it can be stopped
+        // immediately if the player hits her and the call is cancelled.
+        if (phoneSound && _phoneSrc)
+        {
+            _phoneSrc.clip   = phoneSound;
+            _phoneSrc.volume = phoneSoundVolume;
+            _phoneSrc.Play();
+        }
 
         // ── Step 6: Wait for the animation event (or cancel on hit / death) ──
         while (!phoneCallComplete)
@@ -288,6 +306,12 @@ public class NPCCallForBackup : MonoBehaviour
     // AND internally when cancelling. Keeps all the cleanup in one place.
     void EndPhoneCall(Animator anim, bool prevRootMotion, bool spawnBackup)
     {
+        // Stop the phone sound immediately. If the call completed naturally the
+        // clip will have already finished on its own, so Stop() is a no-op then.
+        // If cancelled mid-call this cuts the audio the moment she stops acting.
+        if (_phoneSrc && _phoneSrc.isPlaying)
+            _phoneSrc.Stop();
+
         // Exit the phone animation state.
         if (anim && !string.IsNullOrEmpty(phoneBoolName))
             anim.SetBool(phoneBoolName, false);

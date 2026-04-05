@@ -34,6 +34,22 @@ MonoBehaviour:
   fixedToughness: 3
   fixedValue: 20
   forcedAffix: 0
+  hasWeaponProfile: 1
+  shotPattern: 1
+  weaponProjectilePrefab: {fileID: 6801143044023264936, guid: a25061546ae30a347b3579ebd999ac75,
+    type: 3}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 6
+  weaponAttackInterval: 0.7
+  weaponSpreadShots: 5
+  weaponSpreadAngle: 120
+  weaponSpreadRangeMultiplier: 1
+  weaponSpreadDamageMultiplier: 0.35
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 6801143044023264936, guid: 6e1510b5b8e2a0b479337d9e2c26b45b,
+    type: 3}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 20

@@ -32,8 +32,9 @@ public class AutoAttackAbility : MonoBehaviour
     #endregion
 
     [Header("Impact VFX (Nerd projectile)")]
-    [SerializeField] private GameObject nerdImpactVfx;
-    [SerializeField] private AudioClip nerdImpactSfx;
+    // Public so WeaponEquipBridge can hot-swap the VFX/SFX per weapon at runtime.
+    public GameObject nerdImpactVfx;
+    public AudioClip  nerdImpactSfx;
     [SerializeField] private float vfxScale = 1f;
     [SerializeField] private float vfxLife = 2f;
     [SerializeField] private bool parentVfxToHit = false;
@@ -57,6 +58,18 @@ public class AutoAttackAbility : MonoBehaviour
     [SerializeField] private GameObject jockImpactVfx;
     [SerializeField] private float jockImpactVfxLife = 1.5f;
     [SerializeField] private float jockImpactVfxScale = 1f;
+
+    // -------------------------------------------------------------------------
+    // Active weapon profile — set at runtime by WeaponEquipBridge.
+    // HideInInspector keeps the Inspector clean; the bridge owns these values.
+    // -------------------------------------------------------------------------
+    [HideInInspector] public WeaponShotPattern activePattern         = WeaponShotPattern.Single;
+    [HideInInspector] public int               spreadShots           = 3;
+    [HideInInspector] public float             spreadAngleDegrees    = 45f;
+    [HideInInspector] public float             spreadRangeMultiplier   = 0.6f;
+    [HideInInspector] public float             spreadDamageMultiplier  = 1f;
+    [HideInInspector] public int               burstCount            = 3;
+    [HideInInspector] public float             burstDelay            = 0.1f;
 
     [System.Serializable]
     public class EmissiveSlot
@@ -207,8 +220,7 @@ public class AutoAttackAbility : MonoBehaviour
             var (sx, sz) = ctx.StepFromDir8(ctx.SnapDirTo8(transform.forward));
             if (sx != 0 || sz != 0)
             {
-                var pathNow = ctx.GetRangedPathTiles(sx, sz, weaponRangeTiles);
-                ctx.TelegraphOnce(pathNow);
+                TelegraphForCurrentPattern(sx, sz);
             }
             pendingRanged.nextTelegraphAt = Time.time + Mathf.Max(0.01f, telegraphRefreshInterval);
         }
@@ -217,16 +229,66 @@ public class AutoAttackAbility : MonoBehaviour
         CheckFailSafes();
     }
 
-    bool HasWeaponEquipped()
+    // =========================================================================
+    // Telegraph helpers
+    // =========================================================================
+
+    /// <summary>
+    /// Shows tile markers appropriate for the current shot pattern.
+    /// Spread shows the three forward-facing 8-directions; Single / Burst show
+    /// the straight path as usual.
+    /// </summary>
+    void TelegraphForCurrentPattern(int sx, int sz)
     {
-        // Weapon slot must NOT be null
-        if (!equipment) return false;
-        var w = equipment.Get(EquipSlot.Weapon);
-        return (w != null && w.template != null);
+        if (activePattern == WeaponShotPattern.Spread)
+        {
+            int     shots          = Mathf.Max(1, spreadShots);
+            int     effectiveRange = Mathf.Max(1, Mathf.RoundToInt(weaponRangeTiles * spreadRangeMultiplier));
+            float   halfArc        = spreadAngleDegrees * 0.5f;
+            float   angleStep      = shots > 1 ? spreadAngleDegrees / (shots - 1) : 0f;
+            Vector3 centerDir      = new Vector3(sx, 0, sz).normalized;
+            Vector3 basePos        = ctx.Snap(transform.position);
+
+            // Build each pellet's path by stepping along its actual float angle and
+            // snapping each tile individually. This lets paths that start in the same
+            // snapped direction naturally fan out after a tile or two, giving a proper
+            // visual cone regardless of how many pellets there are.
+            //
+            // Dedup key = (firstTile x,z  +  lastTile x,z) so truly identical paths
+            // collapse, but paths that diverge mid-way stay distinct.
+            var seen = new HashSet<(int, int, int, int)>();
+
+            for (int i = 0; i < shots; i++)
+            {
+                float   yAngle    = -halfArc + angleStep * i;
+                Vector3 pelletDir = (Quaternion.Euler(0f, yAngle, 0f) * centerDir).normalized;
+
+                var tiles = new List<Vector3>(effectiveRange);
+                for (int step = 1; step <= effectiveRange; step++)
+                    tiles.Add(ctx.Snap(basePos + pelletDir * ctx.tileSize * step));
+
+                Vector3 first = tiles[0];
+                Vector3 last  = tiles[tiles.Count - 1];
+                var key = (
+                    Mathf.RoundToInt(first.x / ctx.tileSize),
+                    Mathf.RoundToInt(first.z / ctx.tileSize),
+                    Mathf.RoundToInt(last.x  / ctx.tileSize),
+                    Mathf.RoundToInt(last.z  / ctx.tileSize)
+                );
+
+                if (seen.Add(key))
+                    ctx.TelegraphOnce(tiles);
+            }
+        }
+        else
+        {
+            ctx.TelegraphOnce(ctx.GetRangedPathTiles(sx, sz, weaponRangeTiles));
+        }
     }
 
-    Animator ActiveAnimator =>
-        ctx && ctx.playerClass == PlayerAbilities.PlayerClass.Jock ? jockAnimator : nerdAnimator;
+    // =========================================================================
+    // Emissive pulse
+    // =========================================================================
 
     void NerdEmission_Update()
     {
@@ -247,6 +309,7 @@ public class AutoAttackAbility : MonoBehaviour
 
         float t = nerdEmissionPeriod <= 0.0001f ? 1f
                 : (Time.time / Mathf.Max(0.0001f, nerdEmissionPeriod) + nerdEmissionPhaseOffset);
+
         float pulse01 = 0.5f * (1f + Mathf.Sin(t * Mathf.PI * 2f));
         float intensity = pulse01 * Mathf.Max(0f, nerdEmissionMax);
 
@@ -262,6 +325,10 @@ public class AutoAttackAbility : MonoBehaviour
         for (int i = 0; i < nerdEmissiveSlots.Length; i++)
             nerdEmissiveSlots[i]?.DisableEmission();
     }
+
+    // =========================================================================
+    // DoAutoAttack
+    // =========================================================================
 
     void DoAutoAttack()
     {
@@ -315,9 +382,9 @@ public class AutoAttackAbility : MonoBehaviour
         }
     }
 
-    // =======================
+    // =========================================================================
     // Animation Event hooks
-    // =======================
+    // =========================================================================
 
     public void AnimEvent_FireAutoAttack()
     {
@@ -331,48 +398,132 @@ public class AutoAttackAbility : MonoBehaviour
             return;
         }
 
-        var pathNow = ctx.GetRangedPathTiles(sx, sz, weaponRangeTiles);
-        if (!telegraphNerdPreImpactPreview) ctx.TelegraphOnce(pathNow);
+        // Telegraph the path(s) if not previewing live
+        if (!telegraphNerdPreImpactPreview)
+            TelegraphForCurrentPattern(sx, sz);
 
         if (ctx.projectilePrefab)
         {
-            Vector3 spawn = ctx.Snap(transform.position)
-               + new Vector3(sx, 0, sz) * (ctx.tileSize * 0.1f);
+            int   damage    = pendingRanged.finalDamage;
+            bool  wasCrit   = pendingRanged.wasCrit;
+            float fullRange = weaponRangeTiles * ctx.tileSize;
 
-            var go = Instantiate(ctx.projectilePrefab, spawn, Quaternion.LookRotation(dir8, Vector3.up));
+            switch (activePattern)
+            {
+                case WeaponShotPattern.Single:
+                    FireProjectileInDirection(dir8, damage, fullRange, wasCrit);
+                    break;
 
-            var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
-            rb.isKinematic = true;
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.detectCollisions = true;
+                case WeaponShotPattern.Spread:
+                    FireSpread(dir8, damage, fullRange, wasCrit);
+                    break;
 
-            var sph = go.GetComponent<SphereCollider>() ?? go.AddComponent<SphereCollider>();
-            sph.isTrigger = false;
-            if (sph.radius < 0.08f) sph.radius = 0.08f;
-
-            var p = go.GetComponent<StraightProjectile>() ?? go.AddComponent<StraightProjectile>();
-
-            LayerMask impactLayers = ctx.targetLayer | ctx.wallLayer | ctx.groundLayer;
-
-            p.Init(
-                direction: dir8,
-                speed: ctx.projectileSpeed,
-                maxDistance: weaponRangeTiles * ctx.tileSize,
-                hitLayers: impactLayers,
-                damageLayers: ctx.targetLayer,
-                damage: pendingRanged.finalDamage,
-                tileSize: ctx.tileSize,
-                wasCrit: pendingRanged.wasCrit
-            );
-
-            var vfx = go.GetComponent<ProjectileImpactVFX>() ?? go.AddComponent<ProjectileImpactVFX>();
-            vfx.Configure(nerdImpactVfx, nerdImpactSfx, vfxScale, vfxLife, parentVfxToHit, impactLayers);
-            vfx.ConfigureSweep(vfxUseSweepRaycast, impactLayers, vfxSweepRadius, false);
+                case WeaponShotPattern.Burst:
+                    // Snapshot damage/crit into locals so the coroutine stays valid
+                    // even if pendingRanged is cleared. Direction is re-sampled each
+                    // shot inside FireBurst so rotating mid-burst steers correctly.
+                    StartCoroutine(FireBurst(damage, fullRange, wasCrit));
+                    break;
+            }
         }
 
         pendingRanged.has = false;
     }
+
+    // =========================================================================
+    // Shot-pattern helpers
+    // =========================================================================
+
+    /// <summary>
+    /// Fires pellets fanned out across <c>spreadAngleDegrees</c>.
+    /// Damage is divided evenly per pellet so total potential DPS is
+    /// comparable to a single shot.
+    /// Range is reduced by <c>spreadRangeMultiplier</c>.
+    /// </summary>
+    void FireSpread(Vector3 centerDir, int totalDamage, float fullRange, bool wasCrit)
+    {
+        int   shots         = Mathf.Max(1, spreadShots);
+        float range         = fullRange * Mathf.Clamp(spreadRangeMultiplier, 0.1f, 1f);
+        int   damagePerShot = Mathf.Max(1, Mathf.RoundToInt(totalDamage * spreadDamageMultiplier));
+
+        float halfArc   = spreadAngleDegrees * 0.5f;
+        float angleStep = shots > 1 ? spreadAngleDegrees / (shots - 1) : 0f;
+
+        for (int i = 0; i < shots; i++)
+        {
+            float yAngle = -halfArc + angleStep * i;
+            Vector3 pelletDir = Quaternion.Euler(0f, yAngle, 0f) * centerDir;
+            FireProjectileInDirection(pelletDir, damagePerShot, range, wasCrit);
+        }
+    }
+
+    /// <summary>
+    /// Fires <c>burstCount</c> projectiles one after another with
+    /// <c>burstDelay</c> seconds between each shot, all in the same direction.
+    /// </summary>
+    IEnumerator FireBurst(int damage, float range, bool wasCrit)
+    {
+        int count = Mathf.Max(1, burstCount);
+        for (int i = 0; i < count; i++)
+        {
+            if (ctx && ctx.projectilePrefab)
+            {
+                // Re-sample facing every shot so rotating the player mid-burst
+                // steers subsequent projectiles correctly.
+                Vector3 currentDir = ctx.SnapDirTo8(transform.forward);
+                FireProjectileInDirection(currentDir, damage, range, wasCrit);
+            }
+
+            if (i < count - 1)
+                yield return new WaitForSeconds(Mathf.Max(0.01f, burstDelay));
+        }
+    }
+
+    /// <summary>
+    /// Core projectile spawner. All shot patterns ultimately call this.
+    /// </summary>
+    void FireProjectileInDirection(Vector3 dir, int damage, float range, bool wasCrit)
+    {
+        if (!ctx || !ctx.projectilePrefab) return;
+
+        Vector3 normDir = dir.normalized;
+        if (normDir.sqrMagnitude < 0.0001f) return;
+
+        Vector3 spawn = ctx.Snap(transform.position) + normDir * (ctx.tileSize * 0.1f);
+
+        var go = Instantiate(ctx.projectilePrefab, spawn, Quaternion.LookRotation(normDir, Vector3.up));
+
+        var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.detectCollisions = true;
+
+        var sph = go.GetComponent<SphereCollider>() ?? go.AddComponent<SphereCollider>();
+        sph.isTrigger = false;
+        if (sph.radius < 0.08f) sph.radius = 0.08f;
+
+        var p = go.GetComponent<StraightProjectile>() ?? go.AddComponent<StraightProjectile>();
+
+        LayerMask impactLayers = ctx.targetLayer | ctx.wallLayer | ctx.groundLayer;
+
+        p.Init(
+            direction:   normDir,
+            speed:       ctx.projectileSpeed,
+            maxDistance: range,
+            hitLayers:   impactLayers,
+            damageLayers: ctx.targetLayer,
+            damage:      damage,
+            tileSize:    ctx.tileSize,
+            wasCrit:     wasCrit
+        );
+
+        var vfx = go.GetComponent<ProjectileImpactVFX>() ?? go.AddComponent<ProjectileImpactVFX>();
+        vfx.Configure(nerdImpactVfx, nerdImpactSfx, vfxScale, vfxLife, parentVfxToHit, impactLayers);
+        vfx.ConfigureSweep(vfxUseSweepRaycast, impactLayers, vfxSweepRadius, false);
+    }
+
+    // =========================================================================
 
     public void AnimEvent_JockSwingWhoosh()
     {
@@ -418,24 +569,35 @@ public class AutoAttackAbility : MonoBehaviour
 
             if (jockImpactVfx)
             {
-                var vfx = Instantiate(jockImpactVfx, firstHitPos, Quaternion.identity);
-                vfx.transform.localScale *= jockImpactVfxScale;
-                if (jockImpactVfxLife > 0f) Destroy(vfx, jockImpactVfxLife);
+                var vfxGo = Instantiate(jockImpactVfx, firstHitPos, Quaternion.identity);
+                vfxGo.transform.localScale *= jockImpactVfxScale;
+                if (jockImpactVfxLife > 0f) Destroy(vfxGo, jockImpactVfxLife);
             }
         }
 
         pendingMelee.has = false;
     }
 
-    // =======================
+    // =========================================================================
     // Helpers / failsafes
-    // =======================
+    // =========================================================================
 
     void CheckFailSafes()
     {
         if (pendingRanged.has && Time.time >= pendingRanged.timeoutAt) AnimEvent_FireAutoAttack();
         if (pendingMelee.has  && Time.time >= pendingMelee.timeoutAt)  AnimEvent_FireJockAutoAttack();
     }
+
+    bool HasWeaponEquipped()
+    {
+        // Weapon slot must NOT be null
+        if (!equipment) return false;
+        var w = equipment.Get(EquipSlot.Weapon);
+        return (w != null && w.template != null);
+    }
+
+    Animator ActiveAnimator =>
+        ctx && ctx.playerClass == PlayerAbilities.PlayerClass.Jock ? jockAnimator : nerdAnimator;
 
     List<Vector3> BuildMeleeTilesFromCurrent()
     {

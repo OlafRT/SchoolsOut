@@ -68,7 +68,8 @@ public class SeagullCameraSequence : MonoBehaviour
     [Header("Audio")]
     public AudioClip passSfx;
     public AudioClip stealSfx;
-    [Tooltip("Played when the camera smashes into the ground.")]
+    [Tooltip("Played when the camera smashes into the ground. " +
+             "Always 2D (full volume regardless of where the camera lands).")]
     public AudioClip crashSfx;
     [Range(0f,1f)] public float sfxVolume     = 1f;
     [Tooltip("Player reaction when the seagull flies past — 'What the heck?' etc.")]
@@ -91,6 +92,19 @@ public class SeagullCameraSequence : MonoBehaviour
     bool _hasPlayed = false;
     GameObject[] _hiddenUIObjects;
     Material _originalSkybox;
+
+    // Dedicated 2D AudioSource for the crash — spatialBlend = 0 so it plays at
+    // full volume regardless of where the camera lands in the world.
+    AudioSource _2dAudioSource;
+
+    // ── Awake ─────────────────────────────────────────────────────────────────
+    void Awake()
+    {
+        _2dAudioSource = gameObject.AddComponent<AudioSource>();
+        _2dAudioSource.spatialBlend = 0f;   // 2D: no distance attenuation
+        _2dAudioSource.playOnAwake  = false;
+        _2dAudioSource.loop         = false;
+    }
 
     // ── Entry point ───────────────────────────────────────────────────────────
     public void TriggerSequence()
@@ -443,8 +457,9 @@ public class SeagullCameraSequence : MonoBehaviour
         final.y = groundY;
         cam.position = final;
 
-        // Smash sound
-        PlaySfx(crashSfx, cam.position);
+        // Crash sound played 2D — full volume regardless of where the camera
+        // landed. PlayClipAtPoint would attenuate if the camera is far away.
+        PlaySfx2D(crashSfx);
     }
 
     IEnumerator FadeFog(float from, float to, float duration)
@@ -509,8 +524,19 @@ public class SeagullCameraSequence : MonoBehaviour
             r.enabled = visible;
     }
 
+    /// <summary>3D positional audio — used for pass/steal/reaction SFX.</summary>
     void PlaySfx(AudioClip clip, Vector3 pos)
     {
         if (clip) AudioSource.PlayClipAtPoint(clip, pos, sfxVolume);
+    }
+
+    /// <summary>
+    /// 2D audio (spatialBlend = 0) — used for the crash so it hits at full
+    /// volume no matter where the seagull dropped the camera.
+    /// </summary>
+    void PlaySfx2D(AudioClip clip)
+    {
+        if (!clip || !_2dAudioSource) return;
+        _2dAudioSource.PlayOneShot(clip, sfxVolume);
     }
 }

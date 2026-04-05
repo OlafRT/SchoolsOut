@@ -23,9 +23,10 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     private AudioSource _audioSource;
     private Animator _animator;
 
-    [Header("Hurt Sound")]
-    [Tooltip("Played when the player takes damage.")]
-    public AudioClip hurtSfx;
+    [Header("Hurt Sounds")]
+    [Tooltip("One clip is picked at random each time the player takes damage. " +
+             "Add as many variations as you like — more clips = less repetition.")]
+    public AudioClip[] hurtSfx;
     [Range(0f, 1f)] public float hurtVolume = 0.8f;
     [Tooltip("Random pitch variation range. 0 = no variation, 0.15 = subtle.")]
     public float hurtPitchVariation = 0.12f;
@@ -168,9 +169,20 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     void PlayHurtSfx()
     {
-        if (!hurtSfx || !_audioSource) return;
+        if (hurtSfx == null || hurtSfx.Length == 0 || !_audioSource) return;
+
+        // Pick a random clip, skipping any null slots the designer may have left empty.
+        // Try up to the array length times so we don't loop forever on an all-null array.
+        AudioClip clip = null;
+        for (int i = 0; i < hurtSfx.Length; i++)
+        {
+            clip = hurtSfx[UnityEngine.Random.Range(0, hurtSfx.Length)];
+            if (clip != null) break;
+        }
+        if (!clip) return;
+
         _audioSource.pitch = 1f + UnityEngine.Random.Range(-hurtPitchVariation, hurtPitchVariation);
-        _audioSource.PlayOneShot(hurtSfx, hurtVolume);
+        _audioSource.PlayOneShot(clip, hurtVolume);
     }
 
     void NotifyHUD() => PlayerHUD.TryUpdateHealth(currentHP, stats ? stats.MaxHP : 100);

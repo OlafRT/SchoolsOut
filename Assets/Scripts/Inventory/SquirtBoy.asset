@@ -23,17 +23,33 @@ MonoBehaviour:
   requiredClass: 1
   allowedAffixes: 02000000050000000300000000000000
   description: The most popular water gun of  the 90s.
-  isStaticItem: 0
-  overrideName: 
+  isStaticItem: 1
+  overrideName: Squirt Boy
   fixedItemLevel: 1
-  fixedRequiredLevel: 1
-  fixedRarity: 1
+  fixedRequiredLevel: 2
+  fixedRarity: 2
   fixedMuscles: 0
-  fixedIQ: 1
+  fixedIQ: 2
   fixedCrit: 1
   fixedToughness: 1
   fixedValue: 5
   forcedAffix: 0
+  hasWeaponProfile: 1
+  shotPattern: 2
+  weaponProjectilePrefab: {fileID: 6801143044023264936, guid: e4d5ef2de066fb040bf6d0db2a42aa6a,
+    type: 3}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 10
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 2
+  weaponBurstDelay: 0.2
+  weaponImpactVfx: {fileID: 1722726733478836, guid: 35891e92a36a0c748a38921886e576f2,
+    type: 3}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 20
