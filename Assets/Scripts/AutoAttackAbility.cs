@@ -64,6 +64,7 @@ public class AutoAttackAbility : MonoBehaviour
     // HideInInspector keeps the Inspector clean; the bridge owns these values.
     // -------------------------------------------------------------------------
     [HideInInspector] public WeaponShotPattern activePattern         = WeaponShotPattern.Single;
+    [HideInInspector] public string            activeAnimTrigger     = ""; // empty = use nerdThrowTrigger
     [HideInInspector] public int               spreadShots           = 3;
     [HideInInspector] public float             spreadAngleDegrees    = 45f;
     [HideInInspector] public float             spreadRangeMultiplier   = 0.6f;
@@ -140,6 +141,12 @@ public class AutoAttackAbility : MonoBehaviour
     {
         ctx = GetComponent<PlayerAbilities>();
 
+        // Shut down immediately when the player dies — stops the attack timer,
+        // kills any in-flight burst coroutine, and clears pending state so no
+        // queued shot can fire during the death animation.
+        var health = GetComponent<PlayerHealth>();
+        if (health) health.OnDied += HandlePlayerDied;
+
         // Try to auto-find animators if not wired
         if (!nerdAnimator || !jockAnimator)
         {
@@ -155,8 +162,37 @@ public class AutoAttackAbility : MonoBehaviour
         }
     }
 
+    void OnDestroy()
+    {
+        var health = GetComponent<PlayerHealth>();
+        if (health) health.OnDied -= HandlePlayerDied;
+    }
+
+    void HandlePlayerDied()
+    {
+        // Turn off auto-attack mode and clear the emissive pulse.
+        AutoAttackEnabled = false;
+        NerdEmission_ForceOffImmediate();
+
+        // Kill any burst coroutine that is mid-sequence — without this a
+        // burst that started on the last attack cycle would keep firing
+        // projectiles through the death animation.
+        StopAllCoroutines();
+
+        // Clear pending state so the failsafe in CheckFailSafes() doesn't
+        // fire a shot on the next frame before the component is fully dormant.
+        pendingRanged.has = false;
+        pendingMelee.has  = false;
+    }
+
     void Update()
     {
+        // Hard-stop if the player is dead — handles the edge case where OnDied
+        // fires mid-frame and Update still runs once more before the component
+        // is disabled by PlayerHealth.Die().
+        var ph = GetComponent<PlayerHealth>();
+        if (ph != null && ph.IsDead) return;
+
         // 1. Handle R key (toggle auto attack on/off)
         if (Input.GetKeyDown(toggleAutoAttackKey))
         {
@@ -377,7 +413,8 @@ public class AutoAttackAbility : MonoBehaviour
             pendingRanged.nextTelegraphAt = 0f;
 
             var anim = ActiveAnimator;
-            if (anim && !string.IsNullOrEmpty(nerdThrowTrigger)) anim.SetTrigger(nerdThrowTrigger);
+            string trigger = !string.IsNullOrEmpty(activeAnimTrigger) ? activeAnimTrigger : nerdThrowTrigger;
+            if (anim && !string.IsNullOrEmpty(trigger)) anim.SetTrigger(trigger);
             else AnimEvent_FireAutoAttack();
         }
     }

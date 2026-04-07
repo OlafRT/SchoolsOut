@@ -106,6 +106,10 @@ public class ItemTemplate : ScriptableObject {
     [Tooltip("How the auto-attack fires. Single = straight line, Spread = shotgun arc, Burst = rapid multi-shot.")]
     public WeaponShotPattern shotPattern = WeaponShotPattern.Single;
 
+    [Tooltip("Animator trigger to fire when this weapon attacks. " +
+             "Leave empty to use the default trigger set in AutoAttackAbility ('Throw').")]
+    public string weaponAnimTrigger;
+
     [Tooltip("Projectile prefab to use. Assign a water-drop, goop blob, dust particle prefab etc. " +
              "Leave null to keep the PlayerAbilities default.")]
     public GameObject weaponProjectilePrefab;

@@ -100,6 +100,7 @@ public class WeaponEquipBridge : MonoBehaviour
 
             // Shot pattern + per-pattern tuning
             autoAttack.activePattern           = template.shotPattern;
+            autoAttack.activeAnimTrigger       = template.weaponAnimTrigger; // empty = keep default
             autoAttack.spreadShots             = template.weaponSpreadShots;
             autoAttack.spreadAngleDegrees      = template.weaponSpreadAngle;
             autoAttack.spreadRangeMultiplier   = template.weaponSpreadRangeMultiplier;
@@ -125,6 +126,7 @@ public class WeaponEquipBridge : MonoBehaviour
             autoAttack.nerdImpactVfx        = _defaultImpactVfx;
             autoAttack.nerdImpactSfx        = _defaultImpactSfx;
             autoAttack.activePattern        = WeaponShotPattern.Single;
+            autoAttack.activeAnimTrigger    = "";
             // spread / burst fields don't matter when pattern is Single
         }
     }

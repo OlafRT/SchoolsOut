@@ -36,10 +36,11 @@ MonoBehaviour:
   forcedAffix: 0
   hasWeaponProfile: 1
   shotPattern: 2
+  weaponAnimTrigger: Shoot1
   weaponProjectilePrefab: {fileID: 0}
   weaponProjectileSpeed: 12
   weaponRangeTiles: 10
-  weaponAttackInterval: 0.01
+  weaponAttackInterval: 0
   weaponSpreadShots: 3
   weaponSpreadAngle: 45
   weaponSpreadRangeMultiplier: 0.6
