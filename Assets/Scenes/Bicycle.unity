@@ -7187,7 +7187,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 90767959000468801, guid: 0bf377d05bb5cf141a101ac128d0df51, type: 3}
 --- !u!1 &188113014
@@ -24452,7 +24452,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 7595542528838623718, guid: 9fec42fa27f4a094aaf0cbb0cbe08342, type: 3}
 --- !u!1001 &589865810
@@ -25360,7 +25360,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -4696667188155458734, guid: b7fed32b9d6c97d418046972503b56f4, type: 3}
 --- !u!1 &613580494
@@ -45506,7 +45506,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -4696667188155458734, guid: b7fed32b9d6c97d418046972503b56f4, type: 3}
 --- !u!1 &1025614439
@@ -54376,7 +54376,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -8654047823788402220, guid: aa205de8abdb5b142ac511e3c0410a17, type: 3}
 --- !u!1 &1240390405
@@ -70035,7 +70035,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -4065182513467256702, guid: a1a82c904065c8b4b9f96d46dfcb35db, type: 3}
 --- !u!1 &1531222791
@@ -78702,7 +78702,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4712477794023769951, guid: 42b23ca35db293a49b3ed31d388f9746, type: 3}
 --- !u!1 &1786782642
@@ -83105,7 +83105,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -4065182513467256702, guid: 7d51f0e5665a00440878a97c08c48785, type: 3}
 --- !u!1 &1888018967
