@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
+  m_Name: Girlfigurine
+  m_EditorClassIdentifier: 
+  id: girlfigurine
+  baseName: Girl Figurine
+  icon: {fileID: 21300000, guid: 5f21831cc57db1144bedc668d218eb95, type: 3}
+  rarity: 0
+  itemType: 1
+  isEquippable: 0
+  equipSlot: 0
+  hasClassRestriction: 0
+  requiredClass: 1
+  allowedAffixes: 
+  description: Especially popular with Nerds!
+  isStaticItem: 1
+  overrideName: Girl Figurine
+  fixedItemLevel: 1
+  fixedRequiredLevel: 1
+  fixedRarity: 3
+  fixedMuscles: 0
+  fixedIQ: 0
+  fixedCrit: 0
+  fixedToughness: 0
+  fixedValue: 10
+  forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
+  isConsumable: 0
+  consumableKind: 0
+  foodTotalHeal: 20
+  foodDurationSeconds: 8
+  foodConsumeOnStart: 1
+  foodPropId: 
+  healAmount: 30
+  buffStat: 0
+  buffAmount: 2
+  buffDurationSeconds: 30
+  teachesAbilityName: 
+  useSfx: {fileID: 0}
+  useSfxVolume: 0.8
+  isStackable: 0
+  maxStackSize: 20
