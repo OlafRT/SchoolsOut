@@ -12,20 +12,29 @@ public class NameplateSpawner : MonoBehaviour
     public string displayNameOverride;
 
     NameplateUI instance;
+    bool _spawned;
 
-    void Start()
+    // OnEnable instead of Start so this fires correctly when SlimeVentEmerge
+    // re-enables this component after the slime has landed.
+    // The _spawned guard ensures only one nameplate is ever created even if
+    // the component is toggled multiple times.
+    void OnEnable()
     {
-        if (!nameplatePrefab) return;
+        if (_spawned || !nameplatePrefab) return;
+        _spawned = true;
 
         instance = Instantiate(nameplatePrefab);
 
-        // Parent to this NPC so it dies with it
-        instance.SetTarget(transform, string.IsNullOrEmpty(displayNameOverride) ? gameObject.name : displayNameOverride);
+        instance.SetTarget(transform, string.IsNullOrEmpty(displayNameOverride)
+            ? gameObject.name
+            : displayNameOverride);
 
         if (overrideOffset)
         {
             instance.worldOffset = offsetOverride;
-            if (instance.parentToTarget && instance.transform.parent == transform && instance.useLocalPositionWhenParented)
+            if (instance.parentToTarget
+                && instance.transform.parent == transform
+                && instance.useLocalPositionWhenParented)
                 instance.transform.localPosition = instance.worldOffset;
         }
     }

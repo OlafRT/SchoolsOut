@@ -100,7 +100,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
 
     public void ApplyDamage(int amount)
     {
-        if (amount <= 0 || isDead) return;
+        if (!enabled || amount <= 0 || isDead) return;
 
         // Ignore damage ONLY if friendly to the PLAYER (per relations)
         if (invulnerableIfFriendly && ai && PlayerIsFriendlyToThisNPC())

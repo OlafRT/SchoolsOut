@@ -374,18 +374,12 @@ public class CafeteriaLadyBoss : MonoBehaviour
 
             var go = Instantiate(slimeMinionPrefab, pt.position, pt.rotation);
 
-            // Strip "(Clone)" from the nameplate
+            // Strip "(Clone)" from the nameplate.
             go.name = slimeMinionPrefab.name;
 
-            // Inject scene waypoints — the prefab can't hold references to scene objects,
-            // so we pass them here after instantiation.
-            var emerge = go.GetComponent<SlimeVentEmerge>();
-            if (emerge != null)
-            {
-                emerge.ventWaypoints   = ventWaypoints;
-                emerge.landingTarget   = ventLandingTarget;
-                emerge.Begin(); // start immediately now that waypoints are set
-            }
+            // No waypoint injection needed here.
+            // SlimeVentEmerge.Start() calls FindAnyObjectByType<CafeteriaLadyBoss>()
+            // and pulls ventWaypoints + ventLandingTarget directly from this component.
 
             if (i < count - 1)
                 yield return new WaitForSeconds(spawnStaggerDelay);

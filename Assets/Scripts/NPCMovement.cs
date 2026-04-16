@@ -424,6 +424,7 @@ public class NPCMovement : MonoBehaviour
     }
 
     public bool IsMoving => isForcedMove || isStepping || currentPath.Count > 0;
+    public bool IsStepping => isStepping;
 
     public Vector3 Snap(Vector3 p) =>
         new Vector3(Mathf.Round(p.x / tileSize) * tileSize, p.y, Mathf.Round(p.z / tileSize) * tileSize);

@@ -29,23 +29,26 @@ public class SlimeJiggle : MonoBehaviour
 
     [Header("Squish While Moving")]
     [Tooltip("Y scale at peak squish (flatter = more slimy).")]
-    public float squishY  = 0.60f;
+    public float squishY  = 0.52f;
     [Tooltip("XZ scale at peak squish (wider = volume preserved).")]
-    public float squishXZ = 1.28f;
+    public float squishXZ = 1.38f;
 
     [Header("Stretch On Arrival Overshoot")]
     [Tooltip("Y slightly over-extends on the spring-back bounce.")]
-    public float stretchY  = 1.10f;
+    public float stretchY  = 1.12f;
     [Tooltip("XZ slightly contracts on the bounce (inverse of stretch).")]
-    public float stretchXZ = 0.94f;
+    public float stretchXZ = 0.92f;
 
     [Header("Spring Physics (underdamped = jiggle)")]
     [Tooltip("Spring stiffness. Higher = faster return. Keep 6..14.")]
-    public float springFreq    = 10f;
-    [Tooltip("Damping. Below 2*sqrt(springFreq) ≈ 6.3 gives oscillation.")]
-    public float springDamping =  4.5f;
-    [Tooltip("Impulse applied to spring velocity on each step-start for extra snap.")]
-    public float stepImpulse   =  0.8f;
+    public float springFreq    = 9f;
+    [Tooltip("Damping ratio. Below ~6 gives oscillation — lower = more wobbles.")]
+    public float springDamping = 3.5f;
+    [Tooltip("Velocity impulse on step START (compress as the slime pushes off).")]
+    public float stepImpulse   = 1.2f;
+    [Tooltip("Velocity impulse on step END (jelly bounce as the slime lands on each tile). " +
+             "This is the main jiggle driver — increase for more dramatic wobble.")]
+    public float landImpulse   = 2.2f;
 
     [Header("Idle Breathing Pulse")]
     public bool  idlePulse          = true;
@@ -120,6 +123,9 @@ public class SlimeJiggle : MonoBehaviour
     Vector3 _prevPos;
     Vector3 _baseScale;
 
+    // Optional NPCMovement reference for reliable tile-step detection
+    NPCMovement _mover;
+
     // Idle
     float _idlePhase;
 
@@ -127,7 +133,7 @@ public class SlimeJiggle : MonoBehaviour
     AudioSource _loopSource;
     float _squelchTimer;
     float _eyePhase;
-    bool  _wasMoving;
+    bool  _prevStepping;  // tracks IsStepping last frame for transition detection
 
     // ──────────────────────────────────────────────────
     void Awake()
@@ -138,6 +144,12 @@ public class SlimeJiggle : MonoBehaviour
         _curY  = _curXZ = 1f;
         _velY  = _velXZ = 0f;
         _prevPos = transform.position;
+
+        // Find NPCMovement on the same object or parent for reliable step detection.
+        // If found, we use IsMoving instead of position delta (much more reliable
+        // for tile-based movement where coroutine timing causes false zero deltas).
+        _mover = GetComponent<NPCMovement>();
+        if (!_mover) _mover = GetComponentInParent<NPCMovement>();
 
         SetupAudio();
     }
@@ -171,13 +183,9 @@ public class SlimeJiggle : MonoBehaviour
     {
         if (isDead) return;
 
-        UpdateSpeed();
+        UpdateMovementState();
         bool isMoving = _smoothedSpeed > moveThreshold;
 
-        if (isMoving && !_wasMoving) OnStepStart();
-        _wasMoving = isMoving;
-
-        UpdateSpringTargets(isMoving);
         StepSpring(ref _curY,  ref _velY,  isMoving ? squishY  : 1f, Time.deltaTime);
         StepSpring(ref _curXZ, ref _velXZ, isMoving ? squishXZ : 1f, Time.deltaTime);
 
@@ -193,10 +201,35 @@ public class SlimeJiggle : MonoBehaviour
     }
 
     // ──────────────────────────────────────────────────
-    void UpdateSpeed()
+    void UpdateMovementState()
     {
-        float rawSpeed = (transform.position - _prevPos).magnitude
-                         / Mathf.Max(Time.deltaTime, 0.00001f);
+        bool stepping = false;
+        float rawSpeed = 0f;
+
+        if (_mover != null && _mover.enabled)
+        {
+            stepping = _mover.IsStepping;
+            rawSpeed = stepping
+                ? _mover.tilesPerSecond * _mover.tileSize * _mover.EffectiveSpeedMultiplier()
+                : 0f;
+
+            // Step START — slime begins moving to next tile: squish impulse
+            if (stepping && !_prevStepping)
+                OnStepStart();
+
+            // Step END — slime arrives at tile: spring-back impulse (the jelly bounce)
+            if (!stepping && _prevStepping)
+                OnStepLand();
+
+            _prevStepping = stepping;
+        }
+        else
+        {
+            // Fallback during vent emerge (NPCMovement not yet active)
+            rawSpeed = (transform.position - _prevPos).magnitude
+                       / Mathf.Max(Time.deltaTime, 0.00001f);
+        }
+
         _prevPos = transform.position;
         _smoothedSpeed = Mathf.Lerp(_smoothedSpeed, rawSpeed,
                          1f - Mathf.Exp(-speedSmoothing * Time.deltaTime));
@@ -204,18 +237,22 @@ public class SlimeJiggle : MonoBehaviour
 
     void OnStepStart()
     {
-        // Slam the spring toward squish immediately for a snappy feel
+        // Slime begins moving: compress downward like a blob pushing off
         _velY  -= stepImpulse;
-        _velXZ += stepImpulse * 0.55f;
-
+        _velXZ += stepImpulse * 0.6f;
         PlaySquelch();
     }
 
-    void UpdateSpringTargets(bool moving)
+    void OnStepLand()
     {
-        // Targets are set inline in StepSpring calls — nothing needed here currently.
-        // Keeping the method for future per-phase overrides (e.g., attack wind-up).
+        // Slime arrives at tile: hit the spring hard so it bounces back through rest
+        // and oscillates — this is the jelly effect. Stronger than step start.
+        _velY  -= landImpulse;
+        _velXZ += landImpulse * 0.55f;
+        PlaySquelch();
     }
+
+    void UpdateSpringTargets(bool moving) { }  // kept for potential future use
 
     void IdlePulse(out float py, out float pxz)
     {

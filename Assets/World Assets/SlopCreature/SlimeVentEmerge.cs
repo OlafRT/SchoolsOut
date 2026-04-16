@@ -32,8 +32,9 @@ public class SlimeVentEmerge : MonoBehaviour
 
     [Header("Splat on Landing")]
     public float splatImpulse = 3.5f;
-    [Tooltip("Seconds to wait after the splat before NPC scripts wake up.")]
-    public float wakeDelay = 0.35f;
+    [Tooltip("Seconds to wait after the splat before NPC scripts wake up. "
+           + "Keep this at least 0.5s so the landing animation settles first.")]
+    public float wakeDelay = 1.0f;
     public GameObject splatVfxPrefab;
     public AudioClip splatSound;
     public AudioClip settleSound;
@@ -46,15 +47,19 @@ public class SlimeVentEmerge : MonoBehaviour
     public NPCAutoAttack   npcAutoAttack;
     public NPCBombAbility  npcBombAbility;
     public SlimeTrailEffect slimeTrail;
+    public NameplateSpawner nameplateSpawner;
 
     SlimeJiggle _jiggle;
     Rigidbody   _rb;
-    bool        _begun;
 
     void Awake()
     {
-        // Strip Unity's "(Clone)" suffix immediately — [DefaultExecutionOrder(-100)]
-        // ensures this runs before any Nameplate script reads gameObject.name.
+        // Force ourselves enabled regardless of the prefab checkbox state.
+        // Awake() runs even when disabled, but Start() does not — so if the
+        // user has this component unchecked, the emerge sequence never starts.
+        enabled = true;
+
+        // Strip "(Clone)" before any Nameplate Awake reads the name.
         gameObject.name = gameObject.name.Replace("(Clone)", "").TrimEnd();
 
         _jiggle = GetComponent<SlimeJiggle>() ?? GetComponentInChildren<SlimeJiggle>();
@@ -65,34 +70,52 @@ public class SlimeVentEmerge : MonoBehaviour
         if (!npcHealth)      npcHealth      = GetComponent<NPCHealth>();
         if (!npcAutoAttack)  npcAutoAttack  = GetComponent<NPCAutoAttack>();
         if (!npcBombAbility) npcBombAbility = GetComponent<NPCBombAbility>();
-        if (!slimeTrail)     slimeTrail     = GetComponent<SlimeTrailEffect>();
 
         if (_rb) { _rb.isKinematic = true; _rb.detectCollisions = false; }
+
+        // Disable EVERY NPC component unconditionally — do not rely on prefab checkbox state.
+        // This is the only safe guarantee that nothing moves or reacts before WakeNPC().
+        if (npcAI)          npcAI.enabled          = false;
+        if (npcMovement)    npcMovement.enabled    = false;
+        if (npcHealth)      npcHealth.enabled      = false;
+        if (npcAutoAttack)  npcAutoAttack.enabled  = false;
+        if (npcBombAbility) npcBombAbility.enabled = false;
+
+        // NameplateSpawner found lazily in WakeNPC (SlimeCreature adds trail dynamically).
+        var ns = GetComponent<NameplateSpawner>();
+        if (ns) ns.enabled = false;
     }
 
-    /// <summary>
-    /// Called by CafeteriaLadyBoss after injecting waypoints, before Start() fires.
-    /// </summary>
-    public void Begin()
-    {
-        if (_begun) return;
-        _begun = true;
+    // ─────────────────────────────────────────────
+    //   STARTUP
+    // ─────────────────────────────────────────────
 
+    void Start()
+    {
+        // If waypoints aren't pre-assigned (scene-placed slime), pull them from the boss.
+        // Boss-spawned slimes will also use this path — no injection needed at all.
         if (ventWaypoints == null || ventWaypoints.Length == 0)
         {
-            Debug.LogWarning($"[SlimeVentEmerge] {gameObject.name}: No waypoints assigned — waking NPC immediately.");
-            WakeNPC();
-            return;
+            var boss = FindAnyObjectByType<CafeteriaLadyBoss>();
+            if (boss != null)
+            {
+                ventWaypoints = boss.ventWaypoints;
+                landingTarget = boss.ventLandingTarget;
+            }
+        }
+
+        // Hard stop — no waypoints means no emerge. The slime stays frozen.
+        // We NEVER fall back to WakeNPC here; a slime that can't find its path
+        // should not be allowed to roam freely in the air.
+        if (ventWaypoints == null || ventWaypoints.Length == 0)
+        {
+            Debug.LogError($"[SlimeVentEmerge] {gameObject.name}: No waypoints found. " +
+                           "Assign them on the prefab or ensure CafeteriaLadyBoss has Vent Waypoints set.");
+            return; // frozen — will not move or wake
         }
 
         transform.position = ventWaypoints[0].position;
         StartCoroutine(EmergeSequence());
-    }
-
-    void Start()
-    {
-        // Fallback for prefabs placed directly in a scene (no boss injecting waypoints).
-        Begin();
     }
 
     IEnumerator EmergeSequence()
@@ -101,7 +124,11 @@ public class SlimeVentEmerge : MonoBehaviour
         CurrentPhase = Phase.Crawling;
         for (int i = 1; i < ventWaypoints.Length; i++)
         {
-            if (!ventWaypoints[i]) continue;
+            if (!ventWaypoints[i])
+            {
+                Debug.LogWarning($"[SlimeVentEmerge] {gameObject.name}: ventWaypoints[{i}] is null — skipping.");
+                continue;
+            }
             yield return StartCoroutine(CrawlTo(ventWaypoints[i].position));
         }
 
@@ -109,11 +136,13 @@ public class SlimeVentEmerge : MonoBehaviour
         CurrentPhase = Phase.Launching;
         Vector3 launchFrom = transform.position;
         Vector3 landPos    = ResolveLandingPosition(launchFrom);
+        Debug.Log($"[SlimeVentEmerge] {gameObject.name}: launching from {launchFrom} → landing at {landPos}");
         yield return StartCoroutine(LaunchArc(launchFrom, landPos));
 
         // 3. SPLAT
         CurrentPhase = Phase.Splatting;
         OnLand(landPos);
+        Debug.Log($"[SlimeVentEmerge] {gameObject.name}: landed at {transform.position}, waking in {wakeDelay}s");
         yield return new WaitForSeconds(wakeDelay);
 
         // 4. WAKE
@@ -193,13 +222,31 @@ public class SlimeVentEmerge : MonoBehaviour
 
     void WakeNPC()
     {
+        // Lazy-find anything that might have been added dynamically after our Awake.
+        // SlimeTrailEffect is added by SlimeCreature.Awake() which runs after ours,
+        // so it's always null during our Awake — we must find it here.
+        if (!slimeTrail)       slimeTrail       = GetComponent<SlimeTrailEffect>();
+        if (!nameplateSpawner) nameplateSpawner = GetComponent<NameplateSpawner>();
+
+        // Restore physics first so NPCMovement can snap to the correct floor tile.
         if (_rb) { _rb.isKinematic = false; _rb.detectCollisions = true; }
-        if (npcMovement) { npcMovement.enabled = true; npcMovement.HardStop(); }
+
+        // Enable movement before AI so the tile registry is populated when NPCAI starts.
+        if (npcMovement)
+        {
+            npcMovement.enabled = true;
+            npcMovement.HardStop(); // registers current tile, clears any stale path
+        }
+
         if (npcAI)          npcAI.enabled          = true;
         if (npcHealth)      npcHealth.enabled       = true;
         if (npcAutoAttack)  npcAutoAttack.enabled   = true;
         if (npcBombAbility) npcBombAbility.enabled  = true;
         if (slimeTrail)     slimeTrail.enabled       = true;
+
+        // Enable nameplate now — name is already clean and slime is on the ground.
+        if (nameplateSpawner) nameplateSpawner.enabled = true;
+
         enabled = false;
     }
 
