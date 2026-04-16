@@ -1062,13 +1062,22 @@ ParticleSystem:
           inWeight: 0.13055302
           outWeight: 0.18480773
         - serializedVersion: 3
-          time: 1
-          value: 0.9021407
-          inSlope: -1.1179067
-          outSlope: -1.1179067
+          time: 0.9078015
+          value: 0.9832239
+          inSlope: -0.9385008
+          outSlope: -0.9385008
           tangentMode: 0
           weightedMode: 0
-          inWeight: 0.17091346
+          inWeight: 0.33333334
+          outWeight: 1
+        - serializedVersion: 3
+          time: 1
+          value: 0
+          inSlope: -14.78742
+          outSlope: -14.78742
+          tangentMode: 0
+          weightedMode: 0
+          inWeight: 0.16044708
           outWeight: 0.33333334
         m_PreInfinity: 2
         m_PostInfinity: 2
@@ -5227,6 +5236,26 @@ PrefabInstance:
       propertyPath: m_Materials.Array.data[0]
       value: 
       objectReference: {fileID: 2100000, guid: c4d4365c3eeb8a54183f5af15699021d, type: 2}
+    - target: {fileID: 491506562850556497, guid: 262a9a9d7b2f542419d797ba92314897,
+        type: 3}
+      propertyPath: InitialModule.startSpeed.scalar
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 491506562850556497, guid: 262a9a9d7b2f542419d797ba92314897,
+        type: 3}
+      propertyPath: InitialModule.startLifetime.scalar
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 491506562850556497, guid: 262a9a9d7b2f542419d797ba92314897,
+        type: 3}
+      propertyPath: InitialModule.startSpeed.minScalar
+      value: 12
+      objectReference: {fileID: 0}
+    - target: {fileID: 491506562850556497, guid: 262a9a9d7b2f542419d797ba92314897,
+        type: 3}
+      propertyPath: EmissionModule.m_Bursts.Array.data[0].countCurve.scalar
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 492836817785224521, guid: 262a9a9d7b2f542419d797ba92314897,
         type: 3}
       propertyPath: m_Materials.Array.data[0]
@@ -5389,7 +5418,7 @@ PrefabInstance:
     - target: {fileID: 6757924696928302473, guid: 942836b70a3e54b43bf38eeaa59cc728,
         type: 3}
       propertyPath: EmissionModule.rateOverTime.scalar
-      value: 150
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 6757924696928302473, guid: 942836b70a3e54b43bf38eeaa59cc728,
         type: 3}
