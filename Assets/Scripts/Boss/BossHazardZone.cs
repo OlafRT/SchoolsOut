@@ -17,30 +17,35 @@ public class BossHazardZone : MonoBehaviour
     [Tooltip("Only colliders with this tag take damage. Leave as 'Player' so NPCs walking through are unaffected.")]
     public string victimTag = "Player";
 
+    [Header("Telegraph Markers")]
+    [Tooltip("Tile marker prefab to cover the zone floor — warns the player visually.")]
+    public GameObject tileMarkerPrefab;
+    public float markerYOffset = 0.02f;
+    public float tileSize = 1f;
+    public Color markerColor = new Color(0.15f, 0.9f, 0.15f, 0.85f);
+    public LayerMask groundMask = ~0;
+
     [Header("Visual warning (optional)")]
     [Tooltip("Optional particle / VFX object that plays while the zone is live.")]
     public GameObject zoneVfx;
 
     bool active = false;
-
-    // Track colliders currently inside so we can handle destroyed ones gracefully
     readonly HashSet<Collider> inside = new();
+    readonly List<GameObject> spawnedMarkers = new();
 
     void Awake()
     {
         var col = GetComponent<BoxCollider>();
         col.isTrigger = true;
-
-        // Start inactive — BossTriggerZone calls Activate()
         gameObject.SetActive(false);
     }
 
-    // ──────────────────────────────────────────
     public void Activate()
     {
         gameObject.SetActive(true);
         active = true;
         if (zoneVfx) zoneVfx.SetActive(true);
+        SpawnMarkers();
         StartCoroutine(TickLoop());
     }
 
@@ -49,9 +54,58 @@ public class BossHazardZone : MonoBehaviour
         active = false;
         StopAllCoroutines();
         if (zoneVfx) zoneVfx.SetActive(false);
+        foreach (var m in spawnedMarkers) if (m) Destroy(m);
+        spawnedMarkers.Clear();
         gameObject.SetActive(false);
     }
-    // ──────────────────────────────────────────
+
+    void SpawnMarkers()
+    {
+        if (!tileMarkerPrefab) return;
+
+        var col = GetComponent<BoxCollider>();
+        if (!col) return;
+
+        Bounds bounds = new Bounds(
+            transform.TransformPoint(col.center),
+            Vector3.Scale(transform.lossyScale, col.size));
+
+        // Cover the zone floor with tile markers on a grid
+        float halfX = bounds.extents.x;
+        float halfZ = bounds.extents.z;
+        Vector3 center = bounds.center;
+
+        for (float x = -halfX + tileSize * 0.5f; x < halfX; x += tileSize)
+        {
+            for (float z = -halfZ + tileSize * 0.5f; z < halfZ; z += tileSize)
+            {
+                Vector3 worldPos = center + new Vector3(x, 0, z);
+                // Sample ground Y
+                float groundY = worldPos.y;
+                if (Physics.Raycast(worldPos + Vector3.up * 5f, Vector3.down, out var hit, 20f, groundMask, QueryTriggerInteraction.Ignore))
+                    groundY = hit.point.y;
+
+                worldPos.y = groundY + markerYOffset;
+
+                var m = Instantiate(tileMarkerPrefab, worldPos, Quaternion.identity);
+                TintMarker(m, markerColor);
+                // Give them a very long lifetime — Deactivate() will clean them up
+                if (!m.TryGetComponent<TileMarker>(out var tm)) tm = m.AddComponent<TileMarker>();
+                tm.Init(99999f, tileSize);
+                spawnedMarkers.Add(m);
+            }
+        }
+    }
+
+    static void TintMarker(GameObject m, Color col)
+    {
+        if (!m) return;
+        if (m.TryGetComponent<Renderer>(out var rend) && rend.material) { rend.material.color = col; return; }
+        if (m.TryGetComponent<SpriteRenderer>(out var sr)) { sr.color = col; return; }
+        if (m.TryGetComponent<UnityEngine.UI.Image>(out var img)) { img.color = col; return; }
+        var childR = m.GetComponentInChildren<Renderer>();
+        if (childR && childR.material) childR.material.color = col;
+    }
 
     void OnTriggerEnter(Collider other)
     {

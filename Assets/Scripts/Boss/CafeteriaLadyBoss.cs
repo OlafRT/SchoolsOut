@@ -42,6 +42,8 @@ public class CafeteriaLadyBoss : MonoBehaviour
     public NPCHealth health;
     public Animator animator;
     public BossHealthBar bossHealthBar;
+    [Tooltip("The hazard zone near the lady — deactivated when she dies so the corpse can be looted.")]
+    public BossHazardZone hazardZone;
 
     [Header("Positions (empty Transforms in scene)")]
     [Tooltip("Where she stands when not cooking — behind/in front of the pot.")]
@@ -50,6 +52,14 @@ public class CafeteriaLadyBoss : MonoBehaviour
     public Transform leftCookPos;
     [Tooltip("Right cooking station.")]
     public Transform rightCookPos;
+    [Tooltip("Where she stands to laugh and throw the pot.")]
+    public Transform throwPos;
+    [Tooltip("Optional waypoints she passes through when walking TO the throw position. "
+           + "Use these to route her around obstacles. Leave empty to walk direct.")]
+    public Transform[] throwPathWaypoints;
+    [Tooltip("Optional waypoints she passes through when walking BACK from the throw position. "
+           + "Leave empty to use throwPathWaypoints in reverse.")]
+    public Transform[] returnPathWaypoints;
 
     [Header("Movement")]
     [Tooltip("World-units per second she slides between positions.")]
@@ -73,6 +83,20 @@ public class CafeteriaLadyBoss : MonoBehaviour
     [Tooltip("Amount added to Y scale per completed cooking trip. 0.25 → 4 trips to fill.")]
     public float potFillPerTrip = 0.25f;
 
+    [Header("Add To Pot")]
+    [Tooltip("She will face this Transform when doing the AddToPot animation. "
+           + "Drag in the pot or counter Transform so she looks at it.")]
+    public Transform potFaceTarget;
+    [Tooltip("Prefab dropped into the pot during AddToPot (e.g. a piece of meat/slime). "
+           + "Should have a Rigidbody — auto-destroyed after dropLifetime seconds.")]
+    public GameObject ingredientDropPrefab;
+    [Tooltip("Spawn offset above the pot center.")]
+    public Vector3 ingredientSpawnOffset = new Vector3(0f, 0.8f, 0f);
+    [Tooltip("Seconds after spawning before the ingredient is destroyed.")]
+    public float ingredientDropLifetime = 0.6f;
+    [Tooltip("Seconds into the AddToPot animation before the ingredient is dropped.")]
+    public float ingredientDropDelay = 0.4f;
+
     [Header("Pot Throw — Projectile")]
     [Tooltip("Bomb arc prefab (same as NPCBombAbility uses).")]
     public GameObject bombPrefab;
@@ -80,15 +104,24 @@ public class CafeteriaLadyBoss : MonoBehaviour
     [Tooltip("How fast the pot travels (seconds per tile).")]
     public float bombThrowTimePerTile = 0.08f;
     public float bombArcHeight = 2.5f;
+    [Tooltip("The hand bone or socket Transform the projectile launches from. "
+           + "If null, falls back to the pot on the counter.")]
+    public Transform throwOrigin;
 
     [Header("Pot Throw — Landing AoE")]
     public int potAoERadius = 2;
-    public float potAoEDuration = 6f;
+    [Tooltip("Seconds to show the ground telegraph before the pot lands.")]
+    public float potWindupSeconds = 1.2f;
     public float potAoETickInterval = 0.5f;
     public int potAoETickDamage = 18;
     [Range(0f, 0.95f)] public float potAoESlowPercent = 0.45f;
     public string slowStatusTag = "Slow";
     public Sprite slowStatusIcon;
+    [Tooltip("Minimum clear tiles between any two AoE field centers. "
+           + "Keeps navigation gaps open for the player.")]
+    public int aoEGapTiles = 1;
+    [Tooltip("Max attempts to find a non-overlapping landing spot before giving up.")]
+    public int aoEPlacementAttempts = 12;
 
     [Header("Pot Throw — AoE Visuals")]
     public GameObject tileMarkerPrefab;
@@ -111,14 +144,9 @@ public class CafeteriaLadyBoss : MonoBehaviour
     [Tooltip("Floor target where the slime lands after the arc. "
            + "If null, SlimeVentEmerge raycasts downward automatically.")]
     public Transform ventLandingTarget;
-    [Tooltip("Seconds after fight starts before the first wave.")]
-    public float firstWaveDelay = 4f;
-    [Tooltip("Seconds between subsequent waves.")]
-    public float waveCooldown = 12f;
-    [Tooltip("Minions spawned per wave (Phase 1). Phase 2 doubles this.")]
+    [Tooltip("Minions spawned each time she cooks (Phase 1). Phase 2 doubles this.")]
     public int minionsPerWave = 2;
-    [Tooltip("Seconds between each individual slime spawn within a wave. "
-           + "Give them time to clear the vent before the next one enters.")]
+    [Tooltip("Seconds between each slime spawn. They must never spawn at the same time.")]
     public float spawnStaggerDelay = 4f;
 
     [Header("Phase 2 (enrage at low HP)")]
@@ -127,13 +155,25 @@ public class CafeteriaLadyBoss : MonoBehaviour
     public float phase2MoveSpeedBonus = 1f;       // added to moveSpeed
     public float phase2CookDurationMultiplier = 0.75f;
 
-    [Header("Animation Triggers (leave blank to skip)")]
-    public string animWalk     = "Walk";
-    public string animIdle     = "Idle";
+    [Header("Animation")]
+    [Tooltip("Float parameter name for the blend tree (set to 1 while walking, 0 while idle).")]
+    public string animSpeedParam = "Speed01";
+    [Tooltip("Trigger-based animations — leave blank to skip.")]
     public string animCook     = "Cook";
     public string animAddToPot = "AddToPot";
     public string animThrow    = "Throw";
+    public string animLaugh    = "Laugh";
     public string animEnrage   = "Enrage";
+    [Tooltip("Seconds to play the laugh animation before throwing.")]
+    public float laughDuration = 1.8f;
+
+    [Header("Hand Props")]
+    [Tooltip("Objects enabled while she is cooking (e.g. knife, spoon). All others are hidden.")]
+    public GameObject[] cookingProps;
+    [Tooltip("Objects enabled while she is adding to / throwing the pot (e.g. the pot mesh in her hand).")]
+    public GameObject[] throwProps;
+    [Tooltip("The pot that sits on the counter — hidden when she picks it up to throw.")]
+    public GameObject counterPot;
 
     // ────────────────────────────────────────────────
     // Internal state
@@ -141,8 +181,19 @@ public class CafeteriaLadyBoss : MonoBehaviour
     int   tripCount;
     bool  goLeft = true;
     bool  inPhase2;
-    float effectiveMoveSpeed  => moveSpeed + (inPhase2 ? phase2MoveSpeedBonus : 0f);
+    float effectiveMoveSpeed    => moveSpeed + (inPhase2 ? phase2MoveSpeedBonus : 0f);
     float effectiveCookDuration => cookDuration * (inPhase2 ? phase2CookDurationMultiplier : 1f);
+
+    // Persistent AoE fields — cleared when the boss dies
+    readonly List<GameObject> activeAoEFields = new();
+    // Centres of placed fields for gap enforcement
+    readonly List<Vector3> placedCenters = new();
+    bool _throwPending;
+    Vector3 _nextThrowTarget;
+    Coroutine _spawnWaveCoroutine;
+    // When non-null, LateUpdate smoothly rotates toward this every frame
+    Transform _facingTarget;
+    bool _lockFacing; // tracked so each cook can stop any still-running wave
 
     // ────────────────────────────────────────────────
     void Awake()
@@ -163,7 +214,7 @@ public class CafeteriaLadyBoss : MonoBehaviour
         if (bossHealthBar) bossHealthBar.Show(health);
 
         StartCoroutine(BossLoop());
-        StartCoroutine(MinionWaveLoop());
+        // Slimes are now spawned during each cook cycle, not on a separate timer.
     }
 
     // ────────────────────────────────────────────────
@@ -183,9 +234,12 @@ public class CafeteriaLadyBoss : MonoBehaviour
             yield return StartCoroutine(MoveTo(side));
             if (IsDead()) yield break;
 
-            // ── Cook ────────────────────────────────────
+            // ── Cook + spawn slimes ──────────────────────
             CurrentState = BossState.Cooking;
             PlayAnim(animCook);
+            // Stop any still-running wave from last cook before starting the new one
+            if (_spawnWaveCoroutine != null) StopCoroutine(_spawnWaveCoroutine);
+            _spawnWaveCoroutine = StartCoroutine(SpawnWave());
             yield return new WaitForSeconds(effectiveCookDuration);
             if (IsDead()) yield break;
 
@@ -195,8 +249,17 @@ public class CafeteriaLadyBoss : MonoBehaviour
 
             // ── Add to pot ───────────────────────────────
             CurrentState = BossState.AddingToPot;
+
+            // Lock rotation toward the pot for the entire animation via LateUpdate
+            _facingTarget = potFaceTarget ? potFaceTarget : potTransform;
+
             PlayAnim(animAddToPot);
+
+            if (ingredientDropPrefab && potTransform)
+                StartCoroutine(DropIngredient());
+
             yield return new WaitForSeconds(addToPotAnimDuration);
+            _facingTarget = null; // release facing lock
             if (IsDead()) yield break;
 
             FillPot();
@@ -205,11 +268,41 @@ public class CafeteriaLadyBoss : MonoBehaviour
             if (IsPotFull())
             {
                 CurrentState = BossState.ThrowingPot;
+
+                // Pick up pot as she leaves the counter — hide the counter pot,
+                // show the hand pot. She's now carrying it to the throw spot.
+                if (counterPot) counterPot.SetActive(false);
+                SetHandProps(throwProps);
+
+                // Walk to throw position via intermediate waypoints (avoids clipping)
+                Transform throwDest = throwPos ? throwPos : centerPos;
+                yield return StartCoroutine(MoveAlongPath(throwPathWaypoints, throwDest));
+                if (IsDead()) yield break;
+
+                // Show telegraph and start laugh window
+                _nextThrowTarget = FindClearLandingSpot();
+                _throwPending = true;
+                StartCoroutine(ShowThrowTelegraph(_nextThrowTarget));
+
+                PlayAnim(animLaugh);
+                yield return new WaitForSeconds(laughDuration);
+                if (IsDead()) yield break;
+
+                // Throw anim — AnimEvent_ReleasePot fires the projectile on the exact frame
                 PlayAnim(animThrow);
-                yield return new WaitForSeconds(throwAnimDuration * 0.4f); // brief wind-up
-                ThrowPot();
-                yield return new WaitForSeconds(throwAnimDuration * 0.6f);
+                yield return new WaitUntil(() => !_throwPending || IsDead());
+                if (IsDead()) yield break;
+
+                // Walk back to center — use return path (or reverse of throw path)
                 ResetPot();
+                Transform[] returnPath = (returnPathWaypoints != null && returnPathWaypoints.Length > 0)
+                    ? returnPathWaypoints
+                    : ReverseWaypoints(throwPathWaypoints);
+                yield return StartCoroutine(MoveAlongPath(returnPath, centerPos));
+
+                // Put the counter pot back once she's returned
+                SetHandProps(null);
+                if (counterPot) counterPot.SetActive(true);
             }
         }
     }
@@ -222,16 +315,17 @@ public class CafeteriaLadyBoss : MonoBehaviour
         if (!target) yield break;
 
         CurrentState = BossState.MovingToSide;
-        PlayAnim(animWalk);
+        _facingTarget = null; // stop any LateUpdate facing lock while moving
+        SetSpeed(1f);
 
         Vector3 start = transform.position;
         Vector3 end   = target.position;
-        end.y = start.y; // keep vertical position
+        end.y = start.y;
 
         float dist = Vector3.Distance(start, end);
         if (dist < 0.01f)
         {
-            PlayAnim(animIdle);
+            SetSpeed(0f);
             yield break;
         }
 
@@ -251,12 +345,31 @@ public class CafeteriaLadyBoss : MonoBehaviour
         }
 
         transform.position = end;
-        PlayAnim(animIdle);
+        SetSpeed(0f);
     }
 
-    // ────────────────────────────────────────────────
-    //   POT MANAGEMENT
-    // ────────────────────────────────────────────────
+    /// <summary>Moves through a series of waypoints in order, then to the final destination.</summary>
+    IEnumerator MoveAlongPath(Transform[] waypoints, Transform destination)
+    {
+        if (waypoints != null)
+        {
+            foreach (var wp in waypoints)
+            {
+                if (!wp || IsDead()) yield break;
+                yield return StartCoroutine(MoveTo(wp));
+            }
+        }
+        if (destination) yield return StartCoroutine(MoveTo(destination));
+    }
+
+    Transform[] ReverseWaypoints(Transform[] waypoints)
+    {
+        if (waypoints == null || waypoints.Length == 0) return null;
+        var rev = new Transform[waypoints.Length];
+        for (int i = 0; i < waypoints.Length; i++)
+            rev[i] = waypoints[waypoints.Length - 1 - i];
+        return rev;
+    }
     void FillPot()
     {
         tripCount++;
@@ -288,31 +401,56 @@ public class CafeteriaLadyBoss : MonoBehaviour
     // ────────────────────────────────────────────────
     //   POT THROW
     // ────────────────────────────────────────────────
-    void ThrowPot()
+
+    /// <summary>Shows ground telegraph during the laugh phase so the player sees it coming.</summary>
+    IEnumerator ShowThrowTelegraph(Vector3 target)
     {
-        if (!bombPrefab) return;
+        if (!tileMarkerPrefab) yield break;
 
-        // Random target inside the player arena
-        if (!arenaBounds)
+        float groundY = SampleGroundY(target);
+        var markers = new List<GameObject>();
+
+        foreach (var c in GetDiamondTiles(target, potAoERadius))
         {
-            Debug.LogWarning("[CafeteriaLadyBoss] arenaBounds is not assigned — pot throw skipped.");
-            return;
+            Vector3 pos = c; pos.y = groundY + markerYOffset;
+            var m = Instantiate(tileMarkerPrefab, pos, Quaternion.identity);
+            TintMarker(m, new Color(1f, 0.3f, 0.05f, 0.9f));
+            if (!m.TryGetComponent<TileMarker>(out var tm)) tm = m.AddComponent<TileMarker>();
+            tm.Init(laughDuration + throwAnimDuration + 1f, tileSize);
+            markers.Add(m);
         }
-        Vector3 target = arenaBounds.GetRandomPoint();
 
-        Vector3 origin = (potTransform ? potTransform.position : transform.position)
-                         + Vector3.up * 0.5f;
-        Vector3 dest   = target + Vector3.up * 0.5f;
+        // Stay alive until the throw is done, then clean up
+        yield return new WaitUntil(() => !_throwPending || IsDead());
+        yield return new WaitForSeconds(0.3f);
+        foreach (var m in markers) if (m) Destroy(m);
+    }
 
+    /// <summary>
+    /// Fires the projectile from the hand bone on the exact throw frame.
+    /// No internal windup — telegraph was already shown during the laugh.
+    /// </summary>
+    IEnumerator ThrowPotRoutine()
+    {
+        if (!bombPrefab || !arenaBounds)
+        {
+            Debug.LogWarning("[CafeteriaLadyBoss] bombPrefab or arenaBounds not assigned — throw skipped.");
+            yield break;
+        }
+
+        Vector3 target = _nextThrowTarget;
+
+        Vector3 origin  = (throwOrigin ? throwOrigin.position
+                          : potTransform ? potTransform.position
+                          : transform.position) + Vector3.up * 0.1f;
+        Vector3 dest    = target + Vector3.up * 0.5f;
         float distTiles = Mathf.Max(1f, Vector3.Distance(origin, dest) / Mathf.Max(0.01f, tileSize));
         float arcDur    = bombThrowTimePerTile * distTiles;
 
         var bomb = Instantiate(bombPrefab, origin, Quaternion.identity);
         var arc  = bomb.GetComponent<BombProjectileArc>() ?? bomb.AddComponent<BombProjectileArc>();
 
-        // Capture for lambda
         Vector3 capturedTarget = target;
-
         arc.Init(
             start:           origin,
             end:             dest,
@@ -320,44 +458,112 @@ public class CafeteriaLadyBoss : MonoBehaviour
             arcHeight:       bombArcHeight,
             groundMask:      groundMask,
             explosionPrefab: explosionVfxPrefab,
-            onExplode: (_landPos) =>
+            onExplode: (_) =>
             {
                 var go    = new GameObject("BossPotAoEField");
                 var field = go.AddComponent<BombAoEFieldHostile>();
                 field.Init(
-                    center:       capturedTarget,
-                    tileSize:     tileSize,
-                    markerPrefab: tileMarkerPrefab,
+                    center:        capturedTarget,
+                    tileSize:      tileSize,
+                    markerPrefab:  tileMarkerPrefab,
                     markerYOffset: markerYOffset,
-                    groundMask:   groundMask,
-                    victimsLayer: victimLayer,
-                    radiusTiles:  potAoERadius,
-                    duration:     potAoEDuration,
-                    tickInterval: potAoETickInterval,
-                    tickDamage:   potAoETickDamage,
-                    slowPercent:  potAoESlowPercent,
-                    slowTag:      slowStatusTag,
-                    slowIcon:     slowStatusIcon
+                    groundMask:    groundMask,
+                    victimsLayer:  victimLayer,
+                    radiusTiles:   potAoERadius,
+                    duration:      99999f,
+                    tickInterval:  potAoETickInterval,
+                    tickDamage:    potAoETickDamage,
+                    slowPercent:   potAoESlowPercent,
+                    slowTag:       slowStatusTag,
+                    slowIcon:      slowStatusIcon
                 );
+                activeAoEFields.Add(go);
+                placedCenters.Add(capturedTarget);
             }
         );
+
+        // Wait for arc travel time before signalling done
+        yield return new WaitForSeconds(arcDur + 0.1f);
     }
 
-    // ────────────────────────────────────────────────
-    //   MINION WAVES
-    // ────────────────────────────────────────────────
-    IEnumerator MinionWaveLoop()
+    /// <summary>
+    /// Find an arena point that has at least aoEGapTiles clear distance from
+    /// all existing AoE field edges. Falls back to a random point if no clear
+    /// spot is found within aoEPlacementAttempts tries.
+    /// </summary>
+    Vector3 FindClearLandingSpot()
     {
-        yield return new WaitForSeconds(firstWaveDelay);
+        float minCenterDist = (potAoERadius * 2 + aoEGapTiles) * tileSize;
 
-        while (true)
+        for (int attempt = 0; attempt < aoEPlacementAttempts; attempt++)
         {
-            if (IsDead()) yield break;
-            yield return StartCoroutine(SpawnWave());
-            yield return new WaitForSeconds(waveCooldown);
+            Vector3 candidate = arenaBounds.GetRandomPoint();
+            bool clear = true;
+
+            foreach (var existing in placedCenters)
+            {
+                float d = Vector3.Distance(
+                    new Vector3(candidate.x, 0, candidate.z),
+                    new Vector3(existing.x,  0, existing.z));
+                if (d < minCenterDist) { clear = false; break; }
+            }
+
+            if (clear) return candidate;
         }
+
+        // No clear spot found — just use a random point
+        return arenaBounds.GetRandomPoint();
     }
 
+    void ClearAllAoEFields()
+    {
+        foreach (var go in activeAoEFields)
+            if (go) Destroy(go);
+        activeAoEFields.Clear();
+        placedCenters.Clear();
+    }
+
+    // ────────────────────────────────────────────────
+    //   HAND PROPS + ANIMATION EVENTS
+    // ────────────────────────────────────────────────
+    void SetHandProps(GameObject[] propsToEnable)
+    {
+        if (cookingProps != null) foreach (var p in cookingProps) if (p) p.SetActive(false);
+        if (throwProps   != null) foreach (var p in throwProps)   if (p) p.SetActive(false);
+        if (propsToEnable != null)
+            foreach (var p in propsToEnable) if (p) p.SetActive(true);
+    }
+
+    /// <summary>
+    /// Wire this to an Animation Event on the Throw clip at the exact frame she releases the pot.
+    /// This fires the projectile. Prop visibility is handled by the coroutine, not this event.
+    /// </summary>
+    public void AnimEvent_ReleasePot()
+    {
+        // Hide hand pot at the moment of release — she's just thrown it
+        SetHandProps(null);
+        StartCoroutine(ThrowAndClearPending());
+    }
+
+    IEnumerator ThrowAndClearPending()
+    {
+        yield return StartCoroutine(ThrowPotRoutine());
+        _throwPending = false;
+    }
+
+    /// <summary>
+    /// Optional: wire to Cook clip to show cooking prop at the right frame.
+    /// </summary>
+    public void AnimEvent_PickUpCookingProp() => SetHandProps(cookingProps);
+
+    /// <summary>
+    /// Optional: wire to Cook clip to hide cooking prop at the right frame.
+    /// </summary>
+    public void AnimEvent_PutDownCookingProp() => SetHandProps(null);
+
+    // ────────────────────────────────────────────────
+    //   MINION SPAWNING (triggered each cook cycle)
+    // ────────────────────────────────────────────────
     IEnumerator SpawnWave()
     {
         if (!slimeMinionPrefab) yield break;
@@ -373,14 +579,9 @@ public class CafeteriaLadyBoss : MonoBehaviour
             if (!pt) continue;
 
             var go = Instantiate(slimeMinionPrefab, pt.position, pt.rotation);
-
-            // Strip "(Clone)" from the nameplate.
             go.name = slimeMinionPrefab.name;
 
-            // No waypoint injection needed here.
-            // SlimeVentEmerge.Start() calls FindAnyObjectByType<CafeteriaLadyBoss>()
-            // and pulls ventWaypoints + ventLandingTarget directly from this component.
-
+            // Always stagger between slimes — they must never spawn simultaneously
             if (i < count - 1)
                 yield return new WaitForSeconds(spawnStaggerDelay);
         }
@@ -413,15 +614,89 @@ public class CafeteriaLadyBoss : MonoBehaviour
             CurrentState = BossState.Dead;
             StopAllCoroutines();
             if (bossHealthBar) bossHealthBar.Hide();
-            // NPCHealth handles the rest: death anim, CorpseLoot, XP.
+            SetHandProps(null);
+            if (counterPot) counterPot.SetActive(true);
+            ClearAllAoEFields();
+            // Deactivate the hazard zone so the player can safely loot the corpse
+            if (hazardZone) hazardZone.Deactivate();
         }
     }
 
     // ────────────────────────────────────────────────
+    IEnumerator DropIngredient()
+    {
+        yield return new WaitForSeconds(ingredientDropDelay);
+        if (!ingredientDropPrefab || !potTransform || IsDead()) yield break;
+
+        Vector3 spawnPos = potTransform.position + ingredientSpawnOffset;
+        var obj = Instantiate(ingredientDropPrefab, spawnPos, Random.rotation);
+
+        // Ensure it has a Rigidbody so gravity pulls it into the pot
+        if (!obj.GetComponent<Rigidbody>())
+        {
+            var rb = obj.AddComponent<Rigidbody>();
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        }
+
+        Destroy(obj, ingredientDropLifetime);
+    }
+
     void PlayAnim(string trigger)
     {
         if (!animator || string.IsNullOrEmpty(trigger)) return;
         animator.SetTrigger(trigger);
+    }
+
+    void SetSpeed(float speed)
+    {
+        if (!animator || string.IsNullOrEmpty(animSpeedParam)) return;
+        animator.SetFloat(animSpeedParam, speed);
+    }
+
+    void LateUpdate()
+    {
+        // Smoothly hold rotation toward _facingTarget every frame.
+        // LateUpdate runs after the Animator, so root motion can't override it.
+        if (!_facingTarget || IsDead()) return;
+        Vector3 dir = _facingTarget.position - transform.position; dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f) return;
+        Quaternion target = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, target, 360f * Time.deltaTime);
+    }
+
+    // ────────────────────────────────────────────────
+    //   HELPERS
+    // ────────────────────────────────────────────────
+    float SampleGroundY(Vector3 at)
+    {
+        Vector3 origin = at + Vector3.up * 10f;
+        if (Physics.Raycast(origin, Vector3.down, out var hit, 40f, groundMask, QueryTriggerInteraction.Ignore))
+            return hit.point.y;
+        return at.y;
+    }
+
+    IEnumerable<Vector3> GetDiamondTiles(Vector3 center, int radius)
+    {
+        Vector3 snapped = new Vector3(
+            Mathf.Round(center.x / tileSize) * tileSize,
+            center.y,
+            Mathf.Round(center.z / tileSize) * tileSize);
+
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            int maxDz = radius - Mathf.Abs(dx);
+            for (int dz = -maxDz; dz <= maxDz; dz++)
+                yield return new Vector3(snapped.x + dx * tileSize, snapped.y, snapped.z + dz * tileSize);
+        }
+    }
+
+    static void TintMarker(GameObject m, Color col)
+    {
+        if (!m) return;
+        if (m.TryGetComponent<Renderer>(out var rend) && rend.material) { rend.material.color = col; return; }
+        if (m.TryGetComponent<UnityEngine.UI.Image>(out var img)) { img.color = col; return; }
+        var childR = m.GetComponentInChildren<Renderer>();
+        if (childR && childR.material) childR.material.color = col;
     }
 
     // ────────────────────────────────────────────────

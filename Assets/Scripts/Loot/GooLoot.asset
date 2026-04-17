@@ -17,4 +17,9 @@ MonoBehaviour:
   itemDropChance: 1
   dollarsPerLevel: 0
   moneyRandomFactor: {x: 0, y: 0}
-  ilvlVariance: 0
+  ilvlVariance: 1
+  weightCommon: 100
+  weightUncommon: 40
+  weightRare: 15
+  weightEpic: 4
+  weightLegendary: 1

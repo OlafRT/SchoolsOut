@@ -22,6 +22,26 @@ public class NPCLootProfile : ScriptableObject
     [Tooltip("How far from NPC level item ilvl can vary.")]
     public int ilvlVariance = 2;
 
+    // -------------------------------------------------------------------------
+    // Rarity Weights
+    // Higher weight = more likely to be picked. A weight of 0 means that rarity
+    // can never drop from this profile. Tune these per enemy type in the Inspector
+    // (e.g. a boss profile might have higher Epic/Legendary weights).
+    // -------------------------------------------------------------------------
+    [Header("Rarity Weights")]
+    [Tooltip("Relative drop weight for Common items. Higher = more frequent.")]
+    public float weightCommon    = 100f;
+    [Tooltip("Relative drop weight for Uncommon items.")]
+    public float weightUncommon  = 40f;
+    [Tooltip("Relative drop weight for Rare items.")]
+    public float weightRare      = 15f;
+    [Tooltip("Relative drop weight for Epic items.")]
+    public float weightEpic      = 4f;
+    [Tooltip("Relative drop weight for Legendary items. Set to 0 to prevent legendaries from this enemy.")]
+    public float weightLegendary = 1f;
+
+    // -------------------------------------------------------------------------
+
     public int GetRandomMoney(int npcLevel)
     {
         float baseAmt = Mathf.Max(0, npcLevel) * Mathf.Max(0, dollarsPerLevel);
@@ -42,16 +62,74 @@ public class NPCLootProfile : ScriptableObject
         {
             if (Random.value > itemDropChance) continue;
 
-            var tpl = itemDatabase.templates[Random.Range(0, itemDatabase.templates.Count)];
+            // 1) Pick a rarity first, using the weighted chances above.
+            Rarity chosenRarity = PickWeightedRarity();
+
+            // 2) Collect all templates that match that rarity.
+            //    Falls back to any rarity if none exist for the chosen one.
+            var candidates = BuildCandidateList(chosenRarity);
+            if (candidates.Count == 0) continue;
+
+            // 3) Pick uniformly from the matching templates.
+            var tpl = candidates[Random.Range(0, candidates.Count)];
             if (tpl == null) continue;
 
-            // For non-static items this will do a normal random roll.
-            // For static items it will ignore ilvl and use the fixed values from the template.
             int ilvl = Random.Range(minIlvl, maxIlvl + 1);
             var inst = AffixRoller.CreateFromTemplate(tpl, ilvl);
             if (inst != null)
                 list.Add(inst);
         }
         return list;
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Rolls a Rarity value using the weight fields above.
+    /// Works correctly even if some weights are zero.
+    /// </summary>
+    Rarity PickWeightedRarity()
+    {
+        float total = weightCommon + weightUncommon + weightRare + weightEpic + weightLegendary;
+
+        // Safety: if everything is 0, fall back to Common.
+        if (total <= 0f) return Rarity.Common;
+
+        float roll = Random.Range(0f, total);
+
+        if (roll < weightCommon)                                   return Rarity.Common;
+        roll -= weightCommon;
+        if (roll < weightUncommon)                                 return Rarity.Uncommon;
+        roll -= weightUncommon;
+        if (roll < weightRare)                                     return Rarity.Rare;
+        roll -= weightRare;
+        if (roll < weightEpic)                                     return Rarity.Epic;
+        return Rarity.Legendary;
+    }
+
+    /// <summary>
+    /// Returns all templates whose rarity matches <paramref name="target"/>.
+    /// If none exist for that rarity, returns the full template list as a fallback
+    /// so a roll never simply whiffs due to a missing rarity bucket.
+    /// </summary>
+    List<ItemTemplate> BuildCandidateList(Rarity target)
+    {
+        var result = new List<ItemTemplate>();
+        foreach (var tpl in itemDatabase.templates)
+        {
+            if (tpl != null && tpl.rarity == target)
+                result.Add(tpl);
+        }
+
+        // Fallback: if nobody has that rarity, allow any template.
+        if (result.Count == 0)
+        {
+            foreach (var tpl in itemDatabase.templates)
+                if (tpl != null) result.Add(tpl);
+        }
+
+        return result;
     }
 }
