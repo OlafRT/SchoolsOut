@@ -94,7 +94,37 @@ public class AreaZoneMusicController : MonoBehaviour
             fadeOut= defaultFadeOut;
         }
 
+        // Same clip already playing on the active source — don't restart it.
+        // Just silently update loop and nudge the volume toward the new zone's target.
+        if (clip != null && active != null && active.clip == clip && active.isPlaying)
+        {
+            active.loop = loop;
+            if (xfadeCo != null) StopCoroutine(xfadeCo);
+            xfadeCo = StartCoroutine(NudgeVolume(active, vol, fadeIn));
+            return;
+        }
+
         CrossfadeTo(clip, vol, loop, fadeIn, fadeOut);
+    }
+
+    // Smoothly adjust the active source's volume without touching the clip or playback position.
+    IEnumerator NudgeVolume(AudioSource src, float targetVol, float duration)
+    {
+        float scale     = masterVolume * muteScalar;
+        float startVol  = src.volume;
+        float endVol    = targetVol * scale;
+        float t         = 0f;
+        duration        = Mathf.Max(0.01f, duration);
+
+        while (t < duration)
+        {
+            t         += Time.unscaledDeltaTime;
+            src.volume = Mathf.Lerp(startVol, endVol, t / duration);
+            yield return null;
+        }
+
+        src.volume = endVol;
+        xfadeCo    = null;
     }
 
     // targetVol here is the per-track base volume (0..1) BEFORE master/mute scaling
