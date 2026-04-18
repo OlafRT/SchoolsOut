@@ -9,12 +9,21 @@ public class Inventory : ScriptableObject {
 
     public event Action OnInventoryChanged;
 
-    private void OnEnable(){
+    // Set to true by Restore() so OnEnable doesn't wipe loaded data.
+    private bool _restoredThisSession = false;
+
+    private void OnEnable()
+    {
+        // Skip the wipe if Restore() already populated the slots this session.
+        // This prevents a Unity Editor domain-reload (or any other OnEnable
+        // re-trigger) from clearing items that were just loaded from a save.
+        if (_restoredThisSession) return;
+
         // Always reinitialize at runtime. Inventory is a ScriptableObject whose
         // serialized data persists between Editor Play sessions, so without this
         // the bag appears full at the start of every new session.
         slots.Clear();
-        for(int i=0;i<capacity;i++) slots.Add(new ItemStack(null,0));
+        for (int i = 0; i < capacity; i++) slots.Add(new ItemStack(null, 0));
     }
 
     public IReadOnlyList<ItemStack> Slots => slots;
@@ -62,9 +71,38 @@ public class Inventory : ScriptableObject {
         return amount == 0; // false means: ran out of space
     }
 
-    public void Clear() {
-    for (int i = 0; i < slots.Count; i++) slots[i] = new ItemStack(null, 0);
-    OnInventoryChanged?.Invoke();
+    /// <summary>
+    /// Called by the save system to populate the inventory from a save file.
+    /// Replaces the reflection hack in ReadInventory and is the ONLY correct
+    /// way to restore slots from outside this class.
+    ///
+    /// Guarantees that slots.Count == capacity after the call, which prevents
+    /// the "shows empty, reports full" bug caused by a count/capacity mismatch.
+    /// </summary>
+    public void Restore(int savedCapacity, List<ItemStack> loadedSlots)
+    {
+        capacity = savedCapacity;
+        _restoredThisSession = true;
+
+        slots.Clear();
+        for (int i = 0; i < loadedSlots.Count && i < capacity; i++)
+            slots.Add(loadedSlots[i] ?? new ItemStack(null, 0));
+
+        // Pad with empty slots so slots.Count always equals capacity.
+        // Without this, if the saved list is shorter than capacity for any
+        // reason, Add() would iterate fewer entries than the UI slot count
+        // and report "full" while some UI slots appear empty.
+        while (slots.Count < capacity)
+            slots.Add(new ItemStack(null, 0));
+
+        OnInventoryChanged?.Invoke();
+    }
+
+    public void Clear()
+    {
+        _restoredThisSession = false; // allow OnEnable to reinitialize normally after a clear
+        for (int i = 0; i < slots.Count; i++) slots[i] = new ItemStack(null, 0);
+        OnInventoryChanged?.Invoke();
     }
 
     public void RemoveAt(int index, int amount)

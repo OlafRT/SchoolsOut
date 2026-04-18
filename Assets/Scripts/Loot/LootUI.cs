@@ -163,8 +163,11 @@ public class LootUI : MonoBehaviour
                 return;
             }
 
-            // ↓ Add this line
-            QuestEvents.ItemLooted?.Invoke(itm.template.id, 1);
+            // Fire quest progress event — only when item was successfully added,
+            // and only when the template is valid (items with null templates can't
+            // count toward quest objectives anyway).
+            if (itm.template != null)
+                QuestEvents.ItemLooted?.Invoke(itm.template.id, 1);
         }
 
         AfterLootAttempt();

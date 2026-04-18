@@ -17,7 +17,7 @@ MonoBehaviour:
   description: Someone has lost their Tamagotchi somewhere. They last had it at lunch.
     I should look for clues...
   giverNpcId: Flyer
-  turnInNpcId: Note
+  turnInNpcId: Mystery
   xpReward: 150
   moneyReward: 0
   itemReward: {fileID: 0}

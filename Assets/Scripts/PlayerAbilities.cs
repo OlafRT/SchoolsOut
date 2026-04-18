@@ -19,6 +19,15 @@ public class PlayerAbilities : MonoBehaviour
     public LayerMask wallLayer;
     public LayerMask groundLayer;
 
+    [Header("Miss Chance")]
+    [Tooltip("0 = never miss, 1 = always miss. Applied to every attack before damage is dealt.")]
+    [Range(0f, 1f)]
+    public float missChance = 0.10f;
+    [Tooltip("Color of the MISS combat text.")]
+    public Color missTextColor = new Color(0.75f, 0.75f, 0.75f, 1f); // light grey
+    [Tooltip("Font size of the MISS combat text.")]
+    public float missFontSize = 26f;
+
     [Header("Telegraph")]
     public GameObject tileMarkerPrefab;
     public float telegraphDuration = 0.25f;
@@ -128,6 +137,22 @@ public class PlayerAbilities : MonoBehaviour
         if (!target) return;
         var dmg = target.GetComponent<IDamageable>();
         if (dmg == null) return;
+
+        // --- Miss roll (applied before crit/damage computation) ---
+        if (missChance > 0f && Random.value < missChance)
+        {
+            if (!damageTextFrameBlock.Contains(target))
+            {
+                if (CombatTextManager.Instance)
+                {
+                    Vector3 missPos = target.bounds.center;
+                    missPos.y = target.bounds.max.y;
+                    CombatTextManager.Instance.ShowText(missPos, "MISS", missTextColor, target.transform, -1f, missFontSize);
+                }
+                damageTextFrameBlock.Add(target);
+            }
+            return; // no damage applied
+        }
 
         bool didCrit = false;
         int final = stats ? stats.ComputeDamage(baseDamage, school, allowCrit, out didCrit) : baseDamage;

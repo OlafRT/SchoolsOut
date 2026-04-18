@@ -15,7 +15,11 @@ public static class InventoryPersistence {
         var data = new InventoryData { capacity = inv.capacity };
         foreach (var s in inv.Slots) {
             var sd = new SlotData { occupied = !s.IsEmpty };
-            if (sd.occupied) sd.item = ToData(s.item);
+            if (sd.occupied)
+            {
+                sd.item  = ToData(s.item);
+                sd.count = s.count; // persist stack size — without this all stacks reload as 1
+            }
             data.slots.Add(sd);
         }
         File.WriteAllText(filePath, JsonUtility.ToJson(data, true));
@@ -26,20 +30,22 @@ public static class InventoryPersistence {
         var json = File.ReadAllText(filePath);
         var data = JsonUtility.FromJson<InventoryData>(json);
 
-        inv.capacity = data.capacity;
-
-        var list = new List<ItemStack>();
+        var list = new List<ItemStack>(data.slots.Count);
         foreach (var sd in data.slots) {
-            if (sd.occupied && sd.item != null) list.Add(new ItemStack(FromData(sd.item, db), 1));
-            else list.Add(new ItemStack(null, 0));
+            if (sd.occupied && sd.item != null)
+            {
+                int count = Mathf.Max(1, sd.count); // sd.count=1 on old saves → safe fallback
+                list.Add(new ItemStack(FromData(sd.item, db), count));
+            }
+            else
+            {
+                list.Add(new ItemStack(null, 0));
+            }
         }
 
-        var field = typeof(Inventory).GetField("slots",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field.SetValue(inv, list);
-
-        // notify via helper
-        inv.MarkDirty();
+        // Restore() guarantees slots.Count == capacity, eliminating the
+        // "shows empty / reports full" mismatch caused by the old reflection path.
+        inv.Restore(data.capacity, list);
     }
 
     public static void SaveEquipment(EquipmentState eq, string filePath) {

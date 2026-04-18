@@ -74,8 +74,9 @@ public class CorpseLoot : MonoBehaviour,
         }
     }
 
-    // Is corpse fully looted?
-    public bool IsEmpty => (dollars <= 0) && (items == null || items.Count == 0);
+    // Is corpse fully looted? Null entries in the list are treated as absent
+    // so a stranded null can't prevent the corpse from despawning.
+    public bool IsEmpty => (dollars <= 0) && (items == null || !items.Exists(i => i != null));
 
     // -------------------------------------------------
     // Public helpers LootUI will call
@@ -88,10 +89,8 @@ public class CorpseLoot : MonoBehaviour,
         if (corpseIndex < 0 || corpseIndex >= items.Count) return null;
 
         var inst = items[corpseIndex];
-        if (inst != null)
-        {
-            items.RemoveAt(corpseIndex);
-        }
+        items.RemoveAt(corpseIndex); // always remove — null entries must not get stranded
+                                     // or IsEmpty stays false forever and corpse won't despawn
 
         UpdateLootFX();
         return inst;

@@ -542,22 +542,25 @@ public class AutoAttackAbility : MonoBehaviour
 
         var p = go.GetComponent<StraightProjectile>() ?? go.AddComponent<StraightProjectile>();
 
-        LayerMask impactLayers = ctx.targetLayer | ctx.wallLayer | ctx.groundLayer;
+        // hitLayers for VFX/stopping: everything solid (walls, ground, targets).
+        // damageLayers: targets only — VFX can play on a wall without awarding damage.
+        LayerMask vfxHitLayers  = ctx.targetLayer | ctx.wallLayer | ctx.groundLayer;
+        LayerMask damageLayers  = ctx.targetLayer;
 
         p.Init(
             direction:   normDir,
             speed:       ctx.projectileSpeed,
             maxDistance: range,
-            hitLayers:   impactLayers,
-            damageLayers: ctx.targetLayer,
+            hitLayers:   vfxHitLayers,
+            damageLayers: damageLayers,
             damage:      damage,
             tileSize:    ctx.tileSize,
             wasCrit:     wasCrit
         );
 
         var vfx = go.GetComponent<ProjectileImpactVFX>() ?? go.AddComponent<ProjectileImpactVFX>();
-        vfx.Configure(nerdImpactVfx, nerdImpactSfx, vfxScale, vfxLife, parentVfxToHit, impactLayers);
-        vfx.ConfigureSweep(vfxUseSweepRaycast, impactLayers, vfxSweepRadius, false);
+        vfx.Configure(nerdImpactVfx, nerdImpactSfx, vfxScale, vfxLife, parentVfxToHit, vfxHitLayers);
+        vfx.ConfigureSweep(vfxUseSweepRaycast, vfxHitLayers, vfxSweepRadius, false);
     }
 
     // =========================================================================

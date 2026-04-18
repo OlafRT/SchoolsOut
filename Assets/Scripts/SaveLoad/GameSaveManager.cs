@@ -322,6 +322,7 @@ public class GameSaveManager : MonoBehaviour
         _statSnapshot      = null;
         _abilitiesSnapshot = null;
         if (playerProgress != null) playerProgress.ResetForNewGame();
+        if (inventory != null) inventory.Clear(); // prevent old items bleeding into a new session
 
         // Claim the first empty slot for this new session
         ActiveSlot = 0;
@@ -337,6 +338,7 @@ public class GameSaveManager : MonoBehaviour
         _pendingLoad       = null;
         _statSnapshot      = null;   // start fresh — don't carry old stats into a new game
         _abilitiesSnapshot = null;
+        if (inventory != null) inventory.Clear(); // prevent old items bleeding into a new session
 
         // Claim the first empty slot for this new session.
         // If all slots are full, fall back to slot 0 (oldest save gets overwritten).
@@ -463,7 +465,11 @@ public class GameSaveManager : MonoBehaviour
         foreach (var s in inventory.Slots)
         {
             var sd = new SlotData { occupied = !s.IsEmpty };
-            if (sd.occupied) sd.item = ItemToData(s.item);
+            if (sd.occupied)
+            {
+                sd.item  = ItemToData(s.item);
+                sd.count = s.count; // preserve stack size — without this, all stacks load back as 1
+            }
             inv.slots.Add(sd);
         }
         d.inventory = inv;
@@ -621,17 +627,25 @@ public class GameSaveManager : MonoBehaviour
     void ReadInventory(GameSaveData d)
     {
         if (!inventory || d.inventory == null) return;
-        inventory.capacity = d.inventory.capacity;
 
-        var list = new List<ItemStack>();
+        var list = new List<ItemStack>(d.inventory.slots.Count);
         foreach (var sd in d.inventory.slots)
-            list.Add(sd.occupied && sd.item != null ? new ItemStack(ItemFromData(sd.item), 1) : new ItemStack(null, 0));
+        {
+            if (sd.occupied && sd.item != null)
+            {
+                var item  = ItemFromData(sd.item);
+                int count = Mathf.Max(1, sd.count); // sd.count is 0 on old saves → fall back to 1
+                list.Add(new ItemStack(item, count));
+            }
+            else
+            {
+                list.Add(new ItemStack(null, 0));
+            }
+        }
 
-        var field = typeof(Inventory).GetField("slots",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field?.SetValue(inventory, list);
-
-        inventory.MarkDirty();
+        // Restore() owns the slots list directly — no reflection, no silent failures,
+        // and it pads to capacity so slots.Count always matches the UI slot count.
+        inventory.Restore(d.inventory.capacity, list);
     }
 
     void ReadEquipment(GameSaveData d)
