@@ -59,7 +59,7 @@ public class DeathPanelController : MonoBehaviour
         }
         else
         {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            ReloadViaLoadSystem();
         }
     }
 
@@ -74,6 +74,15 @@ public class DeathPanelController : MonoBehaviour
             yield return null;
         }
         cg.alpha = 1f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        ReloadViaLoadSystem();
+    }
+
+    void ReloadViaLoadSystem()
+    {
+        var save = GameSaveManager.I;
+        if (save != null)
+            save.RespawnReloadScene();
+        else
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

@@ -62,6 +62,8 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Header("Combat")]
     public float meleeCooldown = 1.8f;
     public int meleeDamage = 8;
+    [Tooltip("How fast (degrees/sec) the enemy rotates to face the target before attacking. 0 = instant snap.")]
+    public float attackFacingSpeed = 720f;
 
     [Header("Refs")]
     public NPCMovement mover;
@@ -398,6 +400,12 @@ public class NPCAI : MonoBehaviour, IStunnable
     {
         if (!player || mover == null || pathfinder == null) return;
 
+        // Don't interrupt an in-progress attack — MeleeRoutine owns movement
+        // and rotation for its duration. Without this, DoHostile() calls
+        // TryPathTo() every frame which starts StepTo(), which immediately
+        // snaps the rotation back to the movement direction.
+        if (isAttacking) return;
+
         // ── Flee override: path away from player instead of toward them ──────
         if (fleeActive)
         {
@@ -652,22 +660,49 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (lockMovementDuringAttack && mover)
             mover.HardStop();
 
+        // Phase 1: rotate to face the target BEFORE the animation fires.
+        // Spins until within 5 degrees, with a hard timeout so it never hangs.
+        float facingTimeout = attackFacingSpeed <= 0f ? 0f : (180f / attackFacingSpeed) + 0.1f;
+        float facingElapsed = 0f;
+        while (facingElapsed < facingTimeout)
+        {
+            if (!tgt) break;
+            Vector3 toTarget = tgt.position - transform.position;
+            toTarget.y = 0f;
+            if (toTarget.sqrMagnitude > 0.0001f)
+            {
+                Quaternion desired = Quaternion.LookRotation(toTarget);
+                if (attackFacingSpeed <= 0f)
+                {
+                    transform.rotation = desired;
+                    break;
+                }
+                transform.rotation = Quaternion.RotateTowards(
+                    transform.rotation, desired, attackFacingSpeed * Time.deltaTime);
+                if (Quaternion.Angle(transform.rotation, desired) < 5f)
+                {
+                    transform.rotation = desired;
+                    break;
+                }
+            }
+            facingElapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // Phase 2: animation, windup, damage, recovery.
         if (animator && !string.IsNullOrEmpty(attackTriggerName))
             animator.SetTrigger(attackTriggerName);
 
-        // wait for “hit moment”
         if (attackWindupSeconds > 0f)
             yield return new WaitForSeconds(attackWindupSeconds);
 
         if (tgt && tgt.TryGetComponent<IDamageable>(out var dmg))
         {
-            // Don't land a hit on a player who died during the windup
             bool targetIsDeadPlayer = (playerHealth && tgt == player.transform && playerHealth.IsDead);
             if (!targetIsDeadPlayer)
                 dmg.ApplyDamage(meleeDamage);
         }
 
-        // small recovery so it doesn’t instantly snap back into stepping
         if (attackRecoverSeconds > 0f)
             yield return new WaitForSeconds(attackRecoverSeconds);
 

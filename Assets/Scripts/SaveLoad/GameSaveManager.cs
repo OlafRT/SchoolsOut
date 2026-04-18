@@ -53,6 +53,9 @@ public class GameSaveManager : MonoBehaviour
     // Pending save data to apply once the target scene finishes loading
     private GameSaveData _pendingLoad;
 
+    // When true, OnSceneLoaded will restore only world object states (for death respawn)
+    private bool _restoreWorldObjectsOnRespawn = false;
+
     // Lightweight snapshot carried between scenes so stats/XP/level
     // survive scene transitions without requiring a manual save.
     private PlayerStatsSaveData _statSnapshot;
@@ -88,6 +91,13 @@ public class GameSaveManager : MonoBehaviour
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         RebindRuntimeRefs();
+
+        if (_restoreWorldObjectsOnRespawn)
+        {
+            _restoreWorldObjectsOnRespawn = false;
+            StartCoroutine(RestoreWorldObjectsNextFrame());
+            return;
+        }
 
         if (_pendingLoad != null)
         {
@@ -747,6 +757,34 @@ public class GameSaveManager : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════════════
     //  UTILITIES
     // ═══════════════════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  DEATH RESPAWN  (reload scene, preserve collected item states)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Reloads the current scene as a fresh respawn — resets the player
+    /// normally, but re-hides any items already collected this session.
+    /// </summary>
+    public void RespawnReloadScene()
+    {
+        if (ActiveSlot >= 0)
+            _restoreWorldObjectsOnRespawn = true;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    System.Collections.IEnumerator RestoreWorldObjectsNextFrame()
+    {
+        yield return null; // wait for scene objects to finish Start()
+
+        if (!HasSave(ActiveSlot)) yield break;
+
+        GameSaveData data;
+        try   { data = JsonUtility.FromJson<GameSaveData>(File.ReadAllText(SlotPath(ActiveSlot))); }
+        catch { yield break; }
+
+        if (data != null) ReadWorldObjects(data);
+    }
 
     static string SlotPath(int slot) =>
         Path.Combine(Application.persistentDataPath, string.Format(SlotFile, slot));

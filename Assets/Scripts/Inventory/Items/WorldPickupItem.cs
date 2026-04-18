@@ -89,8 +89,18 @@ public class WorldPickupItem : MonoBehaviour
         // system can record it as "collected" (isActive = false).
         // Otherwise, destroy it outright as before.
         if (_hasSaveable)
+        {
             gameObject.SetActive(false);
+
+            // Persist immediately so the item stays collected if the player
+            // dies and the scene reloads before they reach a manual save point.
+            var save = GameSaveManager.I;
+            if (save != null && save.ActiveSlot >= 0)
+                save.Save(save.ActiveSlot);
+        }
         else
+        {
             Destroy(gameObject);
+        }
     }
 }
