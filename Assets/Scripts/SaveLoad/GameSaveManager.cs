@@ -96,6 +96,10 @@ public class GameSaveManager : MonoBehaviour
         {
             _restoreWorldObjectsOnRespawn = false;
             StartCoroutine(RestoreWorldObjectsNextFrame());
+            // Also restore stats and abilities from the snapshot — without this
+            // the early return skips ApplyStatSnapshotNextFrame() below and the
+            // player loses all learned abilities (and stats) on death.
+            StartCoroutine(ApplyStatSnapshotNextFrame());
             return;
         }
 
