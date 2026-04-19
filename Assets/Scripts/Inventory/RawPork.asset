@@ -16,9 +16,11 @@ MonoBehaviour:
   baseName: Raw Pork Meat
   icon: {fileID: 21300000, guid: e5df5ff674c9d4d4387a337d94e449bc, type: 3}
   rarity: 1
-  itemType: 1
+  itemType: 0
   isEquippable: 0
   equipSlot: 0
+  hasClassRestriction: 0
+  requiredClass: 1
   allowedAffixes: 00000000
   description: From cute little piglets...
   isStaticItem: 1
@@ -32,10 +34,25 @@ MonoBehaviour:
   fixedToughness: 0
   fixedValue: 3
   forcedAffix: 0
-  isConsumable: 0
-  consumableKind: 2
-  foodTotalHeal: 20
-  foodDurationSeconds: 8
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
+  isConsumable: 1
+  consumableKind: 1
+  foodTotalHeal: 5
+  foodDurationSeconds: 12
   foodConsumeOnStart: 0
   foodPropId: 
   healAmount: 50

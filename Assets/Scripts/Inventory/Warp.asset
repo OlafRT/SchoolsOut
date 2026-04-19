@@ -21,13 +21,13 @@ MonoBehaviour:
   equipSlot: 1
   hasClassRestriction: 1
   requiredClass: 1
-  allowedAffixes: 010000000400000003000000000000000200000005000000
-  description: Teaches how to bend spacetime (Right click to use)
+  allowedAffixes: 
+  description: Teaches how to bend spacetime! (Right click to use)
   isStaticItem: 1
   overrideName: Bend Spacetime
   fixedItemLevel: 1
   fixedRequiredLevel: 1
-  fixedRarity: 3
+  fixedRarity: 4
   fixedMuscles: 1
   fixedIQ: 0
   fixedCrit: 1

@@ -19,6 +19,8 @@ MonoBehaviour:
   itemType: 2
   isEquippable: 1
   equipSlot: 0
+  hasClassRestriction: 0
+  requiredClass: 1
   allowedAffixes: 0500000001000000020000000300000004000000
   description: Reward for helping Teddy deal with the clones.
   isStaticItem: 1
@@ -27,11 +29,26 @@ MonoBehaviour:
   fixedRequiredLevel: 1
   fixedRarity: 1
   fixedMuscles: 0
-  fixedIQ: 0
+  fixedIQ: 1
   fixedCrit: 0
   fixedToughness: 1
   fixedValue: 1
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 20

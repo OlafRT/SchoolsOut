@@ -15,7 +15,7 @@ MonoBehaviour:
   id: jockfigurine
   baseName: Jock Figurine
   icon: {fileID: 21300000, guid: 8342af9a90eae3e48a5601a2279296d2, type: 3}
-  rarity: 0
+  rarity: 3
   itemType: 1
   isEquippable: 0
   equipSlot: 0

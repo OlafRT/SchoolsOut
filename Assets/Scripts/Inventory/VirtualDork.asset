@@ -15,7 +15,7 @@ MonoBehaviour:
   id: virtualdork
   baseName: Virtual Dork
   icon: {fileID: 21300000, guid: 04089bb782fc2dd41a92086811cfd905, type: 3}
-  rarity: 3
+  rarity: 2
   itemType: 2
   isEquippable: 1
   equipSlot: 0

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: nerdfigurine
   baseName: Nerd Figurine
   icon: {fileID: 21300000, guid: 74c35fed05a319b438de5858b26952d8, type: 3}
-  rarity: 0
+  rarity: 3
   itemType: 1
   isEquippable: 0
   equipSlot: 0

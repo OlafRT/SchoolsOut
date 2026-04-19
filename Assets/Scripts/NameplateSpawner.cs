@@ -38,4 +38,14 @@ public class NameplateSpawner : MonoBehaviour
                 instance.transform.localPosition = instance.worldOffset;
         }
     }
+
+    /// <summary>
+    /// Updates the nameplate text after the object has already been spawned.
+    /// Call this whenever the GameObject's intended display name is set after
+    /// Instantiate() (which fires OnEnable before the caller can rename it).
+    /// </summary>
+    public void UpdateDisplayName(string newName)
+    {
+        if (instance) instance.SetTarget(transform, newName);
+    }
 }

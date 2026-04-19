@@ -15,7 +15,7 @@ MonoBehaviour:
   id: girlfigurine
   baseName: Girl Figurine
   icon: {fileID: 21300000, guid: 5f21831cc57db1144bedc668d218eb95, type: 3}
-  rarity: 0
+  rarity: 3
   itemType: 1
   isEquippable: 0
   equipSlot: 0

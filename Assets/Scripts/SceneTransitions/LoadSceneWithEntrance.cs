@@ -70,9 +70,13 @@ public class LoadSceneWithEntrance : MonoBehaviour
 
         gameObject.SetActive(false); // prevent re-entry
 
-        var op = SceneManager.LoadSceneAsync(destination.sceneName, LoadSceneMode.Single);
-        yield return op;
-
+        // Reset the lock BEFORE loading. LoadSceneMode.Single destroys every
+        // GameObject in the current scene — including this one — which kills
+        // the coroutine before the line after yield return ever executes.
+        // If we don't reset here, s_isLoading stays true forever and all
+        // subsequent scene transitions silently fail.
         s_isLoading = false;
+
+        SceneManager.LoadSceneAsync(destination.sceneName, LoadSceneMode.Single);
     }
 }

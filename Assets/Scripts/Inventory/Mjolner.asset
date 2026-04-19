@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Mjolner
   m_EditorClassIdentifier: 
   id: a19ff8a132474f2cbabb43849723cd06
-  baseName: "Mj\xF8lner"
+  baseName: Mjolner
   icon: {fileID: 21300000, guid: f3ea5bb57396b8c40b280fad53b88896, type: 3}
-  rarity: 5
+  rarity: 4
   itemType: 2
   isEquippable: 1
   equipSlot: 4
@@ -24,7 +24,7 @@ MonoBehaviour:
   allowedAffixes: 010000000400000003000000000000000200000005000000
   description: Forged by the dwarves.
   isStaticItem: 1
-  overrideName: "Mj\xF8lner"
+  overrideName: Mjolner
   fixedItemLevel: 20
   fixedRequiredLevel: 15
   fixedRarity: 4
@@ -32,8 +32,23 @@ MonoBehaviour:
   fixedIQ: 0
   fixedCrit: 10
   fixedToughness: 10
-  fixedValue: 100
+  fixedValue: 65
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 20

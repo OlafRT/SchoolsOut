@@ -413,13 +413,23 @@ public class NPCCallForBackup : MonoBehaviour
             if (pathfinder && pathfinder.IsBlocked(candidate)) continue;
 
             var spawned = Instantiate(backupNPCPrefab, candidate, Quaternion.identity);
-            spawned.name = $"{gameObject.name}'s Boyfriend";
+            string backupName = $"{gameObject.name}'s Boyfriend";
+            spawned.name = backupName;
+
+            // NameplateSpawner.OnEnable already fired during Instantiate with the
+            // "(Clone)" name — push the final name through now that it's set.
+            var ns = spawned.GetComponent<NameplateSpawner>();
+            if (ns) ns.UpdateDisplayName(backupName);
+
             return;
         }
 
         // Last resort: spawn one tile to the right (might briefly overlap, but won't crash)
         var fallback = Instantiate(backupNPCPrefab, transform.position + new Vector3(t, 0f, 0f), Quaternion.identity);
-        fallback.name = $"{gameObject.name}'s Boyfriend";
+        string fallbackName = $"{gameObject.name}'s Boyfriend";
+        fallback.name = fallbackName;
+        var fallbackNs = fallback.GetComponent<NameplateSpawner>();
+        if (fallbackNs) fallbackNs.UpdateDisplayName(fallbackName);
     }
 
     // ── Abort Helper ─────────────────────────────────────────────────────────

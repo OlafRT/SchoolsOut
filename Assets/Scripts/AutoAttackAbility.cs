@@ -602,20 +602,23 @@ public class AutoAttackAbility : MonoBehaviour
         LayerMask vfxHitLayers  = ctx.targetLayer | ctx.wallLayer | ctx.groundLayer;
         LayerMask damageLayers  = ctx.targetLayer;
 
-        p.Init(
-            direction:   normDir,
-            speed:       ctx.projectileSpeed,
-            maxDistance: range,
-            hitLayers:   vfxHitLayers,
-            damageLayers: damageLayers,
-            damage:      damage,
-            tileSize:    ctx.tileSize,
-            wasCrit:     wasCrit
-        );
-
+        // VFX must be configured BEFORE p.Init — Init subscribes to
+        // vfx.OnHitDetected, so the component must already exist at that point.
         var vfx = go.GetComponent<ProjectileImpactVFX>() ?? go.AddComponent<ProjectileImpactVFX>();
         vfx.Configure(nerdImpactVfx, nerdImpactSfx, vfxScale, vfxLife, parentVfxToHit, vfxHitLayers);
         vfx.ConfigureSweep(vfxUseSweepRaycast, vfxHitLayers, vfxSweepRadius, false);
+
+        p.Init(
+            direction:    normDir,
+            speed:        ctx.projectileSpeed,
+            maxDistance:  range,
+            hitLayers:    vfxHitLayers,
+            damageLayers: damageLayers,
+            damage:       damage,
+            tileSize:     ctx.tileSize,
+            wasCrit:      wasCrit,
+            shooter:      ctx
+        );
     }
 
     // =========================================================================

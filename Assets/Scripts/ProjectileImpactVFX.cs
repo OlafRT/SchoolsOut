@@ -23,6 +23,13 @@ public class ProjectileImpactVFX : MonoBehaviour
     [SerializeField] private float sweepRadius = 0.06f; // spherecast radius
     [SerializeField] private bool destroyProjectileOnHit = false;
 
+    // Fired on every detected hit (sweep, trigger, or collision) BEFORE VFX
+    // spawns. StraightProjectile subscribes to this to apply damage and run
+    // the miss roll. If the handler sets suppressImpact = true, SpawnImpact
+    // skips spawning particles and SFX (used on a miss — no hit visuals).
+    public event System.Action<Collider, Vector3> OnHitDetected;
+    [HideInInspector] public bool suppressImpact = false;
+
     private bool fired;
     private Vector3 prevPos;
     private Collider[] ownColliders;
@@ -47,6 +54,7 @@ public class ProjectileImpactVFX : MonoBehaviour
         if (Physics.SphereCast(prevPos, sweepRadius, dir, out RaycastHit hit, dist, sweepLayers, QueryTriggerInteraction.Collide))
         {
             if (IsOwnCollider(hit.collider)) { prevPos = cur; return; } // ignore self
+            OnHitDetected?.Invoke(hit.collider, hit.point);
             SpawnImpact(hit.point, hit.normal, hit.transform);
         }
 
@@ -88,6 +96,7 @@ public class ProjectileImpactVFX : MonoBehaviour
         if (IsOwnCollider(other)) return;
 
         Vector3 p = other.ClosestPoint(transform.position);
+        OnHitDetected?.Invoke(other, p);
         Vector3 n = (p - prevPos).sqrMagnitude > 0.0001f ? (p - prevPos).normalized : -transform.forward;
         SpawnImpact(p, n, other.transform);
     }
@@ -100,35 +109,40 @@ public class ProjectileImpactVFX : MonoBehaviour
 
         ContactPoint cp = col.contacts.Length > 0 ? col.contacts[0] : default;
         Vector3 p = cp.point != Vector3.zero ? cp.point : transform.position;
+        OnHitDetected?.Invoke(col.collider, p);
         Vector3 n = cp.normal != Vector3.zero ? cp.normal : -transform.forward;
         SpawnImpact(p, n, col.transform);
     }
 
-    // ------------- Core -------------
     void SpawnImpact(Vector3 pos, Vector3 normal, Transform hit)
     {
         if (fired) return;
         fired = true;
 
-        if (impactPrefab)
+        if (!suppressImpact)
         {
-            var rot = Quaternion.LookRotation(normal, Vector3.up);
-            var parent = parentToHit ? hit : null;
-            var fx = Instantiate(impactPrefab, pos, rot, parent);
-            fx.transform.localScale *= prefabScale;
-            Destroy(fx, destroyAfterSeconds);
+            if (impactPrefab)
+            {
+                var rot = Quaternion.LookRotation(normal, Vector3.up);
+                var parent = parentToHit ? hit : null;
+                var fx = Instantiate(impactPrefab, pos, rot, parent);
+                fx.transform.localScale *= prefabScale;
+                Destroy(fx, destroyAfterSeconds);
+            }
+
+            if (impactSfx)
+            {
+                var a = new GameObject("ImpactSFX").AddComponent<AudioSource>();
+                a.transform.position = pos;
+                a.spatialBlend = 1f;
+                a.volume = sfxVolume;
+                a.clip = impactSfx;
+                a.Play();
+                Destroy(a.gameObject, impactSfx.length + 0.1f);
+            }
         }
 
-        if (impactSfx)
-        {
-            var a = new GameObject("ImpactSFX").AddComponent<AudioSource>();
-            a.transform.position = pos;
-            a.spatialBlend = 1f;
-            a.volume = sfxVolume;
-            a.clip = impactSfx;
-            a.Play();
-            Destroy(a.gameObject, impactSfx.length + 0.1f);
-        }
+        suppressImpact = false; // reset for safety
 
         if (destroyProjectileOnHit)
             Destroy(gameObject);

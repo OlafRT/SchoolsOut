@@ -19,7 +19,9 @@ MonoBehaviour:
   itemType: 1
   isEquippable: 0
   equipSlot: 4
-  allowedAffixes: 020000000500000000000000030000000400000001000000
+  hasClassRestriction: 0
+  requiredClass: 1
+  allowedAffixes: 
   description: This book could teach you amazing skills in the future!
   isStaticItem: 1
   overrideName: Quantum Physics for Dummies
@@ -32,6 +34,21 @@ MonoBehaviour:
   fixedToughness: 0
   fixedValue: 50
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 0

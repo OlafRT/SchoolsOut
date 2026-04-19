@@ -21,7 +21,7 @@ MonoBehaviour:
   equipSlot: 3
   hasClassRestriction: 0
   requiredClass: 1
-  allowedAffixes: 010000000400000003000000000000000200000005000000
+  allowedAffixes: 
   description: One Ring to rule them all, and in the darkness bind them.
   isStaticItem: 1
   overrideName: The One Ring

@@ -15,10 +15,12 @@ MonoBehaviour:
   id: Pink Cuddle Ears
   baseName: Pink Cuddle Ears
   icon: {fileID: 21300000, guid: 06c19703c692a0a4ead80bdc245e2f3a, type: 3}
-  rarity: 3
+  rarity: 2
   itemType: 2
   isEquippable: 1
   equipSlot: 0
+  hasClassRestriction: 0
+  requiredClass: 1
   allowedAffixes: 050000000100000002000000030000000400000000000000
   description: A pair of girly pink ears. Quite stylish though...
   isStaticItem: 0
@@ -32,6 +34,21 @@ MonoBehaviour:
   fixedToughness: 1
   fixedValue: 1
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 20

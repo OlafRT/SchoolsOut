@@ -209,8 +209,7 @@ public class NPCAI : MonoBehaviour, IStunnable
             }
             if (runtimeHostility == Hostility.Hostile)
             {
-                StopAllCoroutines();
-                wanderRunning = false;
+                StopAICoroutines();
                 // DO NOT clear the mover path here; DoHostile() will set it this frame.
             }
 
@@ -365,9 +364,8 @@ public class NPCAI : MonoBehaviour, IStunnable
     // Called by NPCHealth when damaged by the PLAYER
     public void OnDamagedByPlayer()
     {
-        StopAllCoroutines();
+        StopAICoroutines();
         if (mover) mover.SetExternalSpeedMultiplier(chaseSpeedMultiplier);
-        wanderRunning = false;
         if (mover) mover.ClearPath();
         if (!player) player = GameObject.FindGameObjectWithTag("Player");
         BecomeHostile(aggroLeashSeconds, player ? player.transform : null);
@@ -814,6 +812,19 @@ public class NPCAI : MonoBehaviour, IStunnable
         nextMeleeReady = Mathf.Max(nextMeleeReady, Time.time + 0.25f);
     }
 
+    // Single choke-point for killing all AI coroutines.
+    // MUST be used instead of bare StopAllCoroutines() so isAttacking and
+    // wanderRunning are always kept consistent — a bare StopAllCoroutines()
+    // mid-MeleeRoutine leaves isAttacking=true forever, permanently freezing
+    // the NPC since DoHostile() exits immediately when isAttacking is set.
+    void StopAICoroutines()
+    {
+        StopAllCoroutines();
+        isAttacking   = false;
+        attackRoutine = null;
+        wanderRunning = false;
+    }
+
     public void OnKnockbackEnd()
     {
         // will re-evaluate next Update
@@ -834,9 +845,8 @@ public class NPCAI : MonoBehaviour, IStunnable
         stunUntil = Mathf.Max(stunUntil, Time.time + dur);
 
         if (mover) mover.HardStop();
-        StopAllCoroutines();
-        wanderRunning = false;
-        CancelAttack();
+        StopAICoroutines();
+        CancelAttack(); // also bumps nextMeleeReady so it can't instant-attack on unstun
 
         if (animator && !string.IsNullOrEmpty(stunTriggerName))
             animator.SetTrigger(stunTriggerName);

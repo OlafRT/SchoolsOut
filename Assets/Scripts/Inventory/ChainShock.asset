@@ -28,7 +28,7 @@ MonoBehaviour:
   overrideName: Tubers' Spell
   fixedItemLevel: 1
   fixedRequiredLevel: 1
-  fixedRarity: 1
+  fixedRarity: 2
   fixedMuscles: 0
   fixedIQ: 0
   fixedCrit: 0

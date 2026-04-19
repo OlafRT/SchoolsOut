@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: SnotLauncherv2
   m_EditorClassIdentifier: 
-  id: Snot Launcher
+  id: Snot Launcherv2
   baseName: Snot Launcher
   icon: {fileID: 21300000, guid: 849514acf04d9a746b77a7d774b07e5d, type: 3}
   rarity: 2

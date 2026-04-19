@@ -19,8 +19,10 @@ MonoBehaviour:
   itemType: 0
   isEquippable: 0
   equipSlot: 0
+  hasClassRestriction: 0
+  requiredClass: 1
   allowedAffixes: 0100000002000000030000000400000005000000
-  description: Filled with vitamins, maybe... Right click to use.)
+  description: Filled with vitamins, maybe... (Right click to use.)
   isStaticItem: 1
   overrideName: Orange Juice
   fixedItemLevel: 1
@@ -32,6 +34,21 @@ MonoBehaviour:
   fixedToughness: 0
   fixedValue: 1
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 1
   consumableKind: 3
   foodTotalHeal: 100

@@ -21,7 +21,7 @@ MonoBehaviour:
   equipSlot: 0
   hasClassRestriction: 0
   requiredClass: 1
-  allowedAffixes: 0100000002000000030000000400000005000000
+  allowedAffixes: 
   description: Made with love. (Right click to use.)
   isStaticItem: 1
   overrideName: Sandwich
@@ -34,6 +34,21 @@ MonoBehaviour:
   fixedToughness: 0
   fixedValue: 1
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 1
   consumableKind: 1
   foodTotalHeal: 100

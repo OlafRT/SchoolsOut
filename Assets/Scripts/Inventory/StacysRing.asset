@@ -21,7 +21,7 @@ MonoBehaviour:
   equipSlot: 2
   hasClassRestriction: 0
   requiredClass: 1
-  allowedAffixes: 010000000400000003000000000000000200000005000000
+  allowedAffixes: 
   description: A gold ring with a massive diamond. Could it be real?
   isStaticItem: 1
   overrideName: Stacys Diamond Ring
@@ -34,6 +34,21 @@ MonoBehaviour:
   fixedToughness: 3
   fixedValue: 25
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 20

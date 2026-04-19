@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemDatabase: {fileID: 11400000, guid: 813f64849c45b9e4abf033cdf8276a4c, type: 2}
   itemRolls: {x: 3, y: 6}
-  itemDropChance: 0.6
+  itemDropChance: 0.8
   dollarsPerLevel: 10
   moneyRandomFactor: {x: 0.5, y: 3}
   ilvlVariance: 4
-  weightCommon: 15
-  weightUncommon: 25
-  weightRare: 100
-  weightEpic: 40
+  weightCommon: 5
+  weightUncommon: 50
+  weightRare: 150
+  weightEpic: 30
   weightLegendary: 10
