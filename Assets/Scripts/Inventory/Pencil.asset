@@ -16,12 +16,12 @@ MonoBehaviour:
   baseName: Pencil
   icon: {fileID: 21300000, guid: 24c59110e7fa20342947a5b35e44d918, type: 3}
   rarity: 2
-  itemType: 2
+  itemType: 1
   isEquippable: 0
   equipSlot: 7
   hasClassRestriction: 0
   requiredClass: 1
-  allowedAffixes: 0100000002000000030000000400000005000000
+  allowedAffixes: 
   description: A pencil. How exciting!
   isStaticItem: 0
   overrideName: Pencil

@@ -108,8 +108,15 @@ public class AutoAttackAbility : MonoBehaviour
     [SerializeField] [Range(0.1f, 5f)] private float nerdEmissionPeriod = 1.0f;
     [SerializeField] [Range(0f, 1f)] private float nerdEmissionPhaseOffset = 0f;
 
+    [Header("Auto-Attack Cast Bar")]
+    [SerializeField] private CastBarUI autoAttackBar;
+    [Tooltip("Seconds added to the swing timer when the player is hit mid-swing animation.")]
+    [SerializeField] private float pushbackSeconds = 0.5f;
+    [SerializeField] private string castBarTitle = "Auto Attack";
+
     private PlayerAbilities ctx;
     private float attackTimer;
+    private bool _castBarShowing;
 
     public bool AutoAttackEnabled { get; private set; } = false;
     public bool IsSuppressedByOtherAbilities { get; set; }
@@ -183,6 +190,8 @@ public class AutoAttackAbility : MonoBehaviour
         // fire a shot on the next frame before the component is fully dormant.
         pendingRanged.has = false;
         pendingMelee.has  = false;
+
+        CastBar_Hide();
     }
 
     void Update()
@@ -232,6 +241,7 @@ public class AutoAttackAbility : MonoBehaviour
         if (!AutoAttackEnabled || IsSuppressedByOtherAbilities)
         {
             CheckFailSafes();
+            CastBar_Update();
             return;
         }
 
@@ -263,6 +273,7 @@ public class AutoAttackAbility : MonoBehaviour
 
         NerdEmission_Update();
         CheckFailSafes();
+        CastBar_Update();
     }
 
     // =========================================================================
@@ -360,6 +371,50 @@ public class AutoAttackAbility : MonoBehaviour
         if (nerdEmissiveSlots == null) return;
         for (int i = 0; i < nerdEmissiveSlots.Length; i++)
             nerdEmissiveSlots[i]?.DisableEmission();
+    }
+
+    // =========================================================================
+    // Auto-Attack Cast Bar
+    // =========================================================================
+
+    void CastBar_Update()
+    {
+        if (!autoAttackBar) return;
+
+        bool shouldShow = AutoAttackEnabled && !IsSuppressedByOtherAbilities;
+        if (!shouldShow) { CastBar_Hide(); return; }
+
+        // Show on the first frame auto-attack becomes active
+        if (!_castBarShowing)
+        {
+            autoAttackBar.Show(castBarTitle, attackTimer);
+            _castBarShowing = true;
+        }
+
+        // Fill 0→1 as the timer counts down to the next swing.
+        // remainingSeconds drives the "Xs" time label on the bar.
+        float progress = 1f - Mathf.Clamp01(attackTimer / Mathf.Max(0.001f, weaponAttackInterval));
+        autoAttackBar.SetProgress(progress, Mathf.Max(0f, attackTimer));
+    }
+
+    void CastBar_Hide()
+    {
+        if (autoAttackBar && _castBarShowing) autoAttackBar.Hide();
+        _castBarShowing = false;
+    }
+
+    /// <summary>
+    /// Called by <see cref="PlayerHealth"/> whenever the player takes damage.
+    /// Adds <see cref="pushbackSeconds"/> to the swing timer, but only while an
+    /// attack animation is mid-swing (pending state active) — the window in which
+    /// the hit animation can cancel the swing. The cast bar will visually jump back.
+    /// </summary>
+    public void ApplyAttackPushback()
+    {
+        if (!AutoAttackEnabled) return;
+        if (!pendingMelee.has && !pendingRanged.has) return; // not mid-swing, ignore
+
+        attackTimer = Mathf.Min(attackTimer + pushbackSeconds, weaponAttackInterval);
     }
 
     // =========================================================================

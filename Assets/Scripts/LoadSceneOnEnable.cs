@@ -34,13 +34,18 @@ public class LoadSceneOnEnable : MonoBehaviour
         if (deactivateSelfAfterKickoff)
             gameObject.SetActive(false); // prevents any re-entry loops
 
-        // Load the Bicycle scene
-        AsyncOperation op = SceneManager.LoadSceneAsync(sceneToLoad, LoadSceneMode.Single);
-        // (Let it auto-activate; no need to set allowSceneActivation manually here.)
-        yield return op;
+        // Delegate to GameSession so the loading screen and random tip are shown.
+        // Falls back to a direct scene load if GameSession isn't present
+        // (e.g. playing a scene standalone in the editor).
+        if (GameSession.Instance != null)
+        {
+            GameSession.Instance.LoadScene(sceneToLoad);
+        }
+        else
+        {
+            SceneManager.LoadSceneAsync(sceneToLoad, LoadSceneMode.Single);
+        }
 
-        // After this point we’re in the new scene.
-        // No further action needed.
-        s_isLoading = false; // harmless; scene change resets most contexts anyway
+        s_isLoading = false;
     }
 }

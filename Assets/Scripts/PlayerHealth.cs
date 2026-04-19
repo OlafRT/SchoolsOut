@@ -22,6 +22,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     private BlockAbility block;
     private AudioSource _audioSource;
     private Animator _animator;
+    private AutoAttackAbility _autoAttack;
 
     [Header("Hurt Sounds")]
     [Tooltip("One clip is picked at random each time the player takes damage. " +
@@ -52,6 +53,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     {
         if (!stats) stats = GetComponent<PlayerStats>();
         block = GetComponent<BlockAbility>();
+        _autoAttack = GetComponent<AutoAttackAbility>();
 
         _audioSource = gameObject.AddComponent<AudioSource>();
         _audioSource.spatialBlend = 0f;  // 2D — heard at full volume regardless of position
@@ -103,6 +105,9 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
         currentHP = Mathf.Max(0, currentHP - dmg);
         OnDamaged?.Invoke(currentHP, dmg);
+
+        // Push back the auto-attack swing timer if a swing animation is in progress
+        _autoAttack?.ApplyAttackPushback();
 
         // UI + FX
         PlayerHUD.TryFlashDamage();                 
