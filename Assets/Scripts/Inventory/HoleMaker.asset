@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Holemaker
   baseName: Hole Maker
   icon: {fileID: 21300000, guid: 5c39117627f05fc40817a3431780df54, type: 3}
-  rarity: 2
+  rarity: 3
   itemType: 2
   isEquippable: 1
   equipSlot: 4
