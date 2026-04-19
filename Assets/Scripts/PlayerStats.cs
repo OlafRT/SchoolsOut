@@ -135,7 +135,6 @@ public class PlayerStats : MonoBehaviour
 
         OnLeveledUp?.Invoke(level);
         PushToAsset();
-        PushToAsset();
         OnStatsChanged?.Invoke();
     }
 
