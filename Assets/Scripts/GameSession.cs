@@ -36,7 +36,14 @@ public class GameSession : MonoBehaviour
 
     void Awake()
     {
-        if (Instance && Instance != this) { Destroy(gameObject); return; }
+        if (Instance && Instance != this)
+        {
+            // Destroy the OLD persistent instance, not this one.
+            // Scene objects (buttons etc.) hold references to the newly
+            // created object, so keeping *this* alive prevents broken refs
+            // when the player returns to the main menu and the scene reloads.
+            Destroy(Instance.gameObject);
+        }
         Instance = this;
         DontDestroyOnLoad(gameObject);
     }
