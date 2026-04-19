@@ -62,5 +62,5 @@ MonoBehaviour:
   teachesAbilityName: 
   useSfx: {fileID: 0}
   useSfxVolume: 0.8
-  isStackable: 0
+  isStackable: 1
   maxStackSize: 20
