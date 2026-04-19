@@ -113,6 +113,11 @@ public class GameSession : MonoBehaviour
         yield return null;
 
         op.allowSceneActivation = true;
+
+        // Wait for the scene to fully activate before hiding the loading screen
+        while (!op.isDone) yield return null;
+
+        if (loadingScreenRoot) loadingScreenRoot.SetActive(false);
     }
 
     void ShowRandomTip()
