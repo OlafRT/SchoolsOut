@@ -56,6 +56,10 @@ public class GameSaveManager : MonoBehaviour
     // When true, OnSceneLoaded will restore only world object states (for death respawn)
     private bool _restoreWorldObjectsOnRespawn = false;
 
+    // In-memory snapshot of world object states taken at the moment of death.
+    // Used by RestoreWorldObjectsNextFrame() instead of the (potentially stale) save file.
+    private List<WorldObjectSaveData> _worldObjectRespawnSnapshot;
+
     // Lightweight snapshot carried between scenes so stats/XP/level
     // survive scene transitions without requiring a manual save.
     private PlayerStatsSaveData _statSnapshot;
@@ -773,7 +777,27 @@ public class GameSaveManager : MonoBehaviour
     public void RespawnReloadScene()
     {
         if (ActiveSlot >= 0)
+        {
             _restoreWorldObjectsOnRespawn = true;
+
+            // Bug fix: snapshot world objects NOW while the scene is live.
+            // The save file on disk only reflects the last manual save — objects
+            // disabled after that point (e.g. a trigger zone the player just walked
+            // through) would be incorrectly re-enabled on respawn if we read from disk.
+            _worldObjectRespawnSnapshot = new List<WorldObjectSaveData>();
+            var saveables = FindObjectsOfType<SaveableObject>(true);
+            foreach (var s in saveables)
+                if (!string.IsNullOrEmpty(s.objectId))
+                    _worldObjectRespawnSnapshot.Add(s.CollectState());
+
+            // Bug fix: capture abilities NOW before reloading.
+            // TakeStatSnapshot() only fires on OnStatsChanged (level-up, equip) —
+            // learning an ability does NOT raise that event, so _abilitiesSnapshot
+            // can be stale or empty at death time, wiping learned abilities on respawn.
+            RebindRuntimeRefs();
+            TakeStatSnapshot();
+        }
+
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
@@ -781,13 +805,29 @@ public class GameSaveManager : MonoBehaviour
     {
         yield return null; // wait for scene objects to finish Start()
 
-        if (!HasSave(ActiveSlot)) yield break;
+        // Use the in-memory snapshot captured at death time — not the save file,
+        // which may predate trigger zones the player already activated this session.
+        if (_worldObjectRespawnSnapshot != null && _worldObjectRespawnSnapshot.Count > 0)
+        {
+            var lookup = new Dictionary<string, WorldObjectSaveData>(_worldObjectRespawnSnapshot.Count);
+            foreach (var w in _worldObjectRespawnSnapshot)
+                if (!string.IsNullOrEmpty(w.objectId)) lookup[w.objectId] = w;
 
-        GameSaveData data;
-        try   { data = JsonUtility.FromJson<GameSaveData>(File.ReadAllText(SlotPath(ActiveSlot))); }
-        catch { yield break; }
+            var saveables = FindObjectsOfType<SaveableObject>(true);
+            foreach (var so in saveables)
+                if (lookup.TryGetValue(so.objectId, out var state))
+                    so.ApplyState(state);
 
-        if (data != null) ReadWorldObjects(data);
+            _worldObjectRespawnSnapshot = null;
+        }
+        else if (HasSave(ActiveSlot))
+        {
+            // Fallback: no in-memory snapshot available, read from disk
+            GameSaveData data;
+            try   { data = JsonUtility.FromJson<GameSaveData>(File.ReadAllText(SlotPath(ActiveSlot))); }
+            catch { yield break; }
+            if (data != null) ReadWorldObjects(data);
+        }
     }
 
     static string SlotPath(int slot) =>

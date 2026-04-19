@@ -150,6 +150,12 @@ public class MenuController : MonoBehaviour
 
     public void OnCameraArrived_ShowClassSelect()
     {
+        // Reset the static lock so HoverGlowButton works correctly on every visit —
+        // not just the first. If the player reached the main menu via the pause menu
+        // (skipping BackFromChoice/BackFromStart), s_ClassChosen would stay true and
+        // silently block all glow and click handling on the class select buttons.
+        HoverGlowButton.ResetChoiceLock();
+
         if (classSelectRoot) classSelectRoot.SetActive(true);
     }
 
