@@ -36,43 +36,26 @@ public class XPBarUI : MonoBehaviour
 
     void OnEnable()
     {
-        Rebind();
+        // Always re-find — the cached reference goes stale after a scene change
+        // because the previous PlayerStats was destroyed with the old scene.
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player) stats = player.GetComponent<PlayerStats>();
+
+        HookEvents(true);
         RefreshImmediate();
     }
 
     void Start()
     {
-        // OnEnable can fire before the Player GameObject exists (e.g. on scene load).
-        // Wait one frame and re-bind if we still have no reference — by then Awake/Start
-        // on the player has run AND GameSaveManager has applied the stat snapshot.
-        StartCoroutine(LateStart());
-    }
-
-    IEnumerator LateStart()
-    {
-        yield return null;
-        Rebind();       // no-op if already bound; re-subscribes if OnEnable was too early
+        // Refresh one frame after OnEnable — by now the stat snapshot
+        // will have been applied (GameSaveManager waits one frame before applying).
         RefreshImmediate();
     }
 
     void OnDisable()
     {
         HookEvents(false);
-        stats = null; // clear so the next Rebind() always re-finds fresh
-    }
-
-    /// <summary>
-    /// Finds the Player, then unsubscribes from any stale ref and re-subscribes to the fresh one.
-    /// Safe to call multiple times — HookEvents guards against null stats.
-    /// </summary>
-    void Rebind()
-    {
-        HookEvents(false); // unsubscribe from whatever we currently hold (may be null/stale)
-
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player) stats = player.GetComponent<PlayerStats>();
-
-        HookEvents(true);
+        stats = null; // clear so OnEnable always re-finds fresh
     }
 
     void HookEvents(bool on)

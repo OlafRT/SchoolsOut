@@ -22459,7 +22459,7 @@ MonoBehaviour:
   - {fileID: 4506935093213015926}
   glowColor: {r: 0, g: 1, b: 0.016897917, a: 1}
   glowIntensity: 2.5
-  hdrpMode: 0
+  hdrpMode: 1
   cameraAnimator: {fileID: 961739754}
   cameraTriggerName: nerd
   classSelectRoot: {fileID: 251158431}

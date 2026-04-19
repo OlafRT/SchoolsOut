@@ -44,10 +44,6 @@ public class CafeteriaLadyBoss : MonoBehaviour
     public BossHealthBar bossHealthBar;
     [Tooltip("The hazard zone near the lady — deactivated when she dies so the corpse can be looted.")]
     public BossHazardZone hazardZone;
-    [Tooltip("GameObjects to enable when the boss dies (e.g. reward chests, exit doors, cutscene triggers).")]
-    public GameObject[] enableOnDeath;
-    [Tooltip("GameObjects to disable when the boss dies (e.g. arena barriers, phase FX, intro blockers).")]
-    public GameObject[] disableOnDeath;
 
     [Header("Positions (empty Transforms in scene)")]
     [Tooltip("Where she stands when not cooking — behind/in front of the pot.")]
@@ -623,9 +619,6 @@ public class CafeteriaLadyBoss : MonoBehaviour
             ClearAllAoEFields();
             // Deactivate the hazard zone so the player can safely loot the corpse
             if (hazardZone) hazardZone.Deactivate();
-
-            if (enableOnDeath  != null) foreach (var go in enableOnDeath)  if (go) go.SetActive(true);
-            if (disableOnDeath != null) foreach (var go in disableOnDeath) if (go) go.SetActive(false);
         }
     }
 
