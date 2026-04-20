@@ -140,7 +140,7 @@ Material:
     - _TwoSided: 2
     - _UVSec: 0
     - _WINDQUALITY: 2
-    - _WindQuality: 2
+    - _WindQuality: 0
     - _ZWrite: 1
     - __dirty: 0
     m_Colors:
