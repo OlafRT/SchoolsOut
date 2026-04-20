@@ -40,7 +40,6 @@ public class NPCBombAbility : MonoBehaviour
     public float markerYOffset = 0.02f;
     public Color windupColor = new Color(1f, 0.2f, 0.1f, 0.85f);
 
-    // --- New: smarter leading controls ---
     [Header("Leading (Prediction)")]
     [Tooltip("Max tiles to lead ahead of the player.")]
     public int leadMaxTiles = 2;
@@ -51,6 +50,11 @@ public class NPCBombAbility : MonoBehaviour
     [Tooltip("How many seconds of movement history to smooth over.")]
     public float historyWindowSeconds = 0.6f;
 
+    [Header("Animation")]
+    public Animator animator;
+    [Tooltip("The trigger name in the Animator controller.")]
+    public string throwTrigger = "Throw";
+
     // Refs
     NPCAI ai;
     NPCMovement mover;
@@ -58,6 +62,10 @@ public class NPCBombAbility : MonoBehaviour
 
     float nextReadyTime = 0f;
     readonly List<GameObject> windupMarkers = new();
+
+    // Internal state for Animation Event
+    private bool _animationWaitActive = false;
+    private Vector3 _queuedTargetCenter;
 
     // ---- Leading history ----
     struct Sample { public Vector3 snapPos; public float time; }
@@ -73,6 +81,10 @@ public class NPCBombAbility : MonoBehaviour
             if (p) player = p.transform;
         }
         if (mover) tileSize = mover.tileSize;
+        
+        // Auto-grab animator if not assigned explicitly
+        if (!animator) animator = GetComponentInChildren<Animator>();
+
         // seed a sample so we start sane
         var s = new Sample { snapPos = Snap(transform.position), time = Time.time };
         samples.Enqueue(s);
@@ -183,56 +195,79 @@ public class NPCBombAbility : MonoBehaviour
         // 1) WINDUP – telegraph
         float gy = SampleGroundY(targetCenter);
         ShowWindupTelegraph(targetCenter, gy, bombRadiusTiles);
-        yield return new WaitForSeconds(Mathf.Max(0.05f, windupSeconds));
-        ClearWindupMarkers();
+        
+        // Store the target for when the animation event actually fires
+        _queuedTargetCenter = targetCenter;
+        _animationWaitActive = true;
 
-        // 2) THROW via independent projectile (won't get stuck if NPC dies)
+        // 2) TRIGGER ANIMATION
+        if (animator)
         {
-            Vector3 start = Snap(transform.position) + Vector3.up * 0.5f;
-            Vector3 end   = targetCenter + Vector3.up * 0.5f;
-
-            float distTiles = Mathf.Max(1f, Vector3.Distance(start, end) / Mathf.Max(0.0001f, tileSize));
-            float duration = bombThrowTimePerTile * distTiles;
-
-            var bomb = Instantiate(bombPrefab, start, Quaternion.identity);
-            var proj = bomb.GetComponent<BombProjectileArc>();
-            if (!proj) proj = bomb.AddComponent<BombProjectileArc>();
-
-            proj.Init(
-                start: start,
-                end: end,
-                duration: duration,
-                arcHeight: bombArcHeight,
-                groundMask: groundMask,
-                explosionPrefab: explosionVfxPrefab,
-                onExplode: (landPos) =>
-                {
-                    // 3) After landing: spawn lingering field
-                    var go = new GameObject("BombAoEFieldHostile");
-                    var field = go.AddComponent<BombAoEFieldHostile>();
-                    field.Init(
-                        center: targetCenter,
-                        tileSize: tileSize,
-                        markerPrefab: tileMarkerPrefab,
-                        markerYOffset: markerYOffset,
-                        groundMask: groundMask,
-                        victimsLayer: victimLayer,
-                        radiusTiles: bombRadiusTiles,
-                        duration: lingerDuration,
-                        tickInterval: tickInterval,
-                        tickDamage: tickDamage,
-                        slowPercent: slowPercent,
-                        slowTag: slowStatusTag,
-                        slowIcon: slowStatusIcon
-                    );
-                }
-            );
+            animator.SetTrigger(throwTrigger);
+        }
+        else
+        {
+            // Fallback if no animator: wait the windup time then fire anyway
+            yield return new WaitForSeconds(Mathf.Max(0.05f, windupSeconds));
+            PerformThrow(_queuedTargetCenter);
+            _animationWaitActive = false;
         }
 
+        // Wait until the Animation Event sets _animationWaitActive to false
+        while (_animationWaitActive)
+        {
+            yield return null;
+        }
+
+        ClearWindupMarkers();
+    }
+
+    /// <summary>
+    /// This is the method you call from your Animation Event!
+    /// Name: OnBombRelease
+    /// </summary>
+    public void OnBombRelease()
+    {
+        if (!_animationWaitActive) return;
+
+        PerformThrow(_queuedTargetCenter);
+        _animationWaitActive = false;
+    }
+
+    private void PerformThrow(Vector3 targetCenter)
+    {
+        // 3) THROW via independent projectile
+        Vector3 start = Snap(transform.position) + Vector3.up * 0.5f;
+        Vector3 end = targetCenter + Vector3.up * 0.5f;
+
+        float distTiles = Mathf.Max(1f, Vector3.Distance(start, end) / Mathf.Max(0.0001f, tileSize));
+        float duration = bombThrowTimePerTile * distTiles;
+
+        var bomb = Instantiate(bombPrefab, start, Quaternion.identity);
+        var proj = bomb.GetComponent<BombProjectileArc>();
+        if (!proj) proj = bomb.AddComponent<BombProjectileArc>();
+
+        proj.Init(
+            start: start,
+            end: end,
+            duration: duration,
+            arcHeight: bombArcHeight,
+            groundMask: groundMask,
+            explosionPrefab: explosionVfxPrefab,
+            onExplode: (landPos) =>
+            {
+                // Spawn lingering field
+                SpawnAoEField(targetCenter);
+            }
+        );
+    }
+
+    private void SpawnAoEField(Vector3 center)
+    {
         var go = new GameObject("BombAoEFieldHostile");
         var field = go.AddComponent<BombAoEFieldHostile>();
         field.Init(
-            center: targetCenter,
+            center: center,
             tileSize: tileSize,
             markerPrefab: tileMarkerPrefab,
             markerYOffset: markerYOffset,
@@ -247,7 +282,6 @@ public class NPCBombAbility : MonoBehaviour
             slowIcon: slowStatusIcon
         );
     }
-
 
     void ShowWindupTelegraph(Vector3 center, float groundY, int radiusTiles)
     {

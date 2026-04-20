@@ -20,12 +20,17 @@ public class PlayerHUD : MonoBehaviour
     public GameObject deathPanel;   // panel to enable on death
 
     [Header("Slow Panel")]
-    public CanvasGroup slowPanel;   // a small banner/icon; alpha fades in/out
+    public CanvasGroup slowPanel;
     public float slowFadeDuration = 0.2f;
+
+    [Header("Mind Control Panel")]
+    public CanvasGroup mindControlPanel;
+    public float mindControlFadeDuration = 0.2f;
 
     // cached
     Coroutine flashCo;
     Coroutine slowFadeCo;
+    Coroutine mindControlFadeCo;
 
     void Awake()
     {
@@ -35,6 +40,7 @@ public class PlayerHUD : MonoBehaviour
         if (deathPanel) deathPanel.SetActive(false);
         if (damageFlash) SetAlpha(damageFlash, 0f);
         if (slowPanel) slowPanel.alpha = 0f;
+        if (mindControlPanel) mindControlPanel.alpha = 0f;
 
         // Auto-subscribe if a PlayerHealth exists already
         var ph = FindObjectOfType<PlayerHealth>();
@@ -68,12 +74,20 @@ public class PlayerHUD : MonoBehaviour
         if (Instance.deathPanel) Instance.deathPanel.SetActive(true);
     }
 
-    /// <summary>External systems can tell HUD that the player is currently slowed (e.g., Bomb field).</summary>
+    /// <summary>External systems can tell HUD that the player is currently slowed.</summary>
     public static void SetSlowed(bool active)
     {
         if (!Instance || !Instance.slowPanel) return;
         if (Instance.slowFadeCo != null) Instance.StopCoroutine(Instance.slowFadeCo);
         Instance.slowFadeCo = Instance.InstanceFadeSlow(active);
+    }
+
+    /// <summary>Called by MindControlEffect when the player is mind-controlled by the principal.</summary>
+    public static void SetMindControlled(bool active)
+    {
+        if (!Instance || !Instance.mindControlPanel) return;
+        if (Instance.mindControlFadeCo != null) Instance.StopCoroutine(Instance.mindControlFadeCo);
+        Instance.mindControlFadeCo = Instance.StartCoroutine(Instance.FadePanel(Instance.mindControlPanel, active, Instance.mindControlFadeDuration));
     }
 
     // ---------- Coroutines ----------
@@ -96,23 +110,29 @@ public class PlayerHUD : MonoBehaviour
 
     Coroutine InstanceFadeSlow(bool active)
     {
-        return StartCoroutine(FadeSlow(active));
+        return StartCoroutine(FadePanel(slowPanel, active, slowFadeDuration));
     }
 
-    IEnumerator FadeSlow(bool active)
+    IEnumerator FadePanel(CanvasGroup panel, bool active, float duration)
     {
-        float start = slowPanel.alpha;
-        float end = active ? 1f : 0f;
+        float start = panel.alpha;
+        float end   = active ? 1f : 0f;
         if (Mathf.Approximately(start, end)) yield break;
 
         float t = 0f;
-        while (t < slowFadeDuration)
+        while (t < duration)
         {
             t += Time.deltaTime;
-            slowPanel.alpha = Mathf.Lerp(start, end, t / slowFadeDuration);
+            panel.alpha = Mathf.Lerp(start, end, t / duration);
             yield return null;
         }
-        slowPanel.alpha = end;
+        panel.alpha = end;
+    }
+
+    // kept for compatibility — FadeSlow was previously its own coroutine
+    IEnumerator FadeSlow(bool active)
+    {
+        yield return FadePanel(slowPanel, active, slowFadeDuration);
         slowFadeCo = null;
     }
 
