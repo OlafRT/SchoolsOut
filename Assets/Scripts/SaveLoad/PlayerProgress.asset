@@ -15,9 +15,9 @@ MonoBehaviour:
   playerClass: Nerd
   level: 1
   currentXP: 0
-  xpToNext: 85
+  xpToNext: 100
   muscles: 1
   iq: 1
-  toughness: 5
-  critChance: 0.05
-  currentHP: 0
+  toughness: 6
+  critChance: 0.060000002
+  currentHP: 100

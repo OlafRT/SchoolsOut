@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c630c849c1ef7144f95fb338abccb4f1, type: 3}
+  m_Name: KlaraQuest2
+  m_EditorClassIdentifier: 
+  questId: Tastetest
+  title: Food Critic
+  description: Klara wants me to ask the students how they like the food.
+  giverNpcId: Klara
+  turnInNpcId: Klara
+  xpReward: 100
+  moneyReward: 5
+  itemReward: {fileID: 0}
+  itemAmount: 1
+  objectives:
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Emily
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Sadie
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Dolly
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Chris
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: DeShawn
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Tony
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Sebastian
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Cyber Warlock
+    requiredCount: 1
+  - type: 3
+    collectTemplate: {fileID: 0}
+    targetId: Melvin
+    requiredCount: 1

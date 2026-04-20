@@ -15,7 +15,34 @@ MonoBehaviour:
   capacity: 20
   slots:
   - item:
+      template: {fileID: 11400000, guid: 1bc196d28f5454840bf3e1fea4f90bb6, type: 2}
+      customName: 
+      itemLevel: 1
+      requiredLevel: 1
+      rarity: 1
+      affix: 0
+      bonusMuscles: 1
+      bonusIQ: 0
+      bonusCrit: 0
+      bonusToughness: 5
+      value: 50
+    count: 20
+  - item:
       template: {fileID: 0}
+      customName: 
+      itemLevel: 1
+      requiredLevel: 1
+      rarity: 0
+      affix: 0
+      bonusMuscles: 0
+      bonusIQ: 0
+      bonusCrit: 0
+      bonusToughness: 0
+      value: 0
+    count: 1
+  - item:
+      template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -28,6 +55,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -40,6 +68,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -52,6 +81,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -64,6 +94,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -76,6 +107,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -88,6 +120,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -100,6 +133,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -112,6 +146,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -124,6 +159,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -136,6 +172,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -148,6 +185,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -160,6 +198,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -172,6 +211,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -184,6 +224,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -196,6 +237,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -208,6 +250,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -220,30 +263,7 @@ MonoBehaviour:
     count: 0
   - item:
       template: {fileID: 0}
-      itemLevel: 1
-      requiredLevel: 1
-      rarity: 0
-      affix: 0
-      bonusMuscles: 0
-      bonusIQ: 0
-      bonusCrit: 0
-      bonusToughness: 0
-      value: 0
-    count: 0
-  - item:
-      template: {fileID: 0}
-      itemLevel: 1
-      requiredLevel: 1
-      rarity: 0
-      affix: 0
-      bonusMuscles: 0
-      bonusIQ: 0
-      bonusCrit: 0
-      bonusToughness: 0
-      value: 0
-    count: 0
-  - item:
-      template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
