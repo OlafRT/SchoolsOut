@@ -13,13 +13,14 @@ MonoBehaviour:
   m_Name: JockLoot
   m_EditorClassIdentifier: 
   itemDatabase: {fileID: 11400000, guid: 5679c355f8a2c8c44b799b5e9931e984, type: 2}
+  guaranteedDrops: []
   itemRolls: {x: 1, y: 2}
   itemDropChance: 0.6
   dollarsPerLevel: 3
   moneyRandomFactor: {x: 0.5, y: 1.5}
   ilvlVariance: 2
   weightCommon: 100
-  weightUncommon: 40
-  weightRare: 15
-  weightEpic: 4
+  weightUncommon: 100
+  weightRare: 25
+  weightEpic: 10
   weightLegendary: 1

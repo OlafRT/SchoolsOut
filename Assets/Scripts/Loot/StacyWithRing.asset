@@ -12,14 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c112ebc3d245cbe4381f0ed8c390ea46, type: 3}
   m_Name: StacyWithRing
   m_EditorClassIdentifier: 
-  itemDatabase: {fileID: 11400000, guid: 6b8882fead366c348ad33cf5daefcae6, type: 2}
-  itemRolls: {x: 2, y: 2}
-  itemDropChance: 1
+  itemDatabase: {fileID: 11400000, guid: a77f4a7c2b5727d40a8b2abed59d63a1, type: 2}
+  guaranteedDrops:
+  - {fileID: 11400000, guid: 4b2ed8fcbb2192d4895a26c0f4eed2d6, type: 2}
+  itemRolls: {x: 3, y: 3}
+  itemDropChance: 0.4
   dollarsPerLevel: 3
   moneyRandomFactor: {x: 0.5, y: 1.5}
   ilvlVariance: 3
-  weightCommon: 5
-  weightUncommon: 40
-  weightRare: 100
-  weightEpic: 15
+  weightCommon: 15
+  weightUncommon: 70
+  weightRare: 50
+  weightEpic: 5
   weightLegendary: 1

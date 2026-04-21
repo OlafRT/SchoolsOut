@@ -17,6 +17,12 @@ public class StaplyManager : MonoBehaviour {
     bool tutorialEnabled = true;
     bool stepActive = false;
 
+    // Track pickups that can happen before their tutorial step is reached.
+    // Set to true the moment the event fires, regardless of current step.
+    bool _itemPickedUp   = false;
+    bool _weaponPickedUp = false;
+    bool _itemEquipped   = false;
+
     void Awake(){
         Subscribe(true);
         if (freezeAtStart) Time.timeScale = 0f;
@@ -61,12 +67,28 @@ public class StaplyManager : MonoBehaviour {
         if(!tutorialEnabled || index >= steps.Count) { staply.SetExclamation(false); return; }
 
         var step = steps[index];
+
+        // If the player already satisfied this condition before reaching the step, skip it silently.
+        if (IsAlreadySatisfied(step.condition)){
+            index++;
+            ShowCurrentStep(); // recurse to find the next unsatisfied step
+            return;
+        }
+
         stepActive = true;
 
         staply.Appear();
         staply.SetExclamation(false);
         ui.ShowLine(step.line);
         staply.PlayLine(step.voice);
+    }
+
+    // Returns true if the condition was already met before this step became active.
+    bool IsAlreadySatisfied(TutorialStep.Condition c){
+        if (c == TutorialStep.Condition.PickedUpItem)   return _itemPickedUp;
+        if (c == TutorialStep.Condition.PickedUpWeapon) return _weaponPickedUp;
+        if (c == TutorialStep.Condition.EquippedItem)   return _itemEquipped;
+        return false;
     }
 
     void CompleteCurrentStep(){
@@ -138,12 +160,21 @@ public class StaplyManager : MonoBehaviour {
     void OnSprint(){ if(IsCurrent(TutorialStep.Condition.Sprint)) CompleteCurrentStep(); }
     void OnInteract(){ if(IsCurrent(TutorialStep.Condition.Interact)) CompleteCurrentStep(); }
     void OnOpenEquipment(){ if(IsCurrent(TutorialStep.Condition.OpenEquipment)) CompleteCurrentStep(); }
-    void OnPickedUpWeapon(){ if(IsCurrent(TutorialStep.Condition.PickedUpWeapon)) CompleteCurrentStep(); }
+    void OnPickedUpWeapon(){
+        _weaponPickedUp = true; // remember even if this step isn't active yet
+        if(IsCurrent(TutorialStep.Condition.PickedUpWeapon)) CompleteCurrentStep();
+    }
     void OnToggleAutoAttack(){ if(IsCurrent(TutorialStep.Condition.ToggleAutoAttack)) CompleteCurrentStep(); }
     void OnOpenInventory(){ if(IsCurrent(TutorialStep.Condition.OpenInventory)) CompleteCurrentStep(); }
     void OnOpenQuestLog(){ if(IsCurrent(TutorialStep.Condition.OpenQuestLog)) CompleteCurrentStep(); }
-    void OnEquippedItem(){ if(IsCurrent(TutorialStep.Condition.EquippedItem)) CompleteCurrentStep(); }
-    void OnPickedUpItem(){ if (IsCurrent(TutorialStep.Condition.PickedUpItem)) CompleteCurrentStep(); }
+    void OnEquippedItem(){
+        _itemEquipped = true; // remember even if this step isn't active yet
+        if(IsCurrent(TutorialStep.Condition.EquippedItem)) CompleteCurrentStep();
+    }
+    void OnPickedUpItem(){
+        _itemPickedUp = true; // remember even if this step isn't active yet
+        if (IsCurrent(TutorialStep.Condition.PickedUpItem)) CompleteCurrentStep();
+    }
 
     void OnDestroy(){ Subscribe(false); }
 }

@@ -7,6 +7,11 @@ public class NPCLootProfile : ScriptableObject
     [Header("Sources")]
     public ItemDatabase itemDatabase;
 
+    [Header("Guaranteed Drops")]
+    [Tooltip("These items ALWAYS drop, regardless of drop chance or rarity rolls. " +
+             "Use this to guarantee a specific item from a named enemy or boss.")]
+    public List<ItemTemplate> guaranteedDrops = new();
+
     [Header("Rolls")]
     [Tooltip("How many item rolls to try (each can whiff).")]
     public Vector2Int itemRolls = new Vector2Int(1, 3);
@@ -53,6 +58,19 @@ public class NPCLootProfile : ScriptableObject
     public List<ItemInstance> RollItems(int npcLevel, int desiredCount)
     {
         var list = new List<ItemInstance>();
+
+        // Always add guaranteed drops first — these bypass chance and rarity rolls entirely.
+        if (guaranteedDrops != null)
+        {
+            int clampedIlvl = Mathf.Clamp(npcLevel, 1, 30);
+            foreach (var tpl in guaranteedDrops)
+            {
+                if (tpl == null) continue;
+                var inst = AffixRoller.CreateFromTemplate(tpl, clampedIlvl);
+                if (inst != null) list.Add(inst);
+            }
+        }
+
         if (!itemDatabase || itemDatabase.templates == null || itemDatabase.templates.Count == 0) return list;
 
         int minIlvl = Mathf.Clamp(npcLevel - ilvlVariance, 1, 30);

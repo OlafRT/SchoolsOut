@@ -129,16 +129,12 @@ public class PlayerDancer : MonoBehaviour
             if (movement && movement.HasMoveInput)
                 break;
 
-            // 2. RMB aim (rotation input) — mirrors how PlayerMovement handles it
-            if (Input.GetKey(KeyCode.Mouse1))
-                break;
-
-            // 3. Any turn-in-place key pressed
+            // 2. Any turn-in-place / strafe key pressed
             if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D) ||
                 Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.RightArrow))
                 break;
 
-            // 4. Physical position drift (backup — catches external pushes, knockbacks, etc.)
+            // 3. Physical position drift — cancels when the player actually moves to a new tile
             if ((transform.position - startPos).sqrMagnitude >
                 cancelMoveDistance * cancelMoveDistance)
                 break;

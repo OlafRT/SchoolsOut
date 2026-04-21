@@ -38,6 +38,13 @@ public class PlayerStats : MonoBehaviour
     public float levelUpEffectLifetime = 2.0f;
     public float effectTimeoutCap = 8f;
 
+    [Header("Learn Ability FX")]
+    public GameObject learnAbilityEffectPrefab;
+    public AudioClip  learnAbilitySfx;
+    [Range(0f, 1f)] public float learnAbilitySfxVolume = 0.8f;
+    public Vector3 learnAbilityEffectOffset = new Vector3(0f, 1.2f, 0f);
+    public float learnAbilityEffectLifetime = 2.0f;
+
     [Header("Progress Asset")]
     [Tooltip("Assign the PlayerProgress ScriptableObject asset. " +
              "Stats are read from it on scene start and written back whenever they change.")]
@@ -161,6 +168,31 @@ public class PlayerStats : MonoBehaviour
         // Also store current HP if PlayerHealth is present
         var health = GetComponent<PlayerHealth>();
         if (health) progressAsset.currentHP = health.currentHP;
+    }
+
+    /// <summary>
+    /// Call this whenever the player learns a new ability.
+    /// Plays the learn-ability effect and SFX configured in the Inspector.
+    /// </summary>
+    public void PlayLearnAbilityFX()
+    {
+        if (learnAbilityEffectPrefab)
+        {
+            Vector3 pos = transform.position + learnAbilityEffectOffset;
+            var fx = Instantiate(learnAbilityEffectPrefab, pos, Quaternion.identity);
+            if (fx)
+            {
+                fx.transform.SetParent(transform, true);
+                var pss = fx.GetComponentsInChildren<ParticleSystem>(true);
+                foreach (var ps in pss)
+                    if (ps && !ps.isPlaying) ps.Play();
+                StartCoroutine(DestroyWhenParticlesDone(fx, pss,
+                    Mathf.Max(learnAbilityEffectLifetime + 2f, 2f)));
+            }
+        }
+
+        if (learnAbilitySfx)
+            AudioSource.PlayClipAtPoint(learnAbilitySfx, transform.position, learnAbilitySfxVolume);
     }
 
     void SpawnLevelUpEffect()

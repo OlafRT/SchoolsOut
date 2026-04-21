@@ -339,33 +339,41 @@ public class GameSaveManager : MonoBehaviour
         _pendingLoad       = null;
         _statSnapshot      = null;
         _abilitiesSnapshot = null;
-        if (playerProgress != null) playerProgress.ResetForNewGame();
-        if (inventory != null) inventory.Clear(); // prevent old items bleeding into a new session
 
-        // Claim the first empty slot for this new session
-        ActiveSlot = 0;
-        for (int i = 0; i < SlotCount; i++)
-        {
-            if (!HasSave(i)) { ActiveSlot = i; break; }
-        }
+        if (playerProgress != null) playerProgress.ResetForNewGame();
+
+        // Clear all ScriptableObject assets so nothing bleeds into the new session
+        if (inventory  != null) inventory.Clear();
+        if (equipment  != null) ClearEquipment();
+        if (wallet     != null) { wallet.dollars = 0; wallet.NotifyChanged(); }
+
+        // Clear runtime quest state (QuestManager may persist across scenes)
+        var qm = QuestManager.I;
+        if (qm != null) { qm.completedIds.Clear(); qm.active.Clear(); qm.OnChanged?.Invoke(); }
+
+        // Claim the oldest slot when all are full, otherwise the first empty one
+        ActiveSlot = FindSlotForNewGame();
     }
 
     /// <summary>Loads the default game scene without restoring any save data.</summary>
     public void NewGame()
     {
         _pendingLoad       = null;
-        _statSnapshot      = null;   // start fresh — don't carry old stats into a new game
+        _statSnapshot      = null;
         _abilitiesSnapshot = null;
-        if (inventory != null) inventory.Clear(); // prevent old items bleeding into a new session
 
-        // Claim the first empty slot for this new session.
-        // If all slots are full, fall back to slot 0 (oldest save gets overwritten).
-        ActiveSlot = 0;
-        for (int i = 0; i < SlotCount; i++)
-        {
-            if (!HasSave(i)) { ActiveSlot = i; break; }
-        }
+        if (playerProgress != null) playerProgress.ResetForNewGame();
 
+        // Clear all ScriptableObject assets so nothing bleeds into the new session
+        if (inventory  != null) inventory.Clear();
+        if (equipment  != null) ClearEquipment();
+        if (wallet     != null) { wallet.dollars = 0; wallet.NotifyChanged(); }
+
+        // Clear runtime quest state
+        var qm = QuestManager.I;
+        if (qm != null) { qm.completedIds.Clear(); qm.active.Clear(); qm.OnChanged?.Invoke(); }
+
+        ActiveSlot = FindSlotForNewGame();
         SceneManager.LoadScene(defaultGameScene);
     }
 
@@ -398,6 +406,45 @@ public class GameSaveManager : MonoBehaviour
         if (!ValidSlot(slot)) return;
         string path = SlotPath(slot);
         if (File.Exists(path)) { File.Delete(path); Debug.Log($"[SaveSystem] Deleted slot {slot}."); }
+    }
+
+    // ── New-game helpers ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Clears all equipment slots and notifies listeners.
+    /// Mirrors the null-item path in ReadEquipment().
+    /// </summary>
+    void ClearEquipment()
+    {
+        for (int i = 0; i < equipment.equipped.Count; i++)
+            equipment.equipped[i].item = null;
+        equipment.NotifyChanged();
+    }
+
+    /// <summary>
+    /// Returns the best slot for a new game:
+    /// first empty slot if one exists, otherwise the oldest save (lowest savedAtUtc).
+    /// </summary>
+    int FindSlotForNewGame()
+    {
+        // Prefer an empty slot
+        for (int i = 0; i < SlotCount; i++)
+            if (!HasSave(i)) return i;
+
+        // All full — overwrite the oldest save
+        int oldest = 0;
+        long oldestTicks = long.MaxValue;
+        for (int i = 0; i < SlotCount; i++)
+        {
+            var d = PeekSlot(i);
+            if (d != null && d.savedAtUtc < oldestTicks)
+            {
+                oldestTicks = d.savedAtUtc;
+                oldest = i;
+            }
+        }
+        DeleteSlot(oldest);
+        return oldest;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

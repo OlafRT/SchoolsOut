@@ -189,8 +189,13 @@ public class PlayerConsumables : MonoBehaviour
         string abil = tpl.teachesAbilityName;
         if (string.IsNullOrEmpty(abil)) return false;
 
-        if (!abilities.learnedAbilities.Contains(abil))
-            abilities.learnedAbilities.Add(abil);
+        if (abilities.learnedAbilities.Contains(abil))
+        {
+            toast?.Show("You already know that spell!", Color.yellow);
+            return false;
+        }
+        abilities.learnedAbilities.Add(abil);
+        stats?.PlayLearnAbilityFX();
 
         // refresh action bar (if present)
         if (!actionBarBinder) actionBarBinder = FindObjectOfType<ActionBarAutoBinder>(true);

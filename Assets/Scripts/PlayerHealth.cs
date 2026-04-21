@@ -62,7 +62,11 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         // Find animator on children (the model is a child of the player root)
         _animator = GetComponentInChildren<Animator>(true);
 
-        currentHP = stats ? stats.MaxHP : 100;
+        // Restore HP from the progress asset if we have saved data.
+        // Falls back to MaxHP (full health) for a fresh game or if no asset is assigned.
+        int savedHP = (stats?.progressAsset != null && stats.progressAsset.hasData)
+            ? stats.progressAsset.currentHP : 0;
+        currentHP = savedHP > 0 ? Mathf.Clamp(savedHP, 1, stats.MaxHP) : (stats ? stats.MaxHP : 100);
         if (stats) stats.OnStatsChanged += RecomputeMaxHP;
         NotifyHUD(); // initial
     }
@@ -104,6 +108,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         if (dmg == 0) return;
 
         currentHP = Mathf.Max(0, currentHP - dmg);
+        SyncHPToAsset();
         OnDamaged?.Invoke(currentHP, dmg);
 
         // Push back the auto-attack swing timer if a swing animation is in progress
@@ -132,6 +137,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         currentHP = Mathf.Min(stats ? stats.MaxHP : 100, currentHP + heal);
         int gained = currentHP - before;
         if (gained > 0) OnHealed?.Invoke(gained);
+        SyncHPToAsset();
         NotifyHUD();
     }
 
@@ -140,6 +146,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         if (stats == null) return;
         currentHP = stats.MaxHP;
         OnHealed?.Invoke(currentHP);  // notify listeners (amount semantics aren't strict here)
+        SyncHPToAsset();
         NotifyHUD();
     }
 
@@ -188,6 +195,14 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
         _audioSource.pitch = 1f + UnityEngine.Random.Range(-hurtPitchVariation, hurtPitchVariation);
         _audioSource.PlayOneShot(clip, hurtVolume);
+    }
+
+    // Keeps the progress asset's currentHP in sync so scene transitions preserve HP.
+    // Called after every HP change — cheap enough to not need batching.
+    void SyncHPToAsset()
+    {
+        if (stats?.progressAsset != null)
+            stats.progressAsset.currentHP = currentHP;
     }
 
     void NotifyHUD() => PlayerHUD.TryUpdateHealth(currentHP, stats ? stats.MaxHP : 100);
