@@ -122,11 +122,16 @@ public class DragController : MonoBehaviour
     {
         if (!_dragActive) return;
 
-        // Same-slot drop: happens on the very first drag because Unity's EventSystem
-        // fires OnDrop on the source slot before OnEndDrag. Just return — leave
-        // _dragActive true and _handledDrop false so EndDragPotentiallyDestroy
-        // can still run and show the destroy confirm.
-        if (from == Source.Bag && toIndex == fromBagIndex) return;
+        // Same-slot drop: Unity's EventSystem fires OnDrop on the source slot before
+        // OnEndDrag. Treat it as a cancel — the player put the item back where it came
+        // from, so we mark it handled to prevent EndDragPotentiallyDestroy from showing
+        // the destroy dialog for what was effectively just a change of mind.
+        if (from == Source.Bag && toIndex == fromBagIndex)
+        {
+            _handledDrop = true;
+            CancelDrag();
+            return;
+        }
 
         _handledDrop = true;
 

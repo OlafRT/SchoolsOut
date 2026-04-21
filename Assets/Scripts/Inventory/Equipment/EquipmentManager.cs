@@ -38,14 +38,29 @@ public class EquipmentManager : MonoBehaviour {
             : s.item.template.equipSlot;
 
         var previously = equipment.Swap(targetSlot, s.item);
-        if(previously!=null) inventory.Add(previously, 1);
+        // Free the source slot FIRST so it's available if the bag is otherwise full.
+        // Doing Add before RemoveAt meant the slot wasn't free yet — if the bag had no
+        // other empty slots, Add would silently fail and the previously-equipped item
+        // would be lost with no feedback.
         inventory.RemoveAt(inventoryIndex, 1);
+        if (previously != null && !inventory.Add(previously, 1))
+        {
+            // No space even after freeing the slot — roll back and tell the player.
+            equipment.Swap(targetSlot, previously);
+            inventory.Add(s.item, 1);
+            if (toast) toast.Show("My backpack is full.", Color.red);
+            return false;
+        }
         TutorialEvents.RaiseEquippedItem();
         return true;
     }
 
     public bool TryUnequipToInventory(EquipSlot slot){
         var itm = equipment.Get(slot); if(itm==null) return false;
+        // If the item has a null template (e.g. loaded from a save where the template
+        // ID no longer exists), adding it to inventory would create a ghost slot —
+        // a slot that IsEmpty returns false for but displays nothing. Strip it silently.
+        if (itm.template == null) { equipment.Unequip(slot); return true; }
         if(inventory.Add(itm,1)) { equipment.Unequip(slot); return true; }
         return false;
     }

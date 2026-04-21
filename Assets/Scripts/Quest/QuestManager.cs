@@ -98,19 +98,6 @@ public class QuestManager : MonoBehaviour
         var qi = active.Find(q => q.def.questId == questId);
         if (qi == null || !qi.IsComplete) return false;
 
-        // --- Check space for item reward BEFORE doing anything ---
-        if (inventory && qi.def.itemReward)
-        {
-            int needed = Mathf.Max(1, qi.def.itemAmount);
-            int freeSlots = 0;
-            foreach (var s in inventory.Slots) if (s.IsEmpty) freeSlots++;
-            if (freeSlots < needed)
-            {
-                toast?.Show("My backpack is full!", UnityEngine.Color.yellow);
-                return false;
-            }
-        }
-
         // --- Validate required collect items still exist ---
         if (inventory && qi.def != null && qi.def.objectives != null)
         {
@@ -122,6 +109,21 @@ public class QuestManager : MonoBehaviour
                 int req = Mathf.Max(1, o.requiredCount);
                 if (inventory.CountByItemId(o.targetId) < req)
                     return false;
+            }
+        }
+
+        // --- Consume collect items FIRST so their slots are free for rewards ---
+        // Previously this happened after adding rewards, which meant a full bag
+        // of quest items would block a valid turn-in.
+        if (inventory && qi.def != null && qi.def.objectives != null)
+        {
+            for (int i = 0; i < qi.def.objectives.Count; i++)
+            {
+                var o = qi.def.objectives[i];
+                if (o.type != QuestDefinition.ObjectiveSpec.Type.Collect) continue;
+
+                int req = Mathf.Max(1, o.requiredCount);
+                inventory.RemoveByItemId(o.targetId, req);
             }
         }
 
@@ -154,19 +156,6 @@ public class QuestManager : MonoBehaviour
                     toast?.Show("My backpack is full!", UnityEngine.Color.yellow);
                     return false;
                 }
-            }
-        }
-
-        // --- Consume required collect items ---
-        if (inventory && qi.def != null && qi.def.objectives != null)
-        {
-            for (int i = 0; i < qi.def.objectives.Count; i++)
-            {
-                var o = qi.def.objectives[i];
-                if (o.type != QuestDefinition.ObjectiveSpec.Type.Collect) continue;
-
-                int req = Mathf.Max(1, o.requiredCount);
-                inventory.RemoveByItemId(o.targetId, req);
             }
         }
 

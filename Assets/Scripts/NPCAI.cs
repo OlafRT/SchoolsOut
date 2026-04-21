@@ -62,6 +62,8 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Header("Combat")]
     public float meleeCooldown = 1.8f;
     public int meleeDamage = 8;
+    [Tooltip("Max Y-axis difference (metres) allowed for a melee hit. Prevents attacking targets on floors above/below.")]
+    public float attackYDeltaMax = 2.0f;
     [Tooltip("How fast (degrees/sec) the enemy rotates to face the target before attacking. 0 = instant snap.")]
     public float attackFacingSpeed = 720f;
 
@@ -396,7 +398,7 @@ public class NPCAI : MonoBehaviour, IStunnable
 
     void DoHostile()
     {
-        if (!player || mover == null || pathfinder == null) return;
+        if (mover == null || pathfinder == null) return;
 
         // Don't interrupt an in-progress attack — MeleeRoutine owns movement
         // and rotation for its duration. Without this, DoHostile() calls
@@ -416,35 +418,55 @@ public class NPCAI : MonoBehaviour, IStunnable
         }
         // ─────────────────────────────────────────────────────────────────────
 
+        // Resolve the actual chase/attack target.
+        // attackTarget may point to another NPC (e.g. a Jock that a friendly Nerd is
+        // assisting against). Fall back to the player only when no specific target is set.
+        Transform target = attackTarget;
+
+        // If our NPC target has died, clear manual hostility and re-evaluate next frame.
+        if (target != null && (player == null || target != player.transform))
+        {
+            var targetHp = target.GetComponent<NPCHealth>();
+            if (targetHp != null && targetHp.IsDead)
+            {
+                hasManualHostility = false;
+                attackTarget = player ? player.transform : null;
+                runtimeHostility = startingHostility;
+                if (mover) mover.ClearPath();
+                return;
+            }
+        }
+
+        // Fall back to player if no explicit target
+        if (!target && player) target = player.transform;
+        if (!target) return;
+
         // Player died — drop aggro and go back to wandering
-        if (playerHealth && playerHealth.IsDead)
+        if (target == (player ? player.transform : null) && playerHealth && playerHealth.IsDead)
         {
             hasManualHostility = false;
             runtimeHostility = startingHostility;
-            if (attackTarget == player.transform) attackTarget = null;
+            attackTarget = null;
             if (mover) mover.ClearPath();
             return;
         }
 
-        // --- Always log once per hostile tick so we can see what's happening indoors/outdoors
         var here    = transform.position;
-        var tgtTile = Snap(player.transform.position);
+        var tgtTile = Snap(target.position);
         float distT = DistanceTiles(here, tgtTile);
 
-        // debug log
-        LogAI($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={HasLineOfSight(player.transform.position)}");
+        LogAI($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={HasLineOfSight(target.position)}");
 
         // --- Try to attack if we're close enough by grid OR physical reach
         bool closeByGrid    = distT <= 1.01f;
         bool closeByPhysics = Vector2.Distance(
             new Vector2(here.x, here.z),
-            new Vector2(player.transform.position.x, player.transform.position.z)
+            new Vector2(target.position.x, target.position.z)
         ) <= Mathf.Max(0.45f, 0.55f * tileSize);
 
         if (closeByGrid || closeByPhysics)
         {
-            // melee cooldown is already enforced elsewhere in your code
-            TryHit(player.transform);
+            TryHit(target);
             return;
         }
 
@@ -452,7 +474,7 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (mover.IsMoving) return;
 
         // --- UNCONDITIONAL CHASE WHILE HOSTILE ---
-        // 1) Robust: full path to the player's tile; walk to last-1 so we stop adjacent.
+        // 1) Robust: full path to the target's tile; walk to last-1 so we stop adjacent.
         bool foundFull = pathfinder.TryFindPath(here, tgtTile, 2000, out var full, true);
         if (foundFull && full != null && full.Count >= 2)
         {
@@ -631,6 +653,12 @@ public class NPCAI : MonoBehaviour, IStunnable
     {
         if (!tgt) return;
 
+        // Y-axis gate: prevents melee hits through floors/ceilings when X/Z are close
+        if (Mathf.Abs(transform.position.y - tgt.position.y) > attackYDeltaMax) return;
+
+        // LOS gate: no hitting through walls or other geometry
+        if (!HasLineOfSight(tgt.position)) return;
+
         // distance gates (keep yours)
         bool closeByGrid = DistanceTiles(transform.position, Snap(tgt.position)) <= 1.01f;
         Vector2 me = new Vector2(transform.position.x, transform.position.z);
@@ -696,8 +724,14 @@ public class NPCAI : MonoBehaviour, IStunnable
 
         if (tgt && tgt.TryGetComponent<IDamageable>(out var dmg))
         {
-            bool targetIsDeadPlayer = (playerHealth && tgt == player.transform && playerHealth.IsDead);
-            if (!targetIsDeadPlayer)
+            // Check if the target has died during the windup (works for both player and NPCs)
+            bool targetDead = false;
+            if (player != null && tgt == player.transform)
+                targetDead = (playerHealth != null && playerHealth.IsDead);
+            else if (tgt.TryGetComponent<NPCHealth>(out var tgtHp))
+                targetDead = tgtHp.IsDead;
+
+            if (!targetDead)
                 dmg.ApplyDamage(meleeDamage);
         }
 
