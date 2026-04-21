@@ -134,6 +134,35 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         }
     }
 
+    /// <summary>
+    /// Called when THIS NPC is hit by another NPC (not the player).
+    /// Triggers aggro toward the ATTACKER, not toward the player.
+    /// </summary>
+    public void ApplyDamageFromNPC(int amount, NPCAI attackerAI)
+    {
+        if (!enabled || amount <= 0 || isDead) return;
+
+        currentHP = Mathf.Max(0, currentHP - amount);
+
+        TriggerOnDamagedActions();
+
+        // Aggro toward the NPC that actually hit us, not the player
+        if (ai && attackerAI) ai.OnDamagedByNPC(attackerAI);
+
+        if (playHitReacts && Time.time >= nextHitReactTime)
+        {
+            nextHitReactTime = Time.time + hitReactCooldown;
+            var anim = GetComponentInChildren<Animator>();
+            if (anim)
+            {
+                string trig = Random.value < 0.5f ? hitReactTriggerA : hitReactTriggerB;
+                if (!string.IsNullOrEmpty(trig)) anim.SetTrigger(trig);
+            }
+        }
+
+        if (currentHP == 0) HandleDeath();
+    }
+
 
     void TriggerOnDamagedActions()
     {

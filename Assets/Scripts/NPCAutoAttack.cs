@@ -104,17 +104,24 @@ public class NPCAutoAttack : MonoBehaviour
     // ======================
     void TryAutoMelee()
     {
-        Vector3 forward8 = SnapDirTo8(transform.forward);
+        // Aim toward the actual attack target (may be a Jock NPC, not the player)
+        Transform aimTarget = GetAimTarget();
+        if (!aimTarget) return;
+
+        Vector3 toTarget = aimTarget.position - transform.position;
+        toTarget.y = 0f;
+        if (toTarget.sqrMagnitude < 0.0001f) return;
+
+        Vector3 forward8 = SnapDirTo8(toTarget);
         (int sx, int sz) = StepFromDir8(forward8);
         if (sx == 0 && sz == 0) return;
 
-        // Are we adjacent-ish to the player so this makes sense?
-        if (!WithinTiles(transform.position, player.position, 2)) return;
+        // Are we adjacent-ish to the target?
+        if (!WithinTiles(transform.position, aimTarget.position, 2)) return;
 
-        // Build 3 tiles in front (with proper diagonal handling)
+        // Build 3 tiles in the direction of the target
         var hits = GetMeleeTiles(sx, sz);
 
-        // Telegraph them during wind-up, then execute
         StartCoroutine(DoWindupAndMelee(hits));
     }
 
@@ -134,14 +141,20 @@ public class NPCAutoAttack : MonoBehaviour
     // ======================
     void TryAutoRanged()
     {
-        Vector3 forward8 = SnapDirTo8(transform.forward);
+        // Aim toward the actual attack target (may be a Jock NPC, not the player)
+        Transform aimTarget = GetAimTarget();
+        if (!aimTarget) return;
+
+        Vector3 toTarget = aimTarget.position - transform.position;
+        toTarget.y = 0f;
+        if (toTarget.sqrMagnitude < 0.0001f) return;
+
+        Vector3 forward8 = SnapDirTo8(toTarget);
         (int sx, int sz) = StepFromDir8(forward8);
         if (sx == 0 && sz == 0) return;
 
-        // Build straight path tiles
         var path = GetRangedPathTiles(sx, sz, weaponRangeTiles);
 
-        // Telegraph during wind-up, then fire
         StartCoroutine(DoWindupAndShoot(path, forward8, sx, sz));
     }
 
@@ -269,6 +282,16 @@ public class NPCAutoAttack : MonoBehaviour
     // ======================
     //       Helpers
     // ======================
+    /// <summary>
+    /// Returns the NPC's current attack target from NPCAI (e.g. a Jock NPC),
+    /// falling back to the player if no specific target is set.
+    /// </summary>
+    Transform GetAimTarget()
+    {
+        if (ai != null && ai.AttackTarget != null) return ai.AttackTarget;
+        return player;
+    }
+
     Vector3 Snap(Vector3 p) =>
         new Vector3(Mathf.Round(p.x / tileSize) * tileSize, p.y,
                     Mathf.Round(p.z / tileSize) * tileSize);

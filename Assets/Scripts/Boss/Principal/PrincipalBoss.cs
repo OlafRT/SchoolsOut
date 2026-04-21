@@ -56,6 +56,10 @@ public class PrincipalBoss : MonoBehaviour
     [Header("Boss Bar")]
     public string bossDisplayName = "The Principal";
 
+    [Header("On Death")]
+    [Tooltip("Optional GameObject to enable when the boss dies (e.g. a door, reward chest, or exit trigger).")]
+    public GameObject onDeathEnableObject;
+
     // ── Internal ──────────────────────────────
     Animator _animator;
     int _lastHpPercent = 100;   // last HP percentage we checked (integer)
@@ -120,7 +124,18 @@ public class PrincipalBoss : MonoBehaviour
         }
 
         // Boss died
+        OnBossDeath();
+    }
+
+    // ──────────────────────────────────────────
+    //   BOSS DEATH
+    // ──────────────────────────────────────────
+    void OnBossDeath()
+    {
         if (bossHealthBar) bossHealthBar.Hide();
+
+        if (onDeathEnableObject != null)
+            onDeathEnableObject.SetActive(true);
     }
 
     // ──────────────────────────────────────────

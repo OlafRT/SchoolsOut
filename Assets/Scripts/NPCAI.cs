@@ -62,7 +62,7 @@ public class NPCAI : MonoBehaviour, IStunnable
     [Header("Combat")]
     public float meleeCooldown = 1.8f;
     public int meleeDamage = 8;
-    [Tooltip("Max Y-axis difference (metres) allowed for a melee hit. Prevents attacking targets on floors above/below.")]
+    [Tooltip("Max Y difference (metres) allowed for a melee hit. Prevents hitting targets on floors above/below.")]
     public float attackYDeltaMax = 2.0f;
     [Tooltip("How fast (degrees/sec) the enemy rotates to face the target before attacking. 0 = instant snap.")]
     public float attackFacingSpeed = 720f;
@@ -345,6 +345,9 @@ public class NPCAI : MonoBehaviour, IStunnable
     }
 
     // Public property for other scripts
+    /// <summary>The current attack/chase target. May be a Jock NPC, not the player.</summary>
+    public Transform AttackTarget => attackTarget;
+
     public Hostility CurrentHostility
     {
         get
@@ -374,6 +377,17 @@ public class NPCAI : MonoBehaviour, IStunnable
         AlertAlliesOnAggro(allyAssistRadiusTiles, player ? player.transform : null);
     }
 
+    /// <summary>Called when hit by another NPC. Aggroes toward the attacker, never the player.</summary>
+    public void OnDamagedByNPC(NPCAI attacker)
+    {
+        if (!attacker) return;
+        StopAICoroutines();
+        if (mover) mover.SetExternalSpeedMultiplier(chaseSpeedMultiplier);
+        if (mover) mover.ClearPath();
+        BecomeHostile(aggroLeashSeconds, attacker.transform);
+        AlertAlliesOnAggro(allyAssistRadiusTiles, attacker.transform);
+    }
+
     // Alert same-faction allies to aggro the given target (usually player)
     public void AlertAlliesOnAggro(int radiusTiles, Transform focus)
     {
@@ -399,17 +413,11 @@ public class NPCAI : MonoBehaviour, IStunnable
     void DoHostile()
     {
         if (mover == null || pathfinder == null) return;
-
-        // Don't interrupt an in-progress attack — MeleeRoutine owns movement
-        // and rotation for its duration. Without this, DoHostile() calls
-        // TryPathTo() every frame which starts StepTo(), which immediately
-        // snaps the rotation back to the movement direction.
         if (isAttacking) return;
 
-        // ── Flee override: path away from player instead of toward them ──────
+        // ── Flee override ─────────────────────────────────────────────────────
         if (fleeActive)
         {
-            // Let the mover finish its current step before requesting a new path
             if (mover.IsMoving) return;
             if (pathfinder.TryFindPath(transform.position, fleeTarget, 2000, out var fleePath, goalPassable: true)
                 && fleePath != null && fleePath.Count >= 2)
@@ -418,30 +426,29 @@ public class NPCAI : MonoBehaviour, IStunnable
         }
         // ─────────────────────────────────────────────────────────────────────
 
-        // Resolve the actual chase/attack target.
-        // attackTarget may point to another NPC (e.g. a Jock that a friendly Nerd is
-        // assisting against). Fall back to the player only when no specific target is set.
+        // Resolve the actual target (may be an NPC, not the player)
         Transform target = attackTarget;
 
-        // If our NPC target has died, clear manual hostility and re-evaluate next frame.
+        // If our NPC target died, clear and re-evaluate next frame — do NOT default
+        // to the player, or a friendly Nerd will snap to targeting the player.
         if (target != null && (player == null || target != player.transform))
         {
-            var targetHp = target.GetComponent<NPCHealth>();
-            if (targetHp != null && targetHp.IsDead)
+            var tgtHp = target.GetComponent<NPCHealth>();
+            if (tgtHp != null && tgtHp.IsDead)
             {
                 hasManualHostility = false;
-                attackTarget = player ? player.transform : null;
+                attackTarget = null;
                 runtimeHostility = startingHostility;
                 if (mover) mover.ClearPath();
                 return;
             }
         }
 
-        // Fall back to player if no explicit target
+        // Fall back to player only when no explicit target is set
         if (!target && player) target = player.transform;
         if (!target) return;
 
-        // Player died — drop aggro and go back to wandering
+        // Player died — drop aggro
         if (target == (player ? player.transform : null) && playerHealth && playerHealth.IsDead)
         {
             hasManualHostility = false;
@@ -457,7 +464,6 @@ public class NPCAI : MonoBehaviour, IStunnable
 
         LogAI($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={HasLineOfSight(target.position)}");
 
-        // --- Try to attack if we're close enough by grid OR physical reach
         bool closeByGrid    = distT <= 1.01f;
         bool closeByPhysics = Vector2.Distance(
             new Vector2(here.x, here.z),
@@ -474,7 +480,7 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (mover.IsMoving) return;
 
         // --- UNCONDITIONAL CHASE WHILE HOSTILE ---
-        // 1) Robust: full path to the target's tile; walk to last-1 so we stop adjacent.
+        // 1) Robust: full path to the player's tile; walk to last-1 so we stop adjacent.
         bool foundFull = pathfinder.TryFindPath(here, tgtTile, 2000, out var full, true);
         if (foundFull && full != null && full.Count >= 2)
         {
@@ -653,10 +659,10 @@ public class NPCAI : MonoBehaviour, IStunnable
     {
         if (!tgt) return;
 
-        // Y-axis gate: prevents melee hits through floors/ceilings when X/Z are close
+        // Y-axis gate: prevents hits through floors/ceilings
         if (Mathf.Abs(transform.position.y - tgt.position.y) > attackYDeltaMax) return;
 
-        // LOS gate: no hitting through walls or other geometry
+        // LOS gate: no hitting through walls
         if (!HasLineOfSight(tgt.position)) return;
 
         // distance gates (keep yours)
@@ -722,17 +728,26 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (attackWindupSeconds > 0f)
             yield return new WaitForSeconds(attackWindupSeconds);
 
-        if (tgt && tgt.TryGetComponent<IDamageable>(out var dmg))
+        if (tgt)
         {
-            // Check if the target has died during the windup (works for both player and NPCs)
             bool targetDead = false;
             if (player != null && tgt == player.transform)
                 targetDead = (playerHealth != null && playerHealth.IsDead);
-            else if (tgt.TryGetComponent<NPCHealth>(out var tgtHp))
-                targetDead = tgtHp.IsDead;
+            else if (tgt.TryGetComponent<NPCHealth>(out var tgtNpcHp))
+                targetDead = tgtNpcHp.IsDead;
 
             if (!targetDead)
-                dmg.ApplyDamage(meleeDamage);
+            {
+                // NPC targets: ApplyDamageFromNPC so they aggro US, not the player.
+                // Player target: IDamageable.ApplyDamage as before.
+                var tgtNpcHealth = (player == null || tgt != player.transform)
+                    ? tgt.GetComponent<NPCHealth>() : null;
+
+                if (tgtNpcHealth != null)
+                    tgtNpcHealth.ApplyDamageFromNPC(meleeDamage, this);
+                else if (tgt.TryGetComponent<IDamageable>(out var dmg))
+                    dmg.ApplyDamage(meleeDamage);
+            }
         }
 
         if (attackRecoverSeconds > 0f)

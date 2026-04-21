@@ -106,13 +106,15 @@ public class NPCBombAbility : MonoBehaviour
 
         if (!CanConsiderCasting()) return;
 
-        if (Time.time >= nextReadyTime && ai.CurrentHostility == NPCAI.Hostility.Hostile && player)
+        if (Time.time >= nextReadyTime && ai.CurrentHostility == NPCAI.Hostility.Hostile)
         {
-            Vector3 self = transform.position;
-            Vector3 pt = player.position;
-            if (!WithinTiles(self, pt, maxRangeTiles)) return;
+            Transform aimTarget = GetAimTarget();
+            if (!aimTarget) return;
 
-            Vector3 targetCenter = PredictTargetCenter();
+            Vector3 self = transform.position;
+            if (!WithinTiles(self, aimTarget.position, maxRangeTiles)) return;
+
+            Vector3 targetCenter = PredictTargetCenter(aimTarget);
             StartCoroutine(CastRoutine(targetCenter));
             nextReadyTime = Time.time + cooldownSeconds;
         }
@@ -126,13 +128,14 @@ public class NPCBombAbility : MonoBehaviour
     }
 
     // --------- NEW: robust, tile-aware prediction ----------
-    Vector3 PredictTargetCenter()
+    Vector3 PredictTargetCenter(Transform aimTarget = null)
     {
-        if (!player) return Snap(transform.position);
+        if (aimTarget == null) aimTarget = GetAimTarget();
+        if (!aimTarget) return Snap(transform.position);
 
         // Current snapped positions
         Vector3 npcSnap = Snap(transform.position);
-        Vector3 pNow = Snap(player.position);
+        Vector3 pNow = Snap(aimTarget.position);
 
         // Compute smoothed velocity in tiles/sec from oldest to newest sample
         if (samples.Count < 2) return pNow;
@@ -305,6 +308,17 @@ public class NPCBombAbility : MonoBehaviour
     {
         foreach (var m in windupMarkers) if (m) Destroy(m);
         windupMarkers.Clear();
+    }
+
+    // ------- Aim target -------
+    /// <summary>
+    /// Returns the NPC's current attack target from NPCAI (e.g. a Jock NPC when assisting),
+    /// falling back to the player if no specific target is set.
+    /// </summary>
+    Transform GetAimTarget()
+    {
+        if (ai != null && ai.AttackTarget != null) return ai.AttackTarget;
+        return player;
     }
 
     // ------- Utils -------
