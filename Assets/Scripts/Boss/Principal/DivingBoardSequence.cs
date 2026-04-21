@@ -69,8 +69,13 @@ public class DivingBoardSequence : MonoBehaviour
 
         // Spawn NPC at the top of the steps
         Transform spawnAt = npcSpawnPoint ? npcSpawnPoint : transform;
+        // Instantiate inactive so Awake/OnEnable run after we set the name.
+        // This prevents NameplateSpawner reading "PrefabName(Clone)" on OnEnable.
+        npcPrefab.SetActive(false);
         var npcGO = Instantiate(npcPrefab, spawnAt.position, spawnAt.rotation);
-        npcGO.name = npcPrefab.name;
+        npcPrefab.SetActive(true);
+        npcGO.name = npcPrefab.name; // clean name before anything reads it
+        npcGO.SetActive(true);
 
         // Disable NPC AI components while we drive it manually
         SetNPCEnabled(npcGO, false);
@@ -126,21 +131,25 @@ public class DivingBoardSequence : MonoBehaviour
     {
         if (!boardTransform) yield break;
 
+        // Parent the NPC to the board tip so it physically rides the rotation.
+        // We store the original parent to restore it after launch.
+        Transform originalParent = npcGO ? npcGO.transform.parent : null;
+        if (npcGO) npcGO.transform.SetParent(launchPoint ? launchPoint : boardTransform, worldPositionStays: true);
+
         for (int i = 0; i < bounceCycles; i++)
         {
-            // Press down
             yield return StartCoroutine(RotateBoardZ(boardRestZ, boardBentDownZ, bounceHalfSeconds));
-            // Spring up
             yield return StartCoroutine(RotateBoardZ(boardBentDownZ, boardSpringUpZ, bounceHalfSeconds));
-            // Return to rest
             yield return StartCoroutine(RotateBoardZ(boardSpringUpZ, boardRestZ, bounceHalfSeconds));
         }
 
-        // Final big press down for launch
+        // Final big press for launch
         yield return StartCoroutine(RotateBoardZ(boardRestZ, boardBentDownZ, bounceHalfSeconds));
-        // Spring up hard — this is the launch
         yield return StartCoroutine(RotateBoardZ(boardBentDownZ, boardSpringUpZ, bounceHalfSeconds * 0.5f));
         yield return StartCoroutine(RotateBoardZ(boardSpringUpZ, boardRestZ, bounceHalfSeconds));
+
+        // Unparent before the arc so the NPC moves freely
+        if (npcGO) npcGO.transform.SetParent(originalParent, worldPositionStays: true);
     }
 
     IEnumerator RotateBoardZ(float fromZ, float toZ, float duration)

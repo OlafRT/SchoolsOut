@@ -15,8 +15,10 @@ public class MindControlEffect : MonoBehaviour
     public float hitRange = 1.2f;
 
     [Header("Knockback")]
-    public float knockbackForce = 8f;
-    public float knockbackDuration = 0.4f;
+    public float knockbackForce    = 18f;
+    public float knockbackDuration = 0.55f;
+    [Tooltip("Layers considered solid walls — knockback stops on contact.")]
+    public LayerMask knockbackObstacleMask;
 
     [Header("Visual")]
     [Tooltip("Optional VFX parented to the player while mind controlled.")]
@@ -90,7 +92,7 @@ public class MindControlEffect : MonoBehaviour
         if (_boss && !_boss.IsDead)
             _boss.HitMindControlledPlayer(gameObject);
 
-        // Knockback
+        // Knockback — stop if we hit a wall
         if (_boss)
         {
             Vector3 away = transform.position - _boss.transform.position;
@@ -99,14 +101,30 @@ public class MindControlEffect : MonoBehaviour
             away.Normalize();
 
             float elapsed = 0f;
+            float skinWidth = 0.15f;
+
             while (elapsed < knockbackDuration)
             {
                 elapsed += Time.deltaTime;
                 float frac = 1f - elapsed / knockbackDuration;
-                Vector3 vel = away * knockbackForce * frac * Time.deltaTime;
-                if (_cc && _cc.enabled)  _cc.Move(vel);
-                else if (_rb)            _rb.MovePosition(transform.position + vel);
-                else                     transform.position += vel;
+                Vector3 step = away * knockbackForce * frac * Time.deltaTime;
+
+                // Wall check — cast a small sphere in the movement direction
+                if (knockbackObstacleMask.value != 0)
+                {
+                    float stepLen = step.magnitude;
+                    if (stepLen > 0.001f && Physics.SphereCast(
+                        transform.position + Vector3.up * 0.3f,
+                        skinWidth, step.normalized, out _,
+                        stepLen + skinWidth,
+                        knockbackObstacleMask, QueryTriggerInteraction.Ignore))
+                        break; // hit a wall — stop knockback
+                }
+
+                if (_cc && _cc.enabled)  _cc.Move(step);
+                else if (_rb)            _rb.MovePosition(transform.position + step);
+                else                     transform.position += step;
+
                 yield return null;
             }
         }

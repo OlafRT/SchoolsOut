@@ -2376,7 +2376,7 @@ MonoBehaviour:
   wanderSpeedMultiplier: 0.5
   chaseSpeedMultiplier: 3
   meleeCooldown: 1.8
-  meleeDamage: 15
+  meleeDamage: 10
   attackFacingSpeed: 720
   mover: {fileID: 4493556337892194069}
   pathfinder: {fileID: 8582763674382739391}
