@@ -25,6 +25,14 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     public int xpReward = 10; // XP given to the player when this NPC dies
 
     [Header("Loot")]
+    // ── FIX 1 ──────────────────────────────────────────────────────────────────
+    // When false the NPC never becomes a lootable corpse and its GameObject (plus
+    // all children) is left alive indefinitely.  Use this for bosses / quest NPCs
+    // that should not despawn after death.
+    [Tooltip("Uncheck to make this NPC non-lootable. The corpse (and any children) will remain in the scene permanently instead of despawning.")]
+    public bool isLootable = true;
+    // ───────────────────────────────────────────────────────────────────────────
+
     public NPCLootProfile lootProfile;
     [Range(1,30)] public int npcLevel = 1;
     public float corpseDespawnSeconds = 20f;
@@ -65,7 +73,16 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
     public bool playHitReacts = true;
     public string hitReactTriggerA = "HitA";
     public string hitReactTriggerB = "HitB";
-    public float hitReactCooldown = 0.25f;
+
+    // ── FIX 2 ──────────────────────────────────────────────────────────────────
+    // Default raised to 1 s so NPCs (especially bosses) can actually act between
+    // hits.  The NPC still TAKES damage every hit — only the animation is gated.
+    // Unity queues triggers, so we now call ResetTrigger before SetTrigger to
+    // prevent a backlog of hit-react animations chaining back-to-back.
+    [Tooltip("Minimum seconds between hit-react animations. Raise this on bosses (e.g. 1.5–2 s) so they can act between player hits.")]
+    public float hitReactCooldown = 1.0f;
+    // ───────────────────────────────────────────────────────────────────────────
+
     float nextHitReactTime = 0f;
 
 
@@ -113,20 +130,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         // Aggro this NPC + alert same-faction allies to attack the PLAYER
         if (ai) ai.OnDamagedByPlayer();
 
-        if (playHitReacts && Time.time >= nextHitReactTime)
-        {
-            nextHitReactTime = Time.time + hitReactCooldown;
-
-            var anim = GetComponentInChildren<Animator>();
-            if (anim)
-            {
-                // Randomly choose one of two hit reacts
-                bool a = Random.value < 0.5f;
-                string trig = a ? hitReactTriggerA : hitReactTriggerB;
-                if (!string.IsNullOrEmpty(trig))
-                    anim.SetTrigger(trig);
-            }
-        }
+        TryPlayHitReact();
 
         if (currentHP == 0)
         {
@@ -149,20 +153,34 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         // Aggro toward the NPC that actually hit us, not the player
         if (ai && attackerAI) ai.OnDamagedByNPC(attackerAI);
 
-        if (playHitReacts && Time.time >= nextHitReactTime)
-        {
-            nextHitReactTime = Time.time + hitReactCooldown;
-            var anim = GetComponentInChildren<Animator>();
-            if (anim)
-            {
-                string trig = Random.value < 0.5f ? hitReactTriggerA : hitReactTriggerB;
-                if (!string.IsNullOrEmpty(trig)) anim.SetTrigger(trig);
-            }
-        }
+        TryPlayHitReact();
 
         if (currentHP == 0) HandleDeath();
     }
 
+    // ── FIX 2 (continued) ──────────────────────────────────────────────────────
+    // Extracted into its own method so both ApplyDamage paths share the same
+    // cooldown clock and the reset-before-set pattern.
+    void TryPlayHitReact()
+    {
+        if (!playHitReacts) return;
+        if (Time.time < nextHitReactTime) return;
+
+        var anim = GetComponentInChildren<Animator>();
+        if (!anim) return;
+
+        nextHitReactTime = Time.time + hitReactCooldown;
+
+        string trig = Random.value < 0.5f ? hitReactTriggerA : hitReactTriggerB;
+        if (string.IsNullOrEmpty(trig)) return;
+
+        // ResetTrigger flushes any queued instance of this trigger so we never
+        // end up with a backlog of hit animations chaining after the cooldown ends.
+        anim.ResetTrigger(hitReactTriggerA);
+        anim.ResetTrigger(hitReactTriggerB);
+        anim.SetTrigger(trig);
+    }
+    // ───────────────────────────────────────────────────────────────────────────
 
     void TriggerOnDamagedActions()
     {
@@ -207,7 +225,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         if (ai)
         {
                 ai.HardStop();           // clears current mover path
-                ai.StopAllCoroutines();  // cancels WanderRoutine/etc. :contentReference[oaicite:2]{index=2}
+                ai.StopAllCoroutines();  // cancels WanderRoutine/etc.
                 ai.enabled = false;      // stops NPCAI.Update() from running
         }
 
@@ -217,7 +235,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         {
             move.HardStop();      // stop any in-flight step/knockback coroutines
             move.enabled = false;
-        } // :contentReference[oaicite:3]{index=3}
+        }
 
         // Kill physics & root motion drift
         var rb = GetComponent<Rigidbody>();
@@ -231,7 +249,6 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         if (anim)
         {
             anim.applyRootMotion = false; // ensure death pose doesn't slide
-            // (optional) anim.SetFloat("Speed01", 0f);
         }
 
         if (anim && !string.IsNullOrEmpty(deathTriggerName))
@@ -239,6 +256,13 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
             anim.ResetTrigger(deathTriggerName); // clean slate
             anim.SetTrigger(deathTriggerName);   // fire death anim
         }
+
+        // ── FIX 1 (continued) ──────────────────────────────────────────────────
+        // Non-lootable NPCs skip all corpse-collider reshaping and CorpseLoot
+        // setup entirely.  Their GameObject (and all children) simply remain in
+        // the scene after death with colliders left as-is.
+        if (!isLootable) return;
+        // ───────────────────────────────────────────────────────────────────────
 
         // Make sure collider is there & is a trigger we control
         var col = GetComponent<Collider>();
@@ -312,7 +336,7 @@ public class NPCHealth : MonoBehaviour, IDamageable, IStunnable
         var allCols = GetComponentsInChildren<Collider>(true);
         for (int i = 0; i < allCols.Length; i++)
         {
-            var c = allCols[i];           // use a different name than the earlier 'col'
+            var c = allCols[i];
             if (!c) continue;
             c.gameObject.layer = corpseLayer;
             c.isTrigger = true;           // never blocks bullets / nav / physics
