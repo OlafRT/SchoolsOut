@@ -65,6 +65,12 @@ public class LoadSceneWithEntrance : MonoBehaviour
     {
         if (delay > 0f) yield return new WaitForSeconds(delay);
 
+        // Refresh the cross-scene snapshot NOW so that abilities learned since
+        // the last stat event (XP gain, level-up, equip) are not silently
+        // dropped when the new scene's PlayerStats starts at its Inspector defaults.
+        // This mirrors the identical fix already present in RespawnReloadScene().
+        GameSaveManager.I?.SnapshotBeforeTransition();
+
         // Mark the entrance as pending so SceneEntranceReceiver knows to use it
         destination.pendingUse = true;
 

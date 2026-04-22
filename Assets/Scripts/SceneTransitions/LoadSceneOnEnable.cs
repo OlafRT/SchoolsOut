@@ -34,6 +34,12 @@ public class LoadSceneOnEnable : MonoBehaviour
         if (deactivateSelfAfterKickoff)
             gameObject.SetActive(false); // prevents any re-entry loops
 
+        // Refresh the cross-scene snapshot NOW so that abilities learned since
+        // the last stat event (XP gain, level-up, equip) are not silently
+        // dropped when the new scene's PlayerStats starts at its Inspector defaults.
+        // This mirrors the identical fix already present in RespawnReloadScene().
+        GameSaveManager.I?.SnapshotBeforeTransition();
+
         // Delegate to GameSession so the loading screen and random tip are shown.
         // Falls back to a direct scene load if GameSession isn't present
         // (e.g. playing a scene standalone in the editor).

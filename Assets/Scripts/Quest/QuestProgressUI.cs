@@ -1,9 +1,14 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using TMPro;
 using System.Collections;
 
 public class QuestProgressUI : MonoBehaviour
 {
+    [Tooltip("Name of the TMP_Text GameObject to find in each scene. " +
+             "Leave blank to disable auto-find (assign text manually instead).")]
+    public string textObjectName = "QuestProgressToast";
+
     public TMP_Text text;
     public float showSeconds = 1.75f;
 
@@ -13,6 +18,7 @@ public class QuestProgressUI : MonoBehaviour
 
     void Awake()
     {
+        SceneManager.sceneLoaded += OnSceneLoaded;
         TrySubscribe();
         if (text) text.gameObject.SetActive(false);
     }
@@ -21,14 +27,33 @@ public class QuestProgressUI : MonoBehaviour
 
     void OnDisable() { Unsubscribe(); }
 
-    // OnDestroy is the reliable unsubscribe point during scene unload.
-    // OnDisable is not always called before OnDestroy when a scene is unloaded,
-    // so we unsubscribe in both places to be safe.
     void OnDestroy()
     {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
         if (waitCo != null) { StopCoroutine(waitCo); waitCo = null; }
         if (showCo != null) { StopCoroutine(showCo); showCo = null; }
         Unsubscribe();
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // The old QuestProgressToast was in the previous scene and is now destroyed.
+        // Find the replacement in the newly loaded scene.
+        // NOTE: GameObject.Find only searches active objects, so we search by type
+        // with FindObjectsInactive.Include to find it even while it's hidden.
+        if (string.IsNullOrEmpty(textObjectName)) return;
+
+        text = null;
+        foreach (var t in FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (t.gameObject.name == textObjectName)
+            {
+                text = t;
+                text.gameObject.SetActive(false);
+                break;
+            }
+        }
+        // If not found, text stays null — HandleProgress will silently no-op.
     }
 
     void TrySubscribe()
@@ -51,7 +76,6 @@ public class QuestProgressUI : MonoBehaviour
     {
         while (QuestManager.I == null) yield return null;
 
-        // Guard: object may have been destroyed while waiting
         if (this == null || !this) yield break;
 
         if (!subscribed)
@@ -71,7 +95,6 @@ public class QuestProgressUI : MonoBehaviour
 
     void HandleProgress(string questId, string line)
     {
-        // Guard against being called after destruction (stale delegate)
         if (this == null || !this || text == null) return;
         if (string.IsNullOrEmpty(line)) return;
 
@@ -88,7 +111,6 @@ public class QuestProgressUI : MonoBehaviour
         Canvas.ForceUpdateCanvases();
         yield return new WaitForSeconds(showSeconds);
 
-        // Guard: might have been destroyed during the wait
         if (this == null || !this || text == null) yield break;
 
         text.gameObject.SetActive(false);

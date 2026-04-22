@@ -1944,7 +1944,7 @@ MonoBehaviour:
   center: {x: 0, y: 0, z: 0}
   size: {x: 200, y: 20, z: 200}
   music: {fileID: 8300000, guid: c6ea68c7d8175b7478f271a3f9f49a54, type: 3}
-  musicVolume: 0.05
+  musicVolume: 0.1
   musicFadeIn: 1
   musicFadeOut: 1
   musicLoop: 1
@@ -62711,7 +62711,7 @@ MonoBehaviour:
   center: {x: 0, y: 0, z: 0}
   size: {x: 200, y: 20, z: 200}
   music: {fileID: 8300000, guid: c6ea68c7d8175b7478f271a3f9f49a54, type: 3}
-  musicVolume: 0.05
+  musicVolume: 0.1
   musicFadeIn: 1
   musicFadeOut: 1
   musicLoop: 1

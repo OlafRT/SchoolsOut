@@ -818,6 +818,25 @@ public class GameSaveManager : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
+    /// Refreshes the cross-scene stat + abilities snapshot immediately.
+    /// Call this before any manual scene transition (LoadSceneWithEntrance,
+    /// LoadSceneOnEnable, etc.) so that abilities learned since the last
+    /// OnStatsChanged event are not lost in the new scene.
+    ///
+    /// Background: TakeStatSnapshot() is driven by OnStatsChanged, which fires
+    /// on XP gain, level-up, and equip changes — but NOT when an ability is
+    /// learned.  Without a fresh snapshot at transition time, the abilities list
+    /// carried into the next scene can be missing anything learned after the
+    /// last stat event, silently wiping those abilities.
+    /// </summary>
+    public void SnapshotBeforeTransition()
+    {
+        RebindRuntimeRefs();
+        TakeStatSnapshot();
+        Debug.Log("[SaveSystem] Pre-transition snapshot taken.");
+    }
+
+    /// <summary>
     /// Reloads the current scene as a fresh respawn — resets the player
     /// normally, but re-hides any items already collected this session.
     /// </summary>

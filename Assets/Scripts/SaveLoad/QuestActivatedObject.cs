@@ -43,7 +43,14 @@ public class QuestActivatedObject : MonoBehaviour
     public void ApplyQuestState()
     {
         var qm = QuestManager.I;
-        if (qm == null) return;
+        if (qm == null) { Debug.Log($"[QAO] {name}: QuestManager is null"); return; }
+
+        bool onMet  = !string.IsNullOrEmpty(questId)    && EvaluateCondition(qm, questId, condition);
+        bool offMet = !string.IsNullOrEmpty(offQuestId)  && EvaluateCondition(qm, offQuestId, offCondition);
+
+        Debug.Log($"[QAO] {name}: onMet={onMet} offMet={offMet} | " +
+                $"HasActive('{questId}')={qm.HasActive(questId)} " +
+                $"IsCompleted('{questId}')={qm.IsCompleted(questId)}");
 
         // Bail only if there's genuinely nothing to evaluate
         if (string.IsNullOrEmpty(questId) && string.IsNullOrEmpty(offQuestId)) return;
