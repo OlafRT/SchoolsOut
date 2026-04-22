@@ -32,7 +32,7 @@ MonoBehaviour:
   fixedIQ: 6
   fixedCrit: 8
   fixedToughness: 5
-  fixedValue: 50
+  fixedValue: 600
   forcedAffix: 0
   hasWeaponProfile: 1
   shotPattern: 2

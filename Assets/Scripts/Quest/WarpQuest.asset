@@ -29,5 +29,5 @@ MonoBehaviour:
     requiredCount: 1
   - type: 0
     collectTemplate: {fileID: 0}
-    targetId: bully
+    targetId: Bully
     requiredCount: 10

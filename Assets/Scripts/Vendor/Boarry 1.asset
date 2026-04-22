@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9aeab4c48a6e414fbaa50ea941d7d30, type: 3}
+  m_Name: Boarry 1
+  m_EditorClassIdentifier: 
+  startingStock:
+  - template: {fileID: 11400000, guid: cc87dd440c579d64b8d29fcfa80e9696, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: ad05070d7ad158842a17e43778316f60, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: aa1d90f72a99ba546b355dad75d3d540, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: eedd14e1b23ece74083b5d18286a118e, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: af7194f4a604852479a7279197a00985, type: 2}
+    amount: 20
+  - template: {fileID: 11400000, guid: 79349be8230b7f749babe74adb0a8c6c, type: 2}
+    amount: 20
+  - template: {fileID: 11400000, guid: c6157790dc2ec73419c807f2f4a5261a, type: 2}
+    amount: 20
+  - template: {fileID: 11400000, guid: 3b80ee9765ee53f48861475e13f2f82c, type: 2}
+    amount: 20
+  - template: {fileID: 11400000, guid: 7e5eaa945ee7d5e4eb182b99f49f220d, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: 77f4526b8bb68b546999fe38551b8a8a, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: 1fd18c838019de84b8f189b8a01892a6, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: 660075adc03f86e42b71ea5db2d57342, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: 07e425870aa0fc04ea48f98b1ff92453, type: 2}
+    amount: 1
+  - template: {fileID: 11400000, guid: 46f83813ae9eb074991deb59b08f53a9, type: 2}
+    amount: 1
+  buyMultiplier: 1.5
+  sellMultiplier: 1

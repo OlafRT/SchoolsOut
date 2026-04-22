@@ -24,7 +24,7 @@ MonoBehaviour:
   allowedAffixes: 010000000400000003000000000000000200000005000000
   description: For rich rappers, maybe?
   isStaticItem: 0
-  overrideName: Worn Baseball Bat
+  overrideName: Gold Chain
   fixedItemLevel: 1
   fixedRequiredLevel: 1
   fixedRarity: 1
@@ -36,6 +36,7 @@ MonoBehaviour:
   forcedAffix: 0
   hasWeaponProfile: 0
   shotPattern: 0
+  weaponAnimTrigger: 
   weaponProjectilePrefab: {fileID: 0}
   weaponProjectileSpeed: 0
   weaponRangeTiles: 0

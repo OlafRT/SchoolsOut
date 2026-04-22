@@ -24,7 +24,7 @@ MonoBehaviour:
   allowedAffixes: 02000000050000000300000000000000
   description: Makes multicolored holes, well, if it wasn't just a prop!
   isStaticItem: 0
-  overrideName: Snot Launcher v1
+  overrideName: Hole Maker
   fixedItemLevel: 5
   fixedRequiredLevel: 4
   fixedRarity: 1
@@ -32,7 +32,7 @@ MonoBehaviour:
   fixedIQ: 1
   fixedCrit: 1
   fixedToughness: 1
-  fixedValue: 8
+  fixedValue: 10
   forcedAffix: 0
   hasWeaponProfile: 1
   shotPattern: 0

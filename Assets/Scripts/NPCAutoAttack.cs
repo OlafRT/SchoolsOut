@@ -58,6 +58,7 @@ public class NPCAutoAttack : MonoBehaviour
     // Refs
     NPCAI ai;
     NPCMovement mover;
+    NPCHealth health;
     Transform player;
 
     // timer
@@ -70,6 +71,7 @@ public class NPCAutoAttack : MonoBehaviour
     {
         ai = GetComponent<NPCAI>();
         mover = GetComponent<NPCMovement>();
+        health = GetComponent<NPCHealth>();
         if (!player)
         {
             var p = GameObject.FindGameObjectWithTag("Player");
@@ -81,6 +83,7 @@ public class NPCAutoAttack : MonoBehaviour
     void Update()
     {
         if (!abilityEnabled || !ai || !mover || !player) return;
+        if (health != null && health.IsDead) return;
         if (requireHostileToPlayer && ai.CurrentHostility != NPCAI.Hostility.Hostile) return;
 
         attackTimer -= Time.deltaTime;
@@ -131,6 +134,8 @@ public class NPCAutoAttack : MonoBehaviour
         yield return new WaitForSeconds(Mathf.Max(0.05f, windupSeconds));
         ClearTelegraph();
 
+        if (health != null && health.IsDead) yield break;
+
         // Damage player if inside any of those tiles
         foreach (var c in tiles)
             DamageTile(c, tileSize * 0.45f, weaponDamage, playerLayer);
@@ -163,6 +168,8 @@ public class NPCAutoAttack : MonoBehaviour
         ShowTelegraph(pathTiles, windupSeconds);
         yield return new WaitForSeconds(Mathf.Max(0.05f, windupSeconds));
         ClearTelegraph();
+
+        if (health != null && health.IsDead) yield break;
 
         if (!projectilePrefab) yield break;
 

@@ -27,7 +27,7 @@ MonoBehaviour:
   overrideName: Fishing Pole
   fixedItemLevel: 1
   fixedRequiredLevel: 1
-  fixedRarity: 1
+  fixedRarity: 0
   fixedMuscles: 0
   fixedIQ: 0
   fixedCrit: 0

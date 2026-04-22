@@ -15,10 +15,8 @@ public class MindControlEffect : MonoBehaviour
     public float hitRange = 1.2f;
 
     [Header("Knockback")]
-    public float knockbackForce    = 18f;
-    public float knockbackDuration = 0.55f;
-    [Tooltip("Layers considered solid walls — knockback stops on contact.")]
-    public LayerMask knockbackObstacleMask;
+    [Tooltip("How many tiles the player is knocked back away from the boss. Uses wall-safe tile stepping.")]
+    public int knockbackTiles = 4;
 
     [Header("Visual")]
     [Tooltip("Optional VFX parented to the player while mind controlled.")]
@@ -29,15 +27,11 @@ public class MindControlEffect : MonoBehaviour
     GameObject          _vfxInstance;
     PlayerMovement      _playerMovement;
     AutoAttackAbility   _autoAttack;
-    CharacterController _cc;
-    Rigidbody           _rb;
 
     void Awake()
     {
         _playerMovement = GetComponent<PlayerMovement>();
         _autoAttack     = GetComponent<AutoAttackAbility>();
-        _cc             = GetComponent<CharacterController>();
-        _rb             = GetComponent<Rigidbody>();
     }
 
     public void Activate(PrincipalBoss boss)
@@ -81,9 +75,7 @@ public class MindControlEffect : MonoBehaviour
                 1f - Mathf.Exp(-10f * Time.deltaTime));
 
             Vector3 move = dir * walkSpeed * Time.deltaTime;
-            if (_cc && _cc.enabled)  _cc.Move(move);
-            else if (_rb)            _rb.MovePosition(transform.position + move);
-            else                     transform.position += move;
+            transform.position += move;
 
             yield return null;
         }
@@ -92,41 +84,13 @@ public class MindControlEffect : MonoBehaviour
         if (_boss && !_boss.IsDead)
             _boss.HitMindControlledPlayer(gameObject);
 
-        // Knockback — stop if we hit a wall
-        if (_boss)
+        // Knockback — wall-safe via PlayerMovement.ApplyKnockback
+        if (_boss && _playerMovement)
         {
             Vector3 away = transform.position - _boss.transform.position;
             away.y = 0f;
             if (away.sqrMagnitude < 0.001f) away = Vector3.back;
-            away.Normalize();
-
-            float elapsed = 0f;
-            float skinWidth = 0.15f;
-
-            while (elapsed < knockbackDuration)
-            {
-                elapsed += Time.deltaTime;
-                float frac = 1f - elapsed / knockbackDuration;
-                Vector3 step = away * knockbackForce * frac * Time.deltaTime;
-
-                // Wall check — cast a small sphere in the movement direction
-                if (knockbackObstacleMask.value != 0)
-                {
-                    float stepLen = step.magnitude;
-                    if (stepLen > 0.001f && Physics.SphereCast(
-                        transform.position + Vector3.up * 0.3f,
-                        skinWidth, step.normalized, out _,
-                        stepLen + skinWidth,
-                        knockbackObstacleMask, QueryTriggerInteraction.Ignore))
-                        break; // hit a wall — stop knockback
-                }
-
-                if (_cc && _cc.enabled)  _cc.Move(step);
-                else if (_rb)            _rb.MovePosition(transform.position + step);
-                else                     transform.position += step;
-
-                yield return null;
-            }
+            _playerMovement.ApplyKnockback(away, knockbackTiles);
         }
 
         Release();

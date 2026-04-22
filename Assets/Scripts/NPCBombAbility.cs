@@ -58,6 +58,7 @@ public class NPCBombAbility : MonoBehaviour
     // Refs
     NPCAI ai;
     NPCMovement mover;
+    NPCHealth health;
     Transform player;
 
     float nextReadyTime = 0f;
@@ -75,6 +76,7 @@ public class NPCBombAbility : MonoBehaviour
     {
         ai = GetComponent<NPCAI>();
         mover = GetComponent<NPCMovement>();
+        health = GetComponent<NPCHealth>();
         if (!player)
         {
             var p = GameObject.FindGameObjectWithTag("Player");
@@ -105,6 +107,8 @@ public class NPCBombAbility : MonoBehaviour
         }
 
         if (!CanConsiderCasting()) return;
+
+        if (health != null && health.IsDead) return;
 
         if (Time.time >= nextReadyTime && ai.CurrentHostility == NPCAI.Hostility.Hostile)
         {
@@ -239,6 +243,8 @@ public class NPCBombAbility : MonoBehaviour
 
     private void PerformThrow(Vector3 targetCenter)
     {
+        // Don't throw if the NPC died during the windup
+        if (health != null && health.IsDead) { ClearWindupMarkers(); return; }
         // 3) THROW via independent projectile
         Vector3 start = Snap(transform.position) + Vector3.up * 0.5f;
         Vector3 end = targetCenter + Vector3.up * 0.5f;

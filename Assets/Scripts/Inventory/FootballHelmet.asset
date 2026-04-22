@@ -15,7 +15,7 @@ MonoBehaviour:
   id: footballhelmet
   baseName: Football Helmet
   icon: {fileID: 21300000, guid: add9f0ecaac9eca41a26db5936ed5a52, type: 3}
-  rarity: 1
+  rarity: 3
   itemType: 2
   isEquippable: 1
   equipSlot: 0
@@ -23,16 +23,16 @@ MonoBehaviour:
   requiredClass: 1
   allowedAffixes: 050000000100000002000000030000000400000000000000
   description: Protects the wearer against scuffles!
-  isStaticItem: 0
-  overrideName: 
-  fixedItemLevel: 1
-  fixedRequiredLevel: 1
-  fixedRarity: 1
-  fixedMuscles: 0
-  fixedIQ: 0
-  fixedCrit: 0
-  fixedToughness: 0
-  fixedValue: 0
+  isStaticItem: 1
+  overrideName: Football Helmet
+  fixedItemLevel: 5
+  fixedRequiredLevel: 5
+  fixedRarity: 3
+  fixedMuscles: 4
+  fixedIQ: 3
+  fixedCrit: 4
+  fixedToughness: 4
+  fixedValue: 50
   forcedAffix: 0
   hasWeaponProfile: 0
   shotPattern: 0

@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1eb79b3a3dcf449a08e854674b99d1, type: 3}
   m_Name: JessicaPicture
   m_EditorClassIdentifier: 
-  id: cc96f744484240489c30e6863c279c6b
+  id: Picture of Jessica
   baseName: Picture of Jessica
   icon: {fileID: 21300000, guid: f149376069e2a1b43b06a72e3ba8d334, type: 3}
   rarity: 3
-  itemType: 1
-  isEquippable: 0
-  equipSlot: 0
+  itemType: 3
+  isEquippable: 1
+  equipSlot: 7
   hasClassRestriction: 0
   requiredClass: 1
   allowedAffixes: 
@@ -30,9 +30,9 @@ MonoBehaviour:
   fixedRarity: 3
   fixedMuscles: 0
   fixedIQ: 0
-  fixedCrit: 0
+  fixedCrit: 4
   fixedToughness: 0
-  fixedValue: 12
+  fixedValue: 46
   forcedAffix: 0
   hasWeaponProfile: 0
   shotPattern: 0

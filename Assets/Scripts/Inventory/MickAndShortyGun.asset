@@ -24,7 +24,7 @@ MonoBehaviour:
   allowedAffixes: 02000000050000000300000000000000
   description: From the popular TV-Show Mick and Shorty.
   isStaticItem: 0
-  overrideName: Snot Launcher v1
+  overrideName: Micks Galaxy Gun
   fixedItemLevel: 5
   fixedRequiredLevel: 4
   fixedRarity: 1
@@ -32,8 +32,23 @@ MonoBehaviour:
   fixedIQ: 1
   fixedCrit: 1
   fixedToughness: 1
-  fixedValue: 8
+  fixedValue: 10
   forcedAffix: 0
+  hasWeaponProfile: 0
+  shotPattern: 0
+  weaponAnimTrigger: 
+  weaponProjectilePrefab: {fileID: 0}
+  weaponProjectileSpeed: 0
+  weaponRangeTiles: 0
+  weaponAttackInterval: 0
+  weaponSpreadShots: 3
+  weaponSpreadAngle: 45
+  weaponSpreadRangeMultiplier: 0.6
+  weaponSpreadDamageMultiplier: 1
+  weaponBurstCount: 3
+  weaponBurstDelay: 0.1
+  weaponImpactVfx: {fileID: 0}
+  weaponImpactSfx: {fileID: 0}
   isConsumable: 0
   consumableKind: 0
   foodTotalHeal: 20

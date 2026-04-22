@@ -75,7 +75,13 @@ public class BossTriggerZone : MonoBehaviour
                     Quaternion.LookRotation(dir.normalized, Vector3.up);
         }
 
-        // Start the dialogue — DialogueController.Begin handles player.canMove = false
+        // Explicitly lock player movement — do NOT rely on DialogueController to do this.
+        PlayerMovement playerMover = null;
+        var playerGO = GameObject.FindWithTag("Player");
+        if (playerGO) playerMover = playerGO.GetComponent<PlayerMovement>();
+        if (playerMover) { playerMover.StopMovement(); playerMover.canMove = false; }
+
+        // Start the dialogue
         if (DialogueController.I)
             DialogueController.I.Begin(preFightDialogue);
         else
@@ -85,8 +91,8 @@ public class BossTriggerZone : MonoBehaviour
         yield return new WaitUntil(() =>
             DialogueController.I == null || !DialogueController.I.IsDialogueOpen);
 
-        // Disable the DialogueInteractable so the player can't re-trigger it by pressing space
-        preFightDialogue.enabled = false;
+        // Restore player movement now that dialogue is done
+        if (playerMover) playerMover.canMove = true;
 
         // Brief pause so the UI fully closes before the fight music / bar appears
         yield return new WaitForSeconds(0.25f);
@@ -101,6 +107,16 @@ public class BossTriggerZone : MonoBehaviour
     // ──────────────────────────────────────────
     void StartFight()
     {
+        // Disable all DialogueInteractables on the boss so the player can't talk to it mid-fight.
+        // This covers both the "dialogue then fight" path and the immediate-start path.
+        if (bossNpcObject)
+        {
+            foreach (var di in bossNpcObject.GetComponents<DialogueInteractable>())
+                di.enabled = false;
+        }
+        // Also explicitly handle the preFightDialogue reference in case it lives elsewhere
+        if (preFightDialogue) preFightDialogue.enabled = false;
+
         if (boss)          boss.ActivateFight();
         if (principalBoss) principalBoss.ActivateFight();
         if (hazardZone)    hazardZone.Activate();

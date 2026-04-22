@@ -32,10 +32,11 @@ MonoBehaviour:
   fixedIQ: 0
   fixedCrit: 0
   fixedToughness: 0
-  fixedValue: 0
+  fixedValue: 15
   forcedAffix: 0
   hasWeaponProfile: 0
   shotPattern: 0
+  weaponAnimTrigger: 
   weaponProjectilePrefab: {fileID: 0}
   weaponProjectileSpeed: 0
   weaponRangeTiles: 0

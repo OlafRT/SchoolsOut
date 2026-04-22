@@ -427,4 +427,50 @@ public class PlayerMovement : MonoBehaviour
         targetPosition = transform.position;
         cachedWish = Vector3.zero;
     }
+
+    /// <summary>
+    /// Pushes the player up to <paramref name="maxTiles"/> tiles in <paramref name="pushDir"/>,
+    /// stopping at the last clear tile before any wall. Uses the same SphereCast logic as
+    /// normal movement so it can never phase through obstacles.
+    /// Call this instead of setting transform.position directly for any knockback effect.
+    /// </summary>
+    public void ApplyKnockback(Vector3 pushDir, int maxTiles)
+    {
+        if (maxTiles <= 0) return;
+        pushDir.y = 0f;
+        if (pushDir.sqrMagnitude < 0.0001f) return;
+
+        // Align to the 8-way grid so knockback always lands on a proper tile
+        Vector3 dir  = SnapDirTo8(pushDir).normalized;
+        Vector3 step = dir * tileSize;
+
+        Vector3 checkFrom = transform.position;
+        Vector3 landPos   = transform.position; // stays here if every tile is blocked
+
+        for (int i = 0; i < maxTiles; i++)
+        {
+            Vector3 origin = checkFrom + Vector3.up * 0.1f;
+
+            // Sweep along one tile — same parameters as IsStepClear
+            bool pathBlocked = Physics.SphereCast(
+                origin, collisionRadius, dir, out _,
+                tileSize - skin, obstacleLayer, QueryTriggerInteraction.Ignore);
+            if (pathBlocked) break;
+
+            Vector3 dest = RoundToNearestTile(checkFrom + step);
+            bool destOverlap = Physics.CheckSphere(
+                dest + Vector3.up * 0.1f, collisionRadius - skin,
+                obstacleLayer, QueryTriggerInteraction.Ignore);
+            if (destOverlap) break;
+
+            // This tile is clear — accept it and continue checking the next one
+            landPos   = dest;
+            checkFrom = dest;
+        }
+
+        if (Vector3.Distance(landPos, transform.position) < 0.001f) return; // nowhere to go
+
+        StopMovement();
+        RebaseTo(landPos, withCooldown: true);
+    }
 }
