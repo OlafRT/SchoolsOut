@@ -22,7 +22,7 @@ public class QuestManager : MonoBehaviour
 
     public System.Action OnChanged;
     public System.Action<string,string> OnProgress;
-    public System.Action<string> OnQuestProgress;  
+    public System.Action<string> OnQuestProgress;
 
     void Awake()
     {
@@ -57,7 +57,8 @@ public class QuestManager : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
-    public bool HasActive(string questId){
+    public bool HasActive(string questId)
+    {
         foreach (var q in active) if (q.def.questId == questId) return true;
         return false;
     }
@@ -88,7 +89,8 @@ public class QuestManager : MonoBehaviour
         OnProgress?.Invoke(def.questId, BuildProgressLine(qi));
     }
 
-    public void Abandon(string questId){
+    public void Abandon(string questId)
+    {
         active.RemoveAll(q => q.def.questId == questId);
         OnChanged?.Invoke();
     }
@@ -113,8 +115,6 @@ public class QuestManager : MonoBehaviour
         }
 
         // --- Consume collect items FIRST so their slots are free for rewards ---
-        // Previously this happened after adding rewards, which meant a full bag
-        // of quest items would block a valid turn-in.
         if (inventory && qi.def != null && qi.def.objectives != null)
         {
             for (int i = 0; i < qi.def.objectives.Count; i++)
@@ -128,6 +128,12 @@ public class QuestManager : MonoBehaviour
         }
 
         // --- Rewards ---
+        // Lazy re-find: RebindSceneReferences() runs on sceneLoaded, but if the scene
+        // transition timing was tight, playerStats may still be null here. Re-find once
+        // so XP is never silently dropped.
+        if (playerStats == null)
+            playerStats = FindFirstObjectByType<PlayerStats>();
+
         if (playerStats) playerStats.AddXP(Mathf.Max(0, qi.def.xpReward));
         if (wallet)      wallet.Add(Mathf.Max(0, qi.def.moneyReward));
 
@@ -202,8 +208,8 @@ public class QuestManager : MonoBehaviour
         OnChanged?.Invoke();
         foreach (var qid in changedIds)
         {
-            var qi = active.Find(q => q.def.questId == qid);
-            if (qi != null) { OnProgress?.Invoke(qid, BuildProgressLine(qi)); OnQuestProgress?.Invoke(qid); }
+            var qi2 = active.Find(q => q.def.questId == qid);
+            if (qi2 != null) { OnProgress?.Invoke(qid, BuildProgressLine(qi2)); OnQuestProgress?.Invoke(qid); }
         }
     }
 

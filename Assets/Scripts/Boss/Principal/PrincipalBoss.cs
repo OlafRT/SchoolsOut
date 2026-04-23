@@ -230,7 +230,7 @@ public class PrincipalBoss : MonoBehaviour
         {
             _fightActive = false;
             StopAllCoroutines();
-            if (bossHealthBar) bossHealthBar.Hide();
+            OnBossDeath();
         }
     }
 }

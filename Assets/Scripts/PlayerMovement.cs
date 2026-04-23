@@ -211,6 +211,9 @@ public class PlayerMovement : MonoBehaviour
 
         while (true)
         {
+            // Respect movement lock — exit cleanly if canMove is turned off mid-step
+            if (!canMove) break;
+
             // No input? stop immediately.
             if (cachedWish == Vector3.zero)
                 break;

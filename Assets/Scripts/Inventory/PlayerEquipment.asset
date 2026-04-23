@@ -16,6 +16,7 @@ MonoBehaviour:
   - slot: 0
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -28,6 +29,7 @@ MonoBehaviour:
   - slot: 1
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -40,6 +42,7 @@ MonoBehaviour:
   - slot: 2
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -52,6 +55,7 @@ MonoBehaviour:
   - slot: 3
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -64,6 +68,7 @@ MonoBehaviour:
   - slot: 4
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -76,6 +81,7 @@ MonoBehaviour:
   - slot: 5
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -88,6 +94,7 @@ MonoBehaviour:
   - slot: 6
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -100,6 +107,7 @@ MonoBehaviour:
   - slot: 7
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -112,6 +120,7 @@ MonoBehaviour:
   - slot: 8
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0
@@ -124,6 +133,7 @@ MonoBehaviour:
   - slot: 9
     item:
       template: {fileID: 0}
+      customName: 
       itemLevel: 1
       requiredLevel: 1
       rarity: 0

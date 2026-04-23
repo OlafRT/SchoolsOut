@@ -15,6 +15,8 @@ MonoBehaviour:
   startingStock:
   - template: {fileID: 11400000, guid: 85de85a778540de4cbd9511661428e76, type: 2}
     amount: 20
+  - template: {fileID: 11400000, guid: 85de85a778540de4cbd9511661428e76, type: 2}
+    amount: 20
   - template: {fileID: 11400000, guid: c1a0e1a533ceeff42a2c77e5dfe9165e, type: 2}
     amount: 20
   buyMultiplier: 1.5

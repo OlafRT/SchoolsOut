@@ -39,6 +39,18 @@ public class BossTriggerZone : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        HandleTrigger(other);
+    }
+
+    // Catches players who teleport directly inside the zone (OnTriggerEnter won't fire
+    // if the player snaps in without crossing the boundary).
+    void OnTriggerStay(Collider other)
+    {
+        HandleTrigger(other);
+    }
+
+    void HandleTrigger(Collider other)
+    {
         if (_triggered) return;
         if (!other.CompareTag(triggerTag)) return;
         _triggered = true;
@@ -47,11 +59,6 @@ public class BossTriggerZone : MonoBehaviour
             StartCoroutine(DialogueThenFight());
         else
             StartFight();
-
-        // NOTE: Do NOT call gameObject.SetActive(false) here.
-        // SetActive(false) kills all running coroutines on this GameObject, which would
-        // prevent DialogueThenFight() from ever reaching StartFight().
-        // _triggered = true above is sufficient to prevent re-entry.
     }
 
     // ──────────────────────────────────────────
@@ -87,9 +94,14 @@ public class BossTriggerZone : MonoBehaviour
         else
             Debug.LogWarning("[BossTriggerZone] No DialogueController found in scene.");
 
-        // Wait until the dialogue is fully closed
-        yield return new WaitUntil(() =>
-            DialogueController.I == null || !DialogueController.I.IsDialogueOpen);
+        // Continuously re-enforce canMove = false every frame while dialogue is open.
+        // This prevents other systems (e.g. a completing teleport) from restoring movement
+        // mid-dialogue by setting it once and walking away.
+        while (DialogueController.I != null && DialogueController.I.IsDialogueOpen)
+        {
+            if (playerMover) playerMover.canMove = false;
+            yield return null;
+        }
 
         // Restore player movement now that dialogue is done
         if (playerMover) playerMover.canMove = true;

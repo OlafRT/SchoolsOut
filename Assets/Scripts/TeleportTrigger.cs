@@ -135,8 +135,16 @@ public class TeleportTrigger : MonoBehaviour
         }
         finally
         {
-            if (restoreMove) pm.canMove = true;
             activeTeleports.Remove(pm);
+        }
+
+        // Tiny post-teleport freeze — long enough for any trigger zone that lands the player
+        // (e.g. BossTriggerZone) to set canMove = false before we restore it.
+        // Short enough (~0.1s) to be completely imperceptible to the player.
+        if (restoreMove)
+        {
+            yield return new WaitForSecondsRealtime(0.1f);
+            pm.canMove = true;
         }
     }
 

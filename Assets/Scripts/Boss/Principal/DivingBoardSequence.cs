@@ -106,6 +106,10 @@ public class DivingBoardSequence : MonoBehaviour
     // ──────────────────────────────────────────
     IEnumerator WalkTo(GameObject npcGO, Vector3 target)
     {
+        // Start walk animation — Animator is typically on the mesh child, not the root
+        var anim = npcGO ? npcGO.GetComponentInChildren<Animator>() : null;
+        if (anim) anim.SetFloat("Speed01", 1f);
+
         // Walk in full 3D — preserve Y so the NPC climbs steps correctly.
         while (npcGO && Vector3.Distance(npcGO.transform.position, target) > 0.1f)
         {
@@ -123,7 +127,13 @@ public class DivingBoardSequence : MonoBehaviour
 
             yield return null;
         }
-        if (npcGO) npcGO.transform.position = target;
+
+        if (npcGO)
+        {
+            npcGO.transform.position = target;
+            // Stop walk animation
+            if (anim) anim.SetFloat("Speed01", 0f);
+        }
     }
 
     // ──────────────────────────────────────────
@@ -136,15 +146,27 @@ public class DivingBoardSequence : MonoBehaviour
         Transform originalParent = npcGO ? npcGO.transform.parent : null;
         if (npcGO) npcGO.transform.SetParent(launchPoint ? launchPoint : boardTransform, worldPositionStays: true);
 
+        var bounceAnim = npcGO ? npcGO.GetComponentInChildren<Animator>() : null;
+
         for (int i = 0; i < bounceCycles; i++)
         {
             yield return StartCoroutine(RotateBoardZ(boardRestZ, boardBentDownZ, bounceHalfSeconds));
+            // Fire jump animation once at the first spring-up — animator chain handles the rest
+            if (i == 0 && bounceAnim) bounceAnim.SetTrigger("Jump");
             yield return StartCoroutine(RotateBoardZ(boardBentDownZ, boardSpringUpZ, bounceHalfSeconds));
             yield return StartCoroutine(RotateBoardZ(boardSpringUpZ, boardRestZ, bounceHalfSeconds));
         }
 
         // Final big press for launch
         yield return StartCoroutine(RotateBoardZ(boardRestZ, boardBentDownZ, bounceHalfSeconds));
+
+        // Fire the jump animation exactly as the board springs up — syncs with the launch moment
+        if (npcGO)
+        {
+            var anim = npcGO.GetComponentInChildren<Animator>();
+            if (anim) anim.SetTrigger("Jump");
+        }
+
         yield return StartCoroutine(RotateBoardZ(boardBentDownZ, boardSpringUpZ, bounceHalfSeconds * 0.5f));
         yield return StartCoroutine(RotateBoardZ(boardSpringUpZ, boardRestZ, bounceHalfSeconds));
 
@@ -171,6 +193,8 @@ public class DivingBoardSequence : MonoBehaviour
     IEnumerator LaunchNPC(GameObject npcGO)
     {
         if (!npcGO) yield break;
+
+
 
         // Start arc from the exact launchPoint position (board tip Y included)
         Vector3 from = launchPoint ? launchPoint.position : npcGO.transform.position;
@@ -203,6 +227,10 @@ public class DivingBoardSequence : MonoBehaviour
             npcGO.transform.position = to;
             Vector3 e = npcGO.transform.eulerAngles;
             npcGO.transform.eulerAngles = new Vector3(0f, e.y, 0f);
+
+            // Clear any unconsumed Jump trigger so it doesn't fire again on landing
+            var anim = npcGO.GetComponentInChildren<Animator>();
+            if (anim) anim.ResetTrigger("Jump");
         }
 
         if (npcGO) SetNPCEnabled(npcGO, true);

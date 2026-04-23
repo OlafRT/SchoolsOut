@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using System.Collections;
 
@@ -21,9 +22,7 @@ public class XPBarUI : MonoBehaviour
 
     // internal
     Coroutine animCo;
-    int lastLevel = -1;
-    int lastXP = -1;
-    int lastXpToNext = -1;
+    Coroutine rebindCo;
 
     void Awake()
     {
@@ -32,38 +31,57 @@ public class XPBarUI : MonoBehaviour
             var child = transform.Find("Fill");
             if (child) fillImage = child.GetComponent<Image>();
         }
+
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    // Every time this UI is enabled (including after scene transitions), kick off a
+    // delayed rebind. We can't call Rebind() synchronously here because OnEnable fires
+    // in the same frame as scene load — before the Player's Awake/Start has run.
     void OnEnable()
     {
-        Rebind();
-        RefreshImmediate();
+        if (rebindCo != null) StopCoroutine(rebindCo);
+        rebindCo = StartCoroutine(RebindNextFrame());
     }
 
-    void Start()
-    {
-        // OnEnable can fire before the Player GameObject exists (e.g. on scene load).
-        // Wait one frame and re-bind if we still have no reference — by then Awake/Start
-        // on the player has run AND GameSaveManager has applied the stat snapshot.
-        StartCoroutine(LateStart());
-    }
-
-    IEnumerator LateStart()
-    {
-        yield return null;
-        Rebind();       // no-op if already bound; re-subscribes if OnEnable was too early
-        RefreshImmediate();
-    }
+    // Start is intentionally removed — OnEnable + the coroutine above fully replaces
+    // the old Start/LateStart pair, and this version also runs on every re-enable,
+    // not just the first time.
 
     void OnDisable()
     {
+        if (rebindCo != null) { StopCoroutine(rebindCo); rebindCo = null; }
         HookEvents(false);
         stats = null; // clear so the next Rebind() always re-finds fresh
     }
 
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // The player is freshly instantiated — old stats ref is destroyed.
+        // Trigger a fresh rebind one frame after load so the Player's Awake has run.
+        if (!isActiveAndEnabled) return;
+        if (rebindCo != null) StopCoroutine(rebindCo);
+        rebindCo = StartCoroutine(RebindNextFrame());
+    }
+
+    IEnumerator RebindNextFrame()
+    {
+        // Wait one frame so the Player's Awake/Start has run and
+        // GameSaveManager has applied the stat snapshot.
+        yield return null;
+        Rebind();
+        RefreshImmediate();
+        rebindCo = null;
+    }
+
     /// <summary>
     /// Finds the Player, then unsubscribes from any stale ref and re-subscribes to the fresh one.
-    /// Safe to call multiple times — HookEvents guards against null stats.
+    /// Safe to call multiple times.
     /// </summary>
     void Rebind()
     {
@@ -81,30 +99,30 @@ public class XPBarUI : MonoBehaviour
         if (on)
         {
             stats.OnStatsChanged += HandleStatsChanged;
-            stats.OnLeveledUp += HandleLeveledUp;
+            stats.OnLeveledUp    += HandleLeveledUp;
         }
         else
         {
             stats.OnStatsChanged -= HandleStatsChanged;
-            stats.OnLeveledUp -= HandleLeveledUp;
+            stats.OnLeveledUp    -= HandleLeveledUp;
         }
     }
 
     void HandleStatsChanged()
     {
-        // Smoothly animate to current fraction
+        // Guard: stats ref could theoretically go stale between events
+        if (!stats) { Rebind(); return; }
         AnimateTo(stats.currentXP, stats.xpToNext);
         UpdateTexts();
     }
 
     void HandleLeveledUp(int newLevel)
     {
-        // Snap bar to 0 (new level) + pulse
+        if (!stats) { Rebind(); return; }
+        // Snap bar to 0 (new level) then pulse
         if (animCo != null) StopCoroutine(animCo);
         SetFill(0f);
         UpdateTexts();
-
-        // Tiny pulse
         StartCoroutine(LevelPulse());
     }
 
@@ -132,9 +150,8 @@ public class XPBarUI : MonoBehaviour
     void UpdateTexts()
     {
         if (!stats) return;
-
         if (levelText) levelText.text = $"Lv {stats.level}";
-        if (xpText) xpText.text = $"{stats.currentXP} / {stats.xpToNext}";
+        if (xpText)    xpText.text    = $"{stats.currentXP} / {stats.xpToNext}";
     }
 
     void RefreshImmediate()
@@ -143,26 +160,20 @@ public class XPBarUI : MonoBehaviour
         float frac = SafeFrac(stats.currentXP, stats.xpToNext);
         SetFill(frac);
         UpdateTexts();
-        Cache();
     }
 
     void AnimateTo(int currentXP, int xpToNext)
     {
         float target = SafeFrac(currentXP, xpToNext);
-
-        // Start from whatever is currently displayed
-        float from = fillImage ? fillImage.fillAmount : 0f;
-
+        float from   = fillImage ? fillImage.fillAmount : 0f;
         if (animCo != null) StopCoroutine(animCo);
         animCo = StartCoroutine(AnimateFill(from, target, animateSeconds));
-        Cache();
     }
 
     IEnumerator AnimateFill(float from, float to, float dur)
     {
         if (!fillImage) yield break;
         dur = Mathf.Max(0.01f, dur);
-
         float t = 0f;
         while (t < 1f)
         {
@@ -179,12 +190,4 @@ public class XPBarUI : MonoBehaviour
     }
 
     float SafeFrac(int cur, int max) => (max <= 0) ? 0f : Mathf.Clamp01((float)cur / (float)max);
-
-    void Cache()
-    {
-        if (!stats) return;
-        lastLevel = stats.level;
-        lastXP = stats.currentXP;
-        lastXpToNext = stats.xpToNext;
-    }
 }
