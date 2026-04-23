@@ -54,6 +54,13 @@ public class NPCAI : MonoBehaviour, IStunnable
     public int aggroRangeTiles = 6;
     public LayerMask lineOfSightBlockers = ~0;
     public float losHeight = 0.8f;
+    [Tooltip("How long (seconds) the NPC keeps searching after losing line of sight.")]
+    public float chaseMemorySeconds = 6f;
+    [Tooltip("Tile radius around the last known position the NPC explores while searching.")]
+    public int searchRadiusTiles = 5;
+    [Tooltip("Pause (seconds) between search waypoints.")]
+    public float searchPauseMin = 0.3f;
+    public float searchPauseMax = 0.8f;
 
     [Header("Chase Speed")]
     public float wanderSpeedMultiplier = 1f;    // idle/wander speed
@@ -135,6 +142,12 @@ public class NPCAI : MonoBehaviour, IStunnable
     bool isStunned = false;
     float stunUntil = 0f;
 
+    // ── LOS memory / search (inline — no coroutine) ───────────────────────────
+    bool    hasLastKnownPos   = false;
+    Vector3 lastKnownTargetPos;
+    float   losLostAt         = float.NegativeInfinity;
+    float   searchPauseUntil  = 0f;   // rate-limits waypoint picking when at last-known-pos
+
     // ── Flee override (used by NPCCallForBackup) ──────────────────────────────
     // When fleeActive is true, DoHostile() paths toward fleeTarget instead of the
     // player, but NPCAI.Update() keeps running so locomotion bools stay live.
@@ -174,7 +187,8 @@ public class NPCAI : MonoBehaviour, IStunnable
         //NPCTileRegistry.Register(myTile);
 
         runtimeHostility = startingHostility;
-        if (!attackTarget && player) attackTarget = player.transform;
+        // Note: attackTarget is intentionally NOT defaulted to the player here.
+        // DoHostile resolves the target each tick with a faction check.
         lastHostility = runtimeHostility;
     }
 
@@ -278,7 +292,8 @@ public class NPCAI : MonoBehaviour, IStunnable
             {
                 NPCFaction pf = ps.playerClass == PlayerStats.PlayerClass.Jock ? NPCFaction.Jock : NPCFaction.Nerd;
                 var rel = FactionRelations.GetRelation(this.faction, pf);
-                if (rel == Hostility.Hostile) { sawHostile = true; attackTarget = player.transform; }
+                if (rel == Hostility.Hostile) { sawHostile = true; attackTarget = player.transform;
+                    lastKnownTargetPos = player.transform.position; hasLastKnownPos = true; losLostAt = float.NegativeInfinity; }
                 else if (rel == Hostility.Friendly) sawFriendly = true;
             }
         }
@@ -318,7 +333,18 @@ public class NPCAI : MonoBehaviour, IStunnable
             if (rel == Hostility.Hostile)
             {
                 sawHostile = true;
-                if (!attackTarget) attackTarget = other.transform;
+                // Never reassign away from the player via passive scanning.
+                // If a Jock is already chasing the player and spots a Nerd NPC,
+                // it should keep chasing the player — only switch to an NPC target
+                // when explicitly attacked (handled by OnDamagedByNPC / BecomeHostile).
+                bool currentTargetIsPlayer = attackTarget != null && player != null
+                                             && attackTarget == player.transform;
+                if (!currentTargetIsPlayer)
+                {
+                    float d = (other.transform.position - transform.position).sqrMagnitude;
+                    if (!attackTarget || d < (attackTarget.position - transform.position).sqrMagnitude)
+                        attackTarget = other.transform;
+                }
             }
             else if (rel == Hostility.Friendly)
             {
@@ -339,6 +365,18 @@ public class NPCAI : MonoBehaviour, IStunnable
         if (sawHostile)      runtimeHostility = Hostility.Hostile;
         else if (sawFriendly) runtimeHostility = Hostility.Friendly;
         else                 runtimeHostility = startingHostility; // make the npc return to start hostility
+
+        // ── LOS memory: stay hostile for chaseMemorySeconds after losing sight ─
+        if (!sawHostile && hasLastKnownPos && chaseMemorySeconds > 0f)
+        {
+            if (losLostAt < 0f) losLostAt = Time.time;
+            if (Time.time - losLostAt < chaseMemorySeconds)
+                runtimeHostility = Hostility.Hostile;
+            else
+                hasLastKnownPos = false;
+        }
+        else if (sawHostile)
+            losLostAt = float.NegativeInfinity;
 
         // Default target to player if hostile and nothing else picked
         if (runtimeHostility == Hostility.Hostile && !attackTarget && player) attackTarget = player.transform;
@@ -437,15 +475,33 @@ public class NPCAI : MonoBehaviour, IStunnable
             if (tgtHp != null && tgtHp.IsDead)
             {
                 hasManualHostility = false;
-                attackTarget = null;
-                runtimeHostility = startingHostility;
+                attackTarget       = null;
+                runtimeHostility   = startingHostility;
+                // Clear memory so the LOS-memory block doesn't keep us hostile
+                // and accidentally send us after the player next frame.
+                hasLastKnownPos    = false;
+                losLostAt          = float.NegativeInfinity;
+                searchPauseUntil   = 0f;
                 if (mover) mover.ClearPath();
                 return;
             }
         }
 
-        // Fall back to player only when no explicit target is set
-        if (!target && player) target = player.transform;
+        // Fall back to player only when no explicit target is set AND this faction is hostile to the player
+        if (!target && player)
+        {
+            var ps = player.GetComponent<PlayerStats>();
+            if (ps != null)
+            {
+                NPCFaction pf = ps.playerClass == PlayerStats.PlayerClass.Jock ? NPCFaction.Jock : NPCFaction.Nerd;
+                if (FactionRelations.GetRelation(this.faction, pf) == Hostility.Hostile)
+                    target = player.transform;
+            }
+            else
+            {
+                target = player.transform; // no PlayerStats — default to targeting player
+            }
+        }
         if (!target) return;
 
         // Player died — drop aggro
@@ -458,39 +514,81 @@ public class NPCAI : MonoBehaviour, IStunnable
             return;
         }
 
-        var here    = transform.position;
-        var tgtTile = Snap(target.position);
-        float distT = DistanceTiles(here, tgtTile);
+        var here = transform.position;
+        bool hasLOS = HasLineOfSight(target.position);
 
-        LogAI($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={HasLineOfSight(target.position)}");
-
-        bool closeByGrid    = distT <= 1.01f;
-        bool closeByPhysics = Vector2.Distance(
-            new Vector2(here.x, here.z),
-            new Vector2(target.position.x, target.position.z)
-        ) <= Mathf.Max(0.45f, 0.55f * tileSize);
-
-        if (closeByGrid || closeByPhysics)
+        // Keep last-known-pos fresh every frame we can actually see the target
+        if (hasLOS)
         {
-            TryHit(target);
-            return;
+            lastKnownTargetPos = target.position;
+            hasLastKnownPos    = true;
+            losLostAt          = float.NegativeInfinity;
         }
 
-        // If we already have a path and we're mid-step, let the mover finish it this frame.
+        // ── Choose what to path toward ────────────────────────────────────────
+        // With LOS  → chase the real target.
+        // Without LOS but memory active → head for last known pos, then sweep around it.
+        // Without LOS and no memory → memory block already cleared hasLastKnownPos; we
+        //   just fall through with tgtTile = target's actual position so the existing
+        //   "no legal step" path handles the stuck case gracefully.
+        Vector3 tgtTile;
+        if (hasLOS || !hasLastKnownPos)
+        {
+            tgtTile = Snap(target.position);
+        }
+        else
+        {
+            Vector3 lastKnown = Snap(lastKnownTargetPos);
+            if (DistanceTiles(here, lastKnown) > 1.5f)
+            {
+                // Still en route to last known pos — keep heading there
+                tgtTile = lastKnown;
+            }
+            else
+            {
+                // Arrived at last known pos; sweep nearby tiles to search
+                // searchPauseUntil rate-limits waypoint picking to once per pause window
+                if (Time.time < searchPauseUntil)
+                    return; // sit tight during the hesitation beat
+
+                tgtTile = Snap(RandomReachableTileAround(lastKnownTargetPos, searchRadiusTiles, 10));
+                searchPauseUntil = Time.time + Random.Range(searchPauseMin, searchPauseMax);
+            }
+        }
+
+        float distT = DistanceTiles(here, tgtTile);
+        LogAI($"{name} HOSTILE TICK  distTiles={distT:0.00}  LOS={hasLOS}");
+
+        // Melee range check — only attempt to hit when we actually have LOS
+        if (hasLOS)
+        {
+            bool closeByGrid    = distT <= 1.01f;
+            bool closeByPhysics = Vector2.Distance(
+                new Vector2(here.x, here.z),
+                new Vector2(target.position.x, target.position.z)
+            ) <= Mathf.Max(0.45f, 0.55f * tileSize);
+
+            if (closeByGrid || closeByPhysics)
+            {
+                TryHit(target);
+                return;
+            }
+        }
+
+        // Mid-step — let the mover finish before we re-path
         if (mover.IsMoving) return;
 
-        // --- UNCONDITIONAL CHASE WHILE HOSTILE ---
-        // 1) Robust: full path to the player's tile; walk to last-1 so we stop adjacent.
+        // --- PATH TO tgtTile (same cascade as direct chase) ---
+        // 1) Full A* path; goalPassable so occupied tiles are accepted as goal
         bool foundFull = pathfinder.TryFindPath(here, tgtTile, 2000, out var full, true);
         if (foundFull && full != null && full.Count >= 2)
         {
-            // Drop the final (player) tile and give the WHOLE remaining path to the mover
-            full.RemoveAt(full.Count - 1);
-            mover.SetPath(full);                 // <-- use the solved path, no re-path
+            if (hasLOS) full.RemoveAt(full.Count - 1); // stop one tile short of live target
+            mover.SetPath(full);
             return;
         }
 
-        // 2) Greedy one-step: pick any legal neighbor that reduces distance
+        // 2) Greedy one-step toward tgtTile
         var neigh = pathfinder.OpenNeighbors(here);
         if (neigh != null && neigh.Count > 0)
         {
@@ -500,34 +598,20 @@ public class NPCAI : MonoBehaviour, IStunnable
                 float d = DistanceTiles(n, tgtTile);
                 if (d < bestD) { bestD = d; best = n; }
             }
-            if (best != here)
-            {
-                TryPathTo(best);
-                LogAI($"{name} CHASE -> greedy step {best}");
-                return;
-            }
+            if (best != here) { TryPathTo(best); LogAI($"{name} CHASE -> greedy step {best}"); return; }
         }
 
-        // 3) Last-ditch: axis step toward the player if legal
+        // 3) Last-ditch axis step
         float dx = Mathf.Sign(tgtTile.x - here.x);
         float dz = Mathf.Sign(tgtTile.z - here.z);
         Vector3 candX = Snap(here + new Vector3(dx * tileSize, 0, 0));
         Vector3 candZ = Snap(here + new Vector3(0, 0, dz * tileSize));
 
         if (!pathfinder.IsBlocked(candX) && !pathfinder.IsEdgeBlocked(here, candX))
-        {
-            TryPathTo(candX);
-            LogAI($"{name} CHASE -> axis X");
-            return;
-        }
+            { TryPathTo(candX); LogAI($"{name} CHASE -> axis X"); return; }
         if (!pathfinder.IsBlocked(candZ) && !pathfinder.IsEdgeBlocked(here, candZ))
-        {
-            TryPathTo(candZ);
-            LogAI($"{name} CHASE -> axis Z");
-            return;
-        }
+            { TryPathTo(candZ); LogAI($"{name} CHASE -> axis Z"); return; }
 
-        // If literally no legal step, clear so we can re-evaluate next tick
         mover.ClearPath();
         LogAI($"{name} CHASE -> no legal step (cleared)");
     }

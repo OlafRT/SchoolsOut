@@ -3394,6 +3394,7 @@ GameObject:
   - component: {fileID: 400620443}
   - component: {fileID: 400620442}
   - component: {fileID: 400620441}
+  - component: {fileID: 400620444}
   m_Layer: 5
   m_Name: MainMenu
   m_TagString: Untagged
@@ -3465,9 +3466,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1931924858}
-        m_TargetAssemblyTypeName: PauseManager, Assembly-CSharp
-        m_MethodName: OnReturnToMainMenuButton
+      - m_Target: {fileID: 400620444}
+        m_TargetAssemblyTypeName: EndButton, Assembly-CSharp
+        m_MethodName: GoToMainMenu
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3515,6 +3516,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 400620439}
   m_CullTransparentMesh: 1
+--- !u!114 &400620444
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 400620439}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b33f15d89d53274db0acf4d25cbdccd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &417914540
 GameObject:
   m_ObjectHideFlags: 0
@@ -12249,7 +12262,6 @@ GameObject:
   - component: {fileID: 1931924856}
   - component: {fileID: 1931924855}
   - component: {fileID: 1931924854}
-  - component: {fileID: 1931924858}
   m_Layer: 5
   m_Name: End Credits
   m_TagString: Untagged
@@ -12342,30 +12354,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
---- !u!114 &1931924858
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1931924853}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fdca7a06b96c4d64e8f8239d313572f8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mainCanvasRoot: {fileID: 0}
-  pauseCanvasRoot: {fileID: 0}
-  projector: {fileID: 0}
-  useProjectorOpenOnPause: 0
-  openTotalSeconds: 2.4
-  closeTotalSeconds: 1.9
-  playerRootsToToggle: []
-  behavioursToDisable: []
-  showCursorWhilePaused: 1
-  pausedCursorLock: 0
-  gameplayCursorLock: 0
-  mainMenuSceneName: MainMenu
 --- !u!1 &1932871298
 GameObject:
   m_ObjectHideFlags: 0

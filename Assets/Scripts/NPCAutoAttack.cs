@@ -160,10 +160,10 @@ public class NPCAutoAttack : MonoBehaviour
 
         var path = GetRangedPathTiles(sx, sz, weaponRangeTiles);
 
-        StartCoroutine(DoWindupAndShoot(path, forward8, sx, sz));
+        StartCoroutine(DoWindupAndShoot(path, forward8, sx, sz, aimTarget));
     }
 
-    IEnumerator DoWindupAndShoot(List<Vector3> pathTiles, Vector3 dir8, int sx, int sz)
+    IEnumerator DoWindupAndShoot(List<Vector3> pathTiles, Vector3 dir8, int sx, int sz, Transform aimTarget)
     {
         ShowTelegraph(pathTiles, windupSeconds);
         yield return new WaitForSeconds(Mathf.Max(0.05f, windupSeconds));
@@ -191,10 +191,15 @@ public class NPCAutoAttack : MonoBehaviour
         var p = go.GetComponent<StraightProjectile>();
         if (!p) p = go.AddComponent<StraightProjectile>();
 
-        // Impacts can happen on player, walls, or ground
-        LayerMask impactLayers = playerLayer | wallLayer | groundLayer;
-        // Damage only applies to the player
-        LayerMask damageLayers = playerLayer;
+        // If targeting the player use playerLayer; if targeting another NPC use that NPC's layer.
+        // This ensures the projectile registers both a visual impact AND deals damage regardless
+        // of whether the target is the player or a hostile NPC on a different layer.
+        LayerMask targetLayer = (aimTarget != null && aimTarget != player)
+            ? (LayerMask)(1 << aimTarget.gameObject.layer)
+            : playerLayer;
+
+        LayerMask impactLayers = targetLayer | wallLayer | groundLayer;
+        LayerMask damageLayers = targetLayer;
 
         p.Init(
             direction: dir8,
