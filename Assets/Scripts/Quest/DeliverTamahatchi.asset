@@ -15,7 +15,7 @@ MonoBehaviour:
   questId: delivertamagotchi
   title: House Delivery
   description: Now to find that house mentioned, close to the Wallmart.
-  giverNpcId: Toilet
+  giverNpcId: Swirling Waters
   turnInNpcId: House
   xpReward: 250
   moneyReward: 0

@@ -16,7 +16,7 @@ MonoBehaviour:
   title: Kidnapped!
   description: A riddle... "Seek the swirling waters if you want it back."
   giverNpcId: Mystery
-  turnInNpcId: Toilet
+  turnInNpcId: Swirling Waters
   xpReward: 250
   moneyReward: 0
   itemReward: {fileID: 11400000, guid: 378283d6cbd986b498afe2e1eb371ef3, type: 2}
