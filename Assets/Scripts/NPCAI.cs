@@ -32,6 +32,8 @@ public class NPCAI : MonoBehaviour, IStunnable
     public bool autoRelations = true;
     [Tooltip("Tile radius to scan for faction-based relations each frame.")]
     public int detectRadiusTiles = 8;
+    [Tooltip("Max Y separation (in tiles) before a target is ignored. Prevents NPCs on floors far above/below from aggroing.")]
+    public int detectYRangeTiles = 4;
     [Tooltip("Layer of NPCs for scanning allies/enemies (set to your NPC layer, e.g., 'Target').")]
     public LayerMask npcSenseLayer = ~0;
     [Tooltip("Also consider the player for relations.")]
@@ -285,7 +287,9 @@ public class NPCAI : MonoBehaviour, IStunnable
         bool sawFriendly = false;
 
         // 1) Consider player
-        if (includePlayer && player && WithinTiles(transform.position, player.transform.position, detectRadiusTiles) && HasLineOfSight(player.transform.position))
+        if (includePlayer && player && WithinTiles(transform.position, player.transform.position, detectRadiusTiles)
+            && Mathf.Abs(transform.position.y - player.transform.position.y) <= detectYRangeTiles * tileSize
+            && HasLineOfSight(player.transform.position))
         {
             var ps = player.GetComponent<PlayerStats>();
             if (ps && !(playerHealth && playerHealth.IsDead))   // don't aggro a dead player
@@ -308,6 +312,7 @@ public class NPCAI : MonoBehaviour, IStunnable
             if (!c.TryGetComponent<NPCAI>(out var other)) continue;
 
             if (!WithinTiles(transform.position, other.transform.position, detectRadiusTiles)) continue;
+            if (Mathf.Abs(transform.position.y - other.transform.position.y) > detectYRangeTiles * tileSize) continue;
             if (!HasLineOfSight(other.transform.position)) continue;
 
             var rel = FactionRelations.GetRelation(this.faction, other.faction);
