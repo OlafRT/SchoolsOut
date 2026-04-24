@@ -273,6 +273,13 @@ public class NPCBombAbility : MonoBehaviour
 
     private void SpawnAoEField(Vector3 center)
     {
+        // If we're targeting a hostile NPC rather than the player, include that NPC's
+        // layer so the field's overlap checks actually hit them.
+        Transform aimTarget = GetAimTarget();
+        LayerMask victims = victimLayer;
+        if (aimTarget != null && player != null && aimTarget != player)
+            victims |= (1 << aimTarget.gameObject.layer);
+
         var go = new GameObject("BombAoEFieldHostile");
         var field = go.AddComponent<BombAoEFieldHostile>();
         field.Init(
@@ -281,7 +288,7 @@ public class NPCBombAbility : MonoBehaviour
             markerPrefab: tileMarkerPrefab,
             markerYOffset: markerYOffset,
             groundMask: groundMask,
-            victimsLayer: victimLayer,
+            victimsLayer: victims,
             radiusTiles: bombRadiusTiles,
             duration: lingerDuration,
             tickInterval: tickInterval,
