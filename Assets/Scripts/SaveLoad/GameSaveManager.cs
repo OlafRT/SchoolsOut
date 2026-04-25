@@ -60,6 +60,13 @@ public class GameSaveManager : MonoBehaviour
     // Used by RestoreWorldObjectsNextFrame() instead of the (potentially stale) save file.
     private List<WorldObjectSaveData> _worldObjectRespawnSnapshot;
 
+    // ── Cross-scene world object cache ────────────────────────────────────────
+    // Accumulates SaveableObject states across ALL scenes visited this session.
+    // Key = objectId. This is the source of truth for WriteWorldObjects() so that
+    // items picked up in Scene A are still recorded as collected when the player
+    // saves from Scene B (where Scene A's GameObjects no longer exist in memory).
+    private Dictionary<string, WorldObjectSaveData> _worldObjectCache = new();
+
     // Lightweight snapshot carried between scenes so stats/XP/level
     // survive scene transitions without requiring a manual save.
     private PlayerStatsSaveData _statSnapshot;
@@ -127,6 +134,22 @@ public class GameSaveManager : MonoBehaviour
         StartCoroutine(ApplyStatSnapshotNextFrame());
     }
 
+
+    /// <summary>
+    /// Upserts every SaveableObject in the currently loaded scene into the
+    /// cross-scene cache.  Call this before any scene transition and before
+    /// writing to disk so that collected/disabled states are never lost when
+    /// the source scene's GameObjects are unloaded.
+    /// </summary>
+    void SnapshotCurrentSceneWorldObjects()
+    {
+        var saveables = FindObjectsOfType<SaveableObject>(true);
+        foreach (var s in saveables)
+        {
+            if (string.IsNullOrEmpty(s.objectId)) continue;
+            _worldObjectCache[s.objectId] = s.CollectState();
+        }
+    }
 
     void TakeStatSnapshot()
     {
@@ -339,6 +362,7 @@ public class GameSaveManager : MonoBehaviour
         _pendingLoad       = null;
         _statSnapshot      = null;
         _abilitiesSnapshot = null;
+        _worldObjectCache.Clear();
 
         if (playerProgress != null) playerProgress.ResetForNewGame();
 
@@ -361,6 +385,7 @@ public class GameSaveManager : MonoBehaviour
         _pendingLoad       = null;
         _statSnapshot      = null;
         _abilitiesSnapshot = null;
+        _worldObjectCache.Clear();
 
         if (playerProgress != null) playerProgress.ResetForNewGame();
 
@@ -582,14 +607,15 @@ public class GameSaveManager : MonoBehaviour
 
     void WriteWorldObjects(GameSaveData d)
     {
-        d.worldObjects = new List<WorldObjectSaveData>();
-        // includeInactive=true so we catch already-disabled objects
-        var saveables = FindObjectsOfType<SaveableObject>(true);
-        foreach (var s in saveables)
-        {
-            if (string.IsNullOrEmpty(s.objectId)) continue;
-            d.worldObjects.Add(s.CollectState());
-        }
+        // Flush the currently-loaded scene into the cache first so its latest
+        // state is included even if SnapshotBeforeTransition wasn't called yet
+        // (e.g. the player saves mid-scene rather than at a scene boundary).
+        SnapshotCurrentSceneWorldObjects();
+
+        // Write the full cross-scene cache — not just the current scene.
+        // Without this, objects picked up in Scene A are lost from the save file
+        // the moment the player saves from Scene B (Scene A's GameObjects are gone).
+        d.worldObjects = new List<WorldObjectSaveData>(_worldObjectCache.Values);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -601,6 +627,10 @@ public class GameSaveManager : MonoBehaviour
         var data = _pendingLoad;
         _pendingLoad = null;
         RebindRuntimeRefs();
+
+        // Reset the cross-scene cache — disk is the authoritative source on a
+        // full load, and ReadWorldObjects() will repopulate it from disk data.
+        _worldObjectCache.Clear();
 
         // Order matters:
         //  1. Equipment  — bridge needs bonuses ready before it re-enables
@@ -615,6 +645,14 @@ public class GameSaveManager : MonoBehaviour
         ReadQuests(data);
         ReadWorldObjects(data);
         ReadPosition(data);
+
+        // Force ALL QuestActivatedObjects to re-evaluate against the now-restored
+        // quest state — including inactive ones that can't receive OnChanged events.
+        // This fixes a race: if QuestManager.OnSceneLoaded fired before us, it
+        // already called RefreshActivatedObjects() with empty quest data, disabling
+        // QAOs that should be enabled. Our OnChanged in ReadQuests() only reaches
+        // currently-active QAOs, so the disabled ones never self-correct without this.
+        QuestManager.RefreshActivatedObjects();
 
         Debug.Log($"[SaveSystem] Load complete. Scene: {SceneManager.GetActiveScene().name}");
     }
@@ -740,21 +778,34 @@ public class GameSaveManager : MonoBehaviour
         if (_quests == null) _quests = QuestManager.I;
         if (_quests == null) { Debug.LogWarning("[SaveSystem] QuestManager not found — quests not restored."); return; }
 
-        _quests.completedIds = new List<string>(d.quests.completedIds);
+        if (!questDatabase)
+            Debug.LogWarning("[SaveSystem] QuestDatabase is not assigned on GameSaveManager — active quests cannot be restored. Assign it in the Inspector.");
+
+        // JsonUtility.FromJson does not call constructors, so list fields can be
+        // null even though SaveData initialises them with = new().  Guard here to
+        // prevent ArgumentNullException from silently killing the entire restore.
+        _quests.completedIds = d.quests.completedIds != null
+            ? new List<string>(d.quests.completedIds)
+            : new List<string>();
+
         _quests.active.Clear();
 
-        foreach (var entry in d.quests.active)
+        if (d.quests.active != null)
         {
-            if (string.IsNullOrEmpty(entry.questId)) continue;
+            foreach (var entry in d.quests.active)
+            {
+                if (string.IsNullOrEmpty(entry.questId)) continue;
 
-            var def = questDatabase ? questDatabase.Get(entry.questId) : null;
-            if (def == null) { Debug.LogWarning($"[SaveSystem] Quest '{entry.questId}' not in QuestDatabase — skipped."); continue; }
+                var def = questDatabase ? questDatabase.Get(entry.questId) : null;
+                if (def == null) { Debug.LogWarning($"[SaveSystem] Quest '{entry.questId}' not in QuestDatabase — skipped."); continue; }
 
-            var qi = new QuestInstance(def);
-            for (int i = 0; i < entry.progress.Count && i < qi.progress.Count; i++)
-                qi.progress[i] = entry.progress[i];
+                var qi = new QuestInstance(def);
+                if (entry.progress != null)
+                    for (int i = 0; i < entry.progress.Count && i < qi.progress.Count; i++)
+                        qi.progress[i] = entry.progress[i];
 
-            _quests.active.Add(qi);
+                _quests.active.Add(qi);
+            }
         }
 
         // Notify UI — but do NOT use OnChanged here as it can interfere with
@@ -767,13 +818,16 @@ public class GameSaveManager : MonoBehaviour
     {
         if (d.worldObjects == null || d.worldObjects.Count == 0) return;
 
-        var lookup = new Dictionary<string, WorldObjectSaveData>(d.worldObjects.Count);
+        // Populate the cross-scene cache from disk so future saves from other
+        // scenes will still include these states.
         foreach (var w in d.worldObjects)
-            if (!string.IsNullOrEmpty(w.objectId)) lookup[w.objectId] = w;
+            if (!string.IsNullOrEmpty(w.objectId))
+                _worldObjectCache[w.objectId] = w;
 
+        // Apply only the objects that are alive in the current scene.
         var saveables = FindObjectsOfType<SaveableObject>(true);
         foreach (var so in saveables)
-            if (lookup.TryGetValue(so.objectId, out var state))
+            if (_worldObjectCache.TryGetValue(so.objectId, out var state))
                 so.ApplyState(state);
     }
 
@@ -833,6 +887,7 @@ public class GameSaveManager : MonoBehaviour
     {
         RebindRuntimeRefs();
         TakeStatSnapshot();
+        SnapshotCurrentSceneWorldObjects(); // flush this scene's object states before it unloads
         Debug.Log("[SaveSystem] Pre-transition snapshot taken.");
     }
 

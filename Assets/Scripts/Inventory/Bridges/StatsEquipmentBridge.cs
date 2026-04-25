@@ -33,10 +33,14 @@ public class StatsEquipmentBridge : MonoBehaviour {
     }
 
     void CaptureNewBaseAndReapply() {
-        baseMuscles   = player.muscles;
-        baseIQ        = player.iq;
-        baseCrit      = player.critChance;
-        baseToughness = player.toughness;
+        // At this point player.muscles = (old base + level gain) + equipment bonus,
+        // because LevelUp() incremented the already-bonused value.
+        // Strip the bonus before storing so baseMuscles is always the true base.
+        var (bm, bi, bc, bt) = equipment.GetTotalBonuses();
+        baseMuscles   = player.muscles    - bm;
+        baseIQ        = player.iq         - bi;
+        baseToughness = player.toughness  - bt;
+        baseCrit      = Mathf.Clamp01(player.critChance - (bc / 100f));
         Reapply();
     }
 

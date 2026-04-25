@@ -152,17 +152,30 @@ public class PlayerStats : MonoBehaviour
     }
 
     // Write current stats into the ScriptableObject so the next scene can read them.
+    // Always strips equipment bonuses — the asset must hold BASE values only,
+    // because StatsEquipmentBridge.OnEnable() re-applies bonuses in every new scene.
+    // Writing bonused values causes them to compound on every scene transition.
     void PushToAsset()
     {
         if (progressAsset == null) return;
+
+        // Strip equipment bonuses if the bridge is present on this GameObject.
+        int eqM = 0, eqI = 0, eqT = 0; float eqC = 0f;
+        var bridge = GetComponent<StatsEquipmentBridge>();
+        if (bridge != null && bridge.equipment != null)
+        {
+            var (bm, bi, bc, bt) = bridge.equipment.GetTotalBonuses();
+            eqM = bm; eqI = bi; eqT = bt; eqC = bc / 100f;
+        }
+
         progressAsset.playerClass = playerClass.ToString();
         progressAsset.level       = level;
         progressAsset.currentXP   = currentXP;
         progressAsset.xpToNext    = xpToNext;
-        progressAsset.muscles     = muscles;
-        progressAsset.iq          = iq;
-        progressAsset.toughness   = toughness;
-        progressAsset.critChance  = critChance;
+        progressAsset.muscles     = muscles    - eqM;
+        progressAsset.iq          = iq         - eqI;
+        progressAsset.toughness   = toughness  - eqT;
+        progressAsset.critChance  = Mathf.Clamp01(critChance - eqC);
         progressAsset.hasData     = true;
 
         // Also store current HP if PlayerHealth is present

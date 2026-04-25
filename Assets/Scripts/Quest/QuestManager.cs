@@ -305,7 +305,9 @@ public class QuestManager : MonoBehaviour
 
     // Called after any quest state change to update ALL QuestActivatedObjects
     // in the scene, including those that start disabled (which can't self-subscribe).
-    static void RefreshActivatedObjects()
+    // Public so GameSaveManager can call it after restoring quest data on load,
+    // which guarantees correct QAO state regardless of sceneLoaded callback order.
+    public static void RefreshActivatedObjects()
     {
         var all = FindObjectsByType<QuestActivatedObject>(
             FindObjectsInactive.Include, FindObjectsSortMode.None);

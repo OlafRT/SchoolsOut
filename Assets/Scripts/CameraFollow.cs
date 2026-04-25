@@ -55,6 +55,10 @@ public class CameraFollow : MonoBehaviour
     Camera cam;
     bool sprintOverride = false; // set via SetSprinting
 
+    // When true, mouse-scroll zoom input is suppressed.
+    // Set by CameraZoneTrigger while the player is inside a zoom zone.
+    bool _scrollLocked = false;
+
     [Header("Sprint Blend")]
     public float sprintBlendSpeed = 10f; // higher = snappier
     float sprintWeight = 0f;            // 0..1
@@ -70,10 +74,13 @@ public class CameraFollow : MonoBehaviour
     void Update()
     {
         // Zoom input (per-frame so it feels responsive)
-        float scroll = Input.mouseScrollDelta.y;
-        if (invertScroll) scroll = -scroll;
-        if (Mathf.Abs(scroll) > 0.0001f)
-            zoom = Mathf.Clamp01(zoom + scroll * scrollSensitivity);
+        if (!_scrollLocked)
+        {
+            float scroll = Input.mouseScrollDelta.y;
+            if (invertScroll) scroll = -scroll;
+            if (Mathf.Abs(scroll) > 0.0001f)
+                zoom = Mathf.Clamp01(zoom + scroll * scrollSensitivity);
+        }
     }
 
     void LateUpdate()
@@ -122,6 +129,15 @@ public class CameraFollow : MonoBehaviour
     public void SetSprinting(bool isSprinting)
     {
         sprintOverride = isSprinting;
+    }
+
+    /// <summary>
+    /// Suppresses or restores mouse-scroll zoom input.
+    /// Called by CameraZoneTrigger while the player is inside a zoom override zone.
+    /// </summary>
+    public void SetScrollLocked(bool locked)
+    {
+        _scrollLocked = locked;
     }
 
     /// <summary>Optional: set zoom from other scripts (0..1).</summary>

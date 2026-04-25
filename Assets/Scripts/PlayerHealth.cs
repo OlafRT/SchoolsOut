@@ -49,6 +49,11 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         }
     }
 
+    // True on a fresh start — heals the player to full on the first RecomputeMaxHP()
+    // call (which fires when the equipment bridge applies bonuses in OnEnable).
+    // This ensures fresh-game HP accounts for any toughness equipment the player has.
+    private bool _healToFullOnNextStatsChange;
+
     void Awake()
     {
         if (!stats) stats = GetComponent<PlayerStats>();
@@ -62,11 +67,27 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         // Find animator on children (the model is a child of the player root)
         _animator = GetComponentInChildren<Animator>(true);
 
-        // Restore HP from the progress asset if we have saved data.
-        // Falls back to MaxHP (full health) for a fresh game or if no asset is assigned.
         int savedHP = (stats?.progressAsset != null && stats.progressAsset.hasData)
             ? stats.progressAsset.currentHP : 0;
-        currentHP = savedHP > 0 ? Mathf.Clamp(savedHP, 1, stats.MaxHP) : (stats ? stats.MaxHP : 100);
+
+        if (savedHP > 0)
+        {
+            // Use the saved value directly — do NOT clamp against stats.MaxHP here
+            // because the equipment bridge hasn't run yet (it fires in OnEnable, which
+            // comes after Awake). stats.MaxHP is base-only at this point, so clamping
+            // would silently reduce HP (e.g. savedHP=130, base MaxHP=120 → clamps to 120).
+            // RecomputeMaxHP() will clamp correctly once the bridge applies equipment.
+            currentHP = savedHP;
+        }
+        else
+        {
+            // No saved data — fresh game. Use base MaxHP as a visible placeholder
+            // and set the flag so that the first RecomputeMaxHP() (fired by the bridge
+            // in OnEnable) heals to the correct full MaxHP including equipment bonuses.
+            currentHP = stats ? stats.MaxHP : 100;
+            _healToFullOnNextStatsChange = true;
+        }
+
         if (stats) stats.OnStatsChanged += RecomputeMaxHP;
         NotifyHUD(); // initial
     }
@@ -78,8 +99,22 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     void RecomputeMaxHP()
     {
+        if (stats == null) return;
         int newMax = stats.MaxHP;
-        currentHP = Mathf.Min(currentHP, newMax);
+
+        if (_healToFullOnNextStatsChange)
+        {
+            // First call after bridge applied equipment bonuses — heal to true full MaxHP.
+            _healToFullOnNextStatsChange = false;
+            currentHP = newMax;
+        }
+        else
+        {
+            // Normal case: clamp HP if MaxHP decreased (e.g. unequipped toughness gear).
+            // Does not auto-heal if MaxHP increased — HP increase from equipping gear
+            // shouldn't count as a free heal.
+            currentHP = Mathf.Min(currentHP, newMax);
+        }
         NotifyHUD();
     }
 
