@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Snot Launcherv2
   baseName: Snot Launcher
-  icon: {fileID: 21300000, guid: 849514acf04d9a746b77a7d774b07e5d, type: 3}
+  icon: {fileID: 21300000, guid: 136fee8a96682ae45a9ffc9ec682ac1a, type: 3}
   rarity: 2
   itemType: 2
   isEquippable: 1
